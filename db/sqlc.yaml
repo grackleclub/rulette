@@ -1,0 +1,15 @@
+version: "2"
+sql:
+  - engine: "sqlite"
+    queries: "queries.sql"
+    schema: "schema.sql"
+    gen:
+      go:
+        package: "sqlc"
+        out: "sqlc"
+        sql_package: "pgx/v5"
+        emit_json_tags: true
+        # emit_db_tags: true
+        emit_exact_table_names: true
+        emit_prepared_queries: true
+
