@@ -7,32 +7,354 @@ package sqlc
 
 import (
 	"context"
+	"database/sql"
 )
 
+const card = `-- name: Card :one
+SELECT id, type, front, back, creator, created, "default" FROM cards WHERE id = ?1
+`
+
+func (q *Queries) Card(ctx context.Context, id int64) (Cards, error) {
+	row := q.db.QueryRow(ctx, card, id)
+	var i Cards
+	err := row.Scan(
+		&i.ID,
+		&i.Type,
+		&i.Front,
+		&i.Back,
+		&i.Creator,
+		&i.Created,
+		&i.Default,
+	)
+	return i, err
+}
+
+const cardCreate = `-- name: CardCreate :exec
+INSERT INTO cards (type, front, back, creator)
+VALUES (?1, ?2, ?3, ?4)
+RETURNING id
+`
+
+type CardCreateParams struct {
+	Type    string         `json:"type"`
+	Front   string         `json:"front"`
+	Back    sql.NullString `json:"back"`
+	Creator sql.NullInt64  `json:"creator"`
+}
+
+func (q *Queries) CardCreate(ctx context.Context, arg CardCreateParams) error {
+	_, err := q.db.Exec(ctx, cardCreate,
+		arg.Type,
+		arg.Front,
+		arg.Back,
+		arg.Creator,
+	)
+	return err
+}
+
+const cardDelete = `-- name: CardDelete :exec
+DELETE FROM cards WHERE id = ?1
+`
+
+func (q *Queries) CardDelete(ctx context.Context, id int64) error {
+	_, err := q.db.Exec(ctx, cardDelete, id)
+	return err
+}
+
+const gameCardFlip = `-- name: GameCardFlip :exec
+;
+UPDATE game_cards
+SET flipped = NOT flipped
+WHERE game_cards.game_id = ?1
+    AND game_cards.card_id = ?2
+    AND game_cards.id = (
+        SELECT game_cards.id
+        FROM game_cards
+        WHERE game_cards.game_id = ?1 AND game_cards.card_id = ?2
+        LIMIT 1
+    )
+`
+
+type GameCardFlipParams struct {
+	GameID string `json:"game_id"`
+	CardID int64  `json:"card_id"`
+}
+
+func (q *Queries) GameCardFlip(ctx context.Context, arg GameCardFlipParams) error {
+	_, err := q.db.Exec(ctx, gameCardFlip, arg.GameID, arg.CardID)
+	return err
+}
+
+const gameCardMove = `-- name: GameCardMove :exec
+
+
+UPDATE game_cards
+SET player_id = ?1
+WHERE game_cards.game_id = ?2
+    AND game_cards.card_id = ?3
+    AND game_cards.id = (
+        SELECT game_cards.id
+        FROM game_cards
+        WHERE game_cards.game_id = ?2 AND game_cards.card_id = ?3
+        LIMIT 1
+    )
+`
+
+type GameCardMoveParams struct {
+	PlayerID sql.NullInt64 `json:"player_id"`
+	GameID   string        `json:"game_id"`
+	CardID   int64         `json:"card_id"`
+}
+
+// GameCardCreate
+// WITH slots AS (
+//
+//	SELECT MAX(slot)
+//	FROM game_cards
+//	WHERE game_id = :game_id
+//
+// ),
+// spin AS (
+//
+//	SELECT card_id
+//	FROM game_cards
+//	WHERE game_id = :game_id
+//		AND revealed = false
+//		AND slot = RANDOM() % (SELECT * FROM slots)
+//	ORDER BY stack DESC LIMIT 1
+//
+// )
+// UPDATE game_cards
+// SET
+//
+//	revealed = true,
+//	player_id = :player_id
+//
+// WHERE id = (SELECT card_id FROM spin);
+// Moves a single card of matching id to the new player_id provided.
+func (q *Queries) GameCardMove(ctx context.Context, arg GameCardMoveParams) error {
+	_, err := q.db.Exec(ctx, gameCardMove, arg.PlayerID, arg.GameID, arg.CardID)
+	return err
+}
+
+const gameCardShred = `-- name: GameCardShred :exec
+;
+
+
+UPDATE game_cards
+SET shredded = true
+WHERE game_id = ?1
+	AND card_id = ?2
+LIMIT 1
+`
+
+type GameCardShredParams struct {
+	GameID string `json:"game_id"`
+	CardID int64  `json:"card_id"`
+}
+
+// GameCardClone
+func (q *Queries) GameCardShred(ctx context.Context, arg GameCardShredParams) error {
+	_, err := q.db.Exec(ctx, gameCardShred, arg.GameID, arg.CardID)
+	return err
+}
+
 const gameCreate = `-- name: GameCreate :exec
-
-
-
-INSERT INTO games (name, code, owner)
+INSERT INTO games (name, id, owner_id)
 VALUES (?1, ?2, ?3) 
-RETURNING code
+RETURNING id
 `
 
 type GameCreateParams struct {
-	Name  string `json:"name"`
-	Code  string `json:"code"`
-	Owner int64  `json:"owner"`
+	Name    string `json:"name"`
+	ID      string `json:"id"`
+	OwnerID int64  `json:"owner_id"`
 }
 
-// Player
-// PlayerDelete
-// CardCreate
-// Card
-// CardEdit
-// CardDelete
 func (q *Queries) GameCreate(ctx context.Context, arg GameCreateParams) error {
-	_, err := q.db.Exec(ctx, gameCreate, arg.Name, arg.Code, arg.Owner)
+	_, err := q.db.Exec(ctx, gameCreate, arg.Name, arg.ID, arg.OwnerID)
 	return err
+}
+
+const gameDelete = `-- name: GameDelete :exec
+DELETE FROM games WHERE id = ?1
+`
+
+func (q *Queries) GameDelete(ctx context.Context, id string) error {
+	_, err := q.db.Exec(ctx, gameDelete, id)
+	return err
+}
+
+const gamePlayerCreate = `-- name: GamePlayerCreate :exec
+;
+
+INSERT INTO game_players (game_id, player_id)
+VALUES (?1, ?2)
+`
+
+type GamePlayerCreateParams struct {
+	GameID   int64 `json:"game_id"`
+	PlayerID int64 `json:"player_id"`
+}
+
+func (q *Queries) GamePlayerCreate(ctx context.Context, arg GamePlayerCreateParams) error {
+	_, err := q.db.Exec(ctx, gamePlayerCreate, arg.GameID, arg.PlayerID)
+	return err
+}
+
+const gamePlayerDelete = `-- name: GamePlayerDelete :exec
+DELETE FROM game_players 
+WHERE game_id = ?1 
+	AND player_id = ?2
+`
+
+type GamePlayerDeleteParams struct {
+	GameID   int64 `json:"game_id"`
+	PlayerID int64 `json:"player_id"`
+}
+
+func (q *Queries) GamePlayerDelete(ctx context.Context, arg GamePlayerDeleteParams) error {
+	_, err := q.db.Exec(ctx, gamePlayerDelete, arg.GameID, arg.PlayerID)
+	return err
+}
+
+const gamePlayerPoints = `-- name: GamePlayerPoints :many
+SELECT 
+	(SELECT name FROM players WHERE id=player_id) AS name, 
+	points,
+	initiative
+FROM game_players 
+WHERE game_id = ?1
+`
+
+type GamePlayerPointsRow struct {
+	Name       string        `json:"name"`
+	Points     sql.NullInt64 `json:"points"`
+	Initiative sql.NullInt64 `json:"initiative"`
+}
+
+func (q *Queries) GamePlayerPoints(ctx context.Context, gameID int64) ([]GamePlayerPointsRow, error) {
+	rows, err := q.db.Query(ctx, gamePlayerPoints, gameID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []GamePlayerPointsRow
+	for rows.Next() {
+		var i GamePlayerPointsRow
+		if err := rows.Scan(&i.Name, &i.Points, &i.Initiative); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const gameState = `-- name: GameState :one
+SELECT name, id, created, owner_id, state, initiative_current FROM games WHERE id = ?1
+`
+
+func (q *Queries) GameState(ctx context.Context, id string) (Games, error) {
+	row := q.db.QueryRow(ctx, gameState, id)
+	var i Games
+	err := row.Scan(
+		&i.Name,
+		&i.ID,
+		&i.Created,
+		&i.OwnerID,
+		&i.State,
+		&i.InitiativeCurrent,
+	)
+	return i, err
+}
+
+const games = `-- name: Games :many
+SELECT name, id, created, owner_id, state, initiative_current FROM games WHERE code = (
+	SELECT game_id 
+	FROM game_players
+	WHERE player_id = ?1
+)
+`
+
+func (q *Queries) Games(ctx context.Context, playerID int64) ([]Games, error) {
+	rows, err := q.db.Query(ctx, games, playerID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []Games
+	for rows.Next() {
+		var i Games
+		if err := rows.Scan(
+			&i.Name,
+			&i.ID,
+			&i.Created,
+			&i.OwnerID,
+			&i.State,
+			&i.InitiativeCurrent,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const initiativeAdvance = `-- name: InitiativeAdvance :exec
+;
+
+UPDATE games
+SET initiative_current = (
+    CASE 
+        WHEN initiative_current = (
+            SELECT MAX(game_players.initiative)
+            FROM game_players
+            WHERE game_players.game_id = ?1
+        ) THEN 1
+        ELSE initiative_current + 1
+    END
+)
+WHERE games.id = ?1
+`
+
+func (q *Queries) InitiativeAdvance(ctx context.Context, gameID int64) error {
+	_, err := q.db.Exec(ctx, initiativeAdvance, gameID)
+	return err
+}
+
+const initiativeSet = `-- name: InitiativeSet :exec
+UPDATE game_players
+SET initiative = ?1
+WHERE game_id = ?2 
+	AND player_id = ?3
+`
+
+type InitiativeSetParams struct {
+	Initiative sql.NullInt64 `json:"initiative"`
+	GameID     int64         `json:"game_id"`
+	PlayerID   int64         `json:"player_id"`
+}
+
+func (q *Queries) InitiativeSet(ctx context.Context, arg InitiativeSetParams) error {
+	_, err := q.db.Exec(ctx, initiativeSet, arg.Initiative, arg.GameID, arg.PlayerID)
+	return err
+}
+
+const player = `-- name: Player :one
+SELECT id, name, created FROM players WHERE id = ?1
+`
+
+func (q *Queries) Player(ctx context.Context, id int64) (Players, error) {
+	row := q.db.QueryRow(ctx, player, id)
+	var i Players
+	err := row.Scan(&i.ID, &i.Name, &i.Created)
+	return i, err
 }
 
 const playerCreate = `-- name: PlayerCreate :exec
@@ -41,5 +363,14 @@ INSERT INTO players (name) VALUES (?1) RETURNING id
 
 func (q *Queries) PlayerCreate(ctx context.Context, name string) error {
 	_, err := q.db.Exec(ctx, playerCreate, name)
+	return err
+}
+
+const playerDelete = `-- name: PlayerDelete :exec
+DELETE FROM players WHERE id = ?1
+`
+
+func (q *Queries) PlayerDelete(ctx context.Context, id int64) error {
+	_, err := q.db.Exec(ctx, playerDelete, id)
 	return err
 }

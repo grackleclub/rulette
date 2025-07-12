@@ -9,16 +9,33 @@ CREATE TABLE IF NOT EXISTS games (
 	id VARCHAR(6) PRIMARY KEY,
 	created TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
 	owner_id INT NOT NULL,
-	FOREIGN KEY (owner_id) REFERENCES players(id) ON DELETE CASCADE
+	state TEXT NOT NULL DEFAULT 'created',
+	initiative_current INT DEFAULT 0, 
+	FOREIGN KEY (owner_id) REFERENCES players(id) ON DELETE CASCADE,
+	FOREIGN KEY (state) REFERENCES game_states(name) ON DELETE CASCADE
 );
+
+CREATE TABLE IF NOT EXISTS game_states (
+	name TEXT NOT NULL
+);
+INSERT INTO game_states (name)
+VALUES
+	('created'),
+	('inviting'),
+	('ready'), -- not yet started
+	('turn'), --player turn, spin wheel
+	('challenge'), -- pause for points adjustment
+	('end')
+;
+
 
 CREATE TABLE IF NOT EXISTS game_players (
 	game_id INT NOT NULL,
 	player_id INT NOT NULL,
 	points INT DEFAULT 20,
-	is_host BOOLEAN DEFAULT FALSE,
+	-- is_host BOOLEAN DEFAULT FALSE, -- TODO: maybe just say that host is initiative 0?
 	joined TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-	turn_active BOOLEAN DEFAULT FALSE,
+	initiative INT,
 	PRIMARY KEY (game_id, player_id),
 	FOREIGN KEY (game_id) REFERENCES games(id) ON DELETE CASCADE,
 	FOREIGN KEY (player_id) REFERENCES players(id) ON DELETE CASCADE

@@ -30,11 +30,11 @@ SELECT * FROM games WHERE code = (
 -- name: GameDelete :exec
 DELETE FROM games WHERE id = :id;
 
--- GameState  TODO: maybe deliver state in several queries?
+-- name: GameState :one
+SELECT * FROM games WHERE id = :id;
 
 -- GameCardCreate
 
--- -- SpinThatWheel :exec
 -- WITH slots AS (
 -- 	SELECT MAX(slot) 
 -- 	FROM game_cards 
@@ -58,26 +58,26 @@ DELETE FROM games WHERE id = :id;
 -- name: GameCardMove :exec
 UPDATE game_cards
 SET player_id = :player_id
-WHERE game_id = :game_id
-	AND card_id = :card_id
-	AND id = (
-		SELECT id
-		FROM game_cards
-		WHERE game_id = :game_id AND card_id = :card_id
-		LIMIT 1
-	)	
+WHERE game_cards.game_id = :game_id
+    AND game_cards.card_id = :card_id
+    AND game_cards.id = (
+        SELECT game_cards.id
+        FROM game_cards
+        WHERE game_cards.game_id = :game_id AND game_cards.card_id = :card_id
+        LIMIT 1
+    )
 ;
 -- name: GameCardFlip :exec
 UPDATE game_cards
 SET flipped = NOT flipped
-WHERE game_id = :game_id
-	AND card_id = :card_id
-	AND id = (
-		SELECT id
-		FROM game_cards
-		WHERE game_id = :game_id AND card_id = :card_id
-		LIMIT 1
-	)
+WHERE game_cards.game_id = :game_id
+    AND game_cards.card_id = :card_id
+    AND game_cards.id = (
+        SELECT game_cards.id
+        FROM game_cards
+        WHERE game_cards.game_id = :game_id AND game_cards.card_id = :card_id
+        LIMIT 1
+    )
 ;
 
 -- GameCardClone
@@ -87,12 +87,7 @@ UPDATE game_cards
 SET shredded = true
 WHERE game_id = :game_id
 	AND card_id = :card_id
-	AND id = (
-		SELECT id
-		FROM game_cards
-		WHERE game_id = :game_id AND card_id = :card_id
-		LIMIT 1
-	)
+LIMIT 1
 ;
 
 -- name: GamePlayerCreate :exec
@@ -105,37 +100,33 @@ WHERE game_id = :game_id
 	AND player_id = :player_id;
 
 -- name: GamePlayerPoints :many
-SELECT (
-	SELECT name FROM players WHERE id=player_id
-	), 
+SELECT 
+	(SELECT name FROM players WHERE id=player_id) AS name, 
 	points,
-	turn_active
+	initiative
 FROM game_players 
 WHERE game_id = :game_id;
 
--- name: TurnOrderInit :exec
+-- name: InitiativeSet :exec
 UPDATE game_players
-SET turn_active = true
-WHERE game_id = :game_id
-	AND player_id = (
-		SELECT id 
-		FROM players 
-		ORDER BY joined ASC
-		LIMIT 1
-	)
+SET initiative = :initiative
+WHERE game_id = :game_id 
+	AND player_id = :player_id
 ;
 
--- name: TurnOrderAdvance :exec
--- WITH players AS (
--- 	SELECT COUNT(player_id) AS count
--- 	FROM game_players
--- 	WHERE is_host = false 
--- ),
--- TODO: fix this
-;
-
--- TurnOrderDelete
--- TurnOrderNext
+-- name: InitiativeAdvance :exec
+UPDATE games
+SET initiative_current = (
+    CASE 
+        WHEN initiative_current = (
+            SELECT MAX(game_players.initiative)
+            FROM game_players
+            WHERE game_players.game_id = :game_id
+        ) THEN 1
+        ELSE initiative_current + 1
+    END
+)
+WHERE games.id = :game_id;
 
 -- InfractionAccuse
 -- InfractionConvict
