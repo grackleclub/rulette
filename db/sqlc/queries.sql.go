@@ -12,6 +12,7 @@ import (
 const gameCreate = `-- name: GameCreate :exec
 
 
+
 INSERT INTO games (name, code, owner)
 VALUES (?1, ?2, ?3) 
 RETURNING code

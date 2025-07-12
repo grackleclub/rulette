@@ -8,20 +8,29 @@ import (
 	"database/sql"
 )
 
+type CardTypes struct {
+	Name string `json:"name"`
+}
+
 type Cards struct {
 	ID      int64          `json:"id"`
+	Type    string         `json:"type"`
 	Front   string         `json:"front"`
 	Back    sql.NullString `json:"back"`
 	Created sql.NullTime   `json:"created"`
+	Creator sql.NullInt64  `json:"creator"`
+	Default sql.NullBool   `json:"default"`
 }
 
 type GameCards struct {
-	GameID   string       `json:"game_id"`
-	PlayerID int64        `json:"player_id"`
-	CardID   int64        `json:"card_id"`
-	Revealed sql.NullBool `json:"revealed"`
-	Flipped  sql.NullBool `json:"flipped"`
-	Shredded sql.NullBool `json:"shredded"`
+	GameID   string        `json:"game_id"`
+	CardID   int64         `json:"card_id"`
+	Slot     int64         `json:"slot"`
+	Stack    int64         `json:"stack"`
+	PlayerID sql.NullInt64 `json:"player_id"`
+	Revealed sql.NullBool  `json:"revealed"`
+	Flipped  sql.NullBool  `json:"flipped"`
+	Shredded sql.NullBool  `json:"shredded"`
 }
 
 type GamePlayers struct {
