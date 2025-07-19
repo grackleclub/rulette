@@ -25,7 +25,7 @@ VALUES ($1, $2, $3)
 RETURNING id;
 
 -- name: Games :many
-SELECT * FROM games WHERE code = (
+SELECT * FROM games WHERE id = (
 	SELECT game_id 
 	FROM game_players
 	WHERE player_id = $1

@@ -1,6 +1,6 @@
 # rulette
 
-Based on DropoutTV's Rulette.
+rule stacking game based on DropoutTV's _Rulette_ from season 7
 
 ## State Diagram
 

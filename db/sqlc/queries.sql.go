@@ -274,7 +274,7 @@ func (q *Queries) GameState(ctx context.Context, id string) (Games, error) {
 }
 
 const games = `-- name: Games :many
-SELECT name, id, created, owner_id, state, initiative_current FROM games WHERE code = (
+SELECT name, id, created, owner_id, state, initiative_current FROM games WHERE id = (
 	SELECT game_id 
 	FROM game_players
 	WHERE player_id = $1
