@@ -9,27 +9,27 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 )
 
-func stateHandler(w http.ResponseWriter, r *http.Request) {
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(http.StatusOK)
-
-	result, err := queries.Games(r.Context(), 1)
-	if err != nil {
-		slog.Error("failed to get games", "error", err)
-		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
-		return
-	}
-	slog.Info("retrieved games", "count", len(result), "result", result)
-	response := `{"status": "okey dokey"}`
-	if _, err := w.Write([]byte(response)); err != nil {
-		slog.Error("failed to write response", "error", err)
-	}
-}
+// func stateHandler(w http.ResponseWriter, r *http.Request) {
+// 	w.Header().Set("Content-Type", "application/json")
+// 	w.WriteHeader(http.StatusOK)
+//
+// 	result, err := queries.Games(r.Context(), 1)
+// 	if err != nil {
+// 		slog.Error("failed to get games", "error", err)
+// 		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
+// 		return
+// 	}
+// 	slog.Info("retrieved games", "count", len(result), "result", result)
+// 	response := `{"status": "okey dokey"}`
+// 	if _, err := w.Write([]byte(response)); err != nil {
+// 		slog.Error("failed to write response", "error", err)
+// 	}
+// }
 
 // rootHandler
 // - GET: show make game button that can POST to /create
 func rootHandler(w http.ResponseWriter, r *http.Request) {
-	w.WriteHeader(http.StatusOK)
+	slog.Debug("rootHandler called", "path", r.URL.Path)
 	http.ServeFile(w, r, "./static/html/index.html")
 }
 
@@ -39,7 +39,7 @@ func rootHandler(w http.ResponseWriter, r *http.Request) {
 //   - if host: host view
 //   - if player: player view
 func gameHandler(w http.ResponseWriter, r *http.Request) {
-	w.WriteHeader(http.StatusOK)
+	slog.Debug("gameHandler called", "path", r.URL.Path)
 	http.ServeFile(w, r, "./static/html/game.html")
 }
 
@@ -49,7 +49,8 @@ func createHandler(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	name := "TODO:bobson"
 	// TODO: get host player name
-	err := queries.PlayerCreate(r.Context(), name)
+	id, err := queries.PlayerCreate(r.Context(), name)
+	slog.Debug("found player ID", "id", id, "name", name)
 	// TODO: how the fuck do I get the player ID without RETURNING working?
 	if err != nil {
 		slog.Error("create player", "error", err, "name", name)
@@ -62,7 +63,6 @@ func createHandler(w http.ResponseWriter, r *http.Request) {
 		slog.Error("create game", "error", err)
 		http.Error(w, "Bad Request", http.StatusBadRequest)
 	}
-	w.WriteHeader(http.StatusOK)
 }
 
 // TODO: implement card selection stage of the game between invitation and spin.
@@ -80,6 +80,7 @@ func createHandler(w http.ResponseWriter, r *http.Request) {
 // transfer, flip, shred, clone
 
 func spinHandler(w http.ResponseWriter, r *http.Request) {
+	slog.Debug("spinHandler called", "path", r.URL.Path)
 	playerID := r.URL.Query().Get("player_id")
 	if playerID == "" {
 		http.Error(w, "Player ID is required", http.StatusBadRequest)
@@ -101,6 +102,10 @@ func spinHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 func transferHandler(w http.ResponseWriter, r *http.Request) {
+	// check path
+	path := r.URL.Path
+	slog.Debug("transferHandler called", "path", path)
+
 	gameID := r.URL.Query().Get("game_id")
 	if gameID == "" {
 		http.Error(w, "Game ID is required", http.StatusBadRequest)
@@ -124,7 +129,7 @@ func transferHandler(w http.ResponseWriter, r *http.Request) {
 	err = queries.GameCardMove(r.Context(), sqlc.GameCardMoveParams{
 		PlayerID: toPlayerIDpg,
 		GameID:   gameID,
-		CardID:   cardID,
+		// CardID:   cardID, FIXME: empty
 	})
 	if err != nil {
 		slog.Error("failed to move card",

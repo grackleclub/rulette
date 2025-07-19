@@ -29,6 +29,8 @@ func main() {
 	mux.HandleFunc("/{game_id}/shred/{card_id}", shredHandler)
 	mux.HandleFunc("/{game_id}/clone/{card_id}", cloneHandler)
 
+	// use debug slog handler
+	slog.SetLogLoggerLevel(slog.LevelDebug)
 	ctx := context.Background()
 	// TODO: setup
 	opts := postgres.PostgresOpts{
