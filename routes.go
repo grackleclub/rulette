@@ -1,9 +1,11 @@
 package main
 
 import (
+	"fmt"
 	"log/slog"
 	"net/http"
 	"strconv"
+	"strings"
 
 	sqlc "github.com/grackleclub/rulette/db/sqlc"
 	"github.com/jackc/pgx/v5/pgtype"
@@ -40,6 +42,15 @@ func rootHandler(w http.ResponseWriter, r *http.Request) {
 //   - if player: player view
 func gameHandler(w http.ResponseWriter, r *http.Request) {
 	slog.Debug("gameHandler called", "path", r.URL.Path)
+	gameID := strings.Replace(r.URL.Path, "/", "", 1)
+	results, err := queries.GameState(r.Context(), fmt.Sprintf("/%s", gameID))
+	// TODO: check len of results?
+	if err != nil {
+		slog.Warn("fetch attempt to non-existent game", "error", err, "game_id", gameID)
+		http.Error(w, "Game not found", http.StatusNotFound)
+		return
+	}
+	slog.Debug("loading game page", "game_id", gameID, "results", results)
 	http.ServeFile(w, r, "./static/html/game.html")
 }
 
