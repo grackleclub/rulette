@@ -50,4 +50,16 @@ func TestMain(t *testing.T) {
 		require.Equal(t, http.StatusOK, w.Result().StatusCode)
 		t.Logf("Response: %s", w.Body.String())
 	})
+
+	// new game
+	// send invites
+	// accept invites
+	// create initiative + start game
+	// game loop
+	// - spin
+	// - accuse, judge
+	//   - absolve
+	//   - convict
+	// - consequences
+	// - end game
 }
