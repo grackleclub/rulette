@@ -194,8 +194,8 @@ VALUES ($1, $2)
 `
 
 type GamePlayerCreateParams struct {
-	GameID   int32 `json:"game_id"`
-	PlayerID int32 `json:"player_id"`
+	GameID   string `json:"game_id"`
+	PlayerID int32  `json:"player_id"`
 }
 
 func (q *Queries) GamePlayerCreate(ctx context.Context, arg GamePlayerCreateParams) error {
@@ -210,8 +210,8 @@ WHERE game_id = $1
 `
 
 type GamePlayerDeleteParams struct {
-	GameID   int32 `json:"game_id"`
-	PlayerID int32 `json:"player_id"`
+	GameID   string `json:"game_id"`
+	PlayerID int32  `json:"player_id"`
 }
 
 func (q *Queries) GamePlayerDelete(ctx context.Context, arg GamePlayerDeleteParams) error {
@@ -235,7 +235,7 @@ type GamePlayerPointsRow struct {
 }
 
 // TODO: is id=player_id correct?
-func (q *Queries) GamePlayerPoints(ctx context.Context, gameID int32) ([]GamePlayerPointsRow, error) {
+func (q *Queries) GamePlayerPoints(ctx context.Context, gameID string) ([]GamePlayerPointsRow, error) {
 	rows, err := q.db.Query(ctx, gamePlayerPoints, gameID)
 	if err != nil {
 		return nil, err
@@ -323,7 +323,7 @@ SET initiative_current = (
 WHERE games.id = $1
 `
 
-func (q *Queries) InitiativeAdvance(ctx context.Context, gameID int32) error {
+func (q *Queries) InitiativeAdvance(ctx context.Context, gameID string) error {
 	_, err := q.db.Exec(ctx, initiativeAdvance, gameID)
 	return err
 }
@@ -337,7 +337,7 @@ WHERE game_id = $2
 
 type InitiativeSetParams struct {
 	Initiative pgtype.Int4 `json:"initiative"`
-	GameID     int32       `json:"game_id"`
+	GameID     string      `json:"game_id"`
 	PlayerID   int32       `json:"player_id"`
 }
 

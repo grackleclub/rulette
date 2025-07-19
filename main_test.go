@@ -2,7 +2,6 @@ package main
 
 import (
 	"context"
-	"fmt"
 	"testing"
 
 	"github.com/grackleclub/postgres"
@@ -24,5 +23,7 @@ func TestMain(t *testing.T) {
 	require.NotNil(t, db)
 	t.Logf("database opened on %s:%s", db.Host, db.Port)
 
-	fmt.Println(dbSchema)
+	result, err := db.Conn.ExecContext(ctx, dbSchema)
+	require.NoError(t, err)
+	t.Log("schema up: ", result)
 }

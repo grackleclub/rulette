@@ -4,6 +4,10 @@ CREATE TABLE IF NOT EXISTS players (
 	created TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
+CREATE TABLE IF NOT EXISTS game_states (
+	name TEXT NOT NULL PRIMARY KEY
+);
+
 CREATE TABLE IF NOT EXISTS games (
 	name TEXT NOT NULL,
 	id VARCHAR(6) PRIMARY KEY,
@@ -13,10 +17,6 @@ CREATE TABLE IF NOT EXISTS games (
 	initiative_current INT DEFAULT 0, 
 	FOREIGN KEY (owner_id) REFERENCES players(id) ON DELETE CASCADE,
 	FOREIGN KEY (state) REFERENCES game_states(name) ON DELETE CASCADE
-);
-
-CREATE TABLE IF NOT EXISTS game_states (
-	name TEXT NOT NULL PRIMARY KEY
 );
 
 INSERT INTO game_states (name)
@@ -31,7 +31,7 @@ VALUES
 
 
 CREATE TABLE IF NOT EXISTS game_players (
-	game_id INT NOT NULL,
+	game_id VARCHAR(6) NOT NULL,
 	player_id INT NOT NULL,
 	points INT DEFAULT 20,
 	-- is_host BOOLEAN DEFAULT FALSE, -- TODO: maybe just say that host is initiative 0?

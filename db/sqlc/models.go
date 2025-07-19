@@ -36,7 +36,7 @@ type GameCards struct {
 }
 
 type GamePlayers struct {
-	GameID     int32            `json:"game_id"`
+	GameID     string           `json:"game_id"`
 	PlayerID   int32            `json:"player_id"`
 	Points     pgtype.Int4      `json:"points"`
 	Joined     pgtype.Timestamp `json:"joined"`
