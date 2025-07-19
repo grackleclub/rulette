@@ -5,7 +5,7 @@
 package sqlc
 
 import (
-	"database/sql"
+	"github.com/jackc/pgx/v5/pgtype"
 )
 
 type CardTypes struct {
@@ -13,34 +13,34 @@ type CardTypes struct {
 }
 
 type Cards struct {
-	ID      int64          `json:"id"`
-	Type    string         `json:"type"`
-	Front   string         `json:"front"`
-	Back    sql.NullString `json:"back"`
-	Creator sql.NullInt64  `json:"creator"`
-	Created sql.NullTime   `json:"created"`
-	Default sql.NullBool   `json:"default"`
+	ID      int32            `json:"id"`
+	Type    string           `json:"type"`
+	Front   string           `json:"front"`
+	Back    pgtype.Text      `json:"back"`
+	Creator pgtype.Int4      `json:"creator"`
+	Created pgtype.Timestamp `json:"created"`
+	Generic pgtype.Bool      `json:"generic"`
 }
 
 type GameCards struct {
-	ID        int64         `json:"id"`
-	GameID    string        `json:"game_id"`
-	CardID    int64         `json:"card_id"`
-	Slot      int64         `json:"slot"`
-	Stack     int64         `json:"stack"`
-	PlayerID  sql.NullInt64 `json:"player_id"`
-	Revealed  sql.NullBool  `json:"revealed"`
-	Flipped   sql.NullBool  `json:"flipped"`
-	Shredded  sql.NullBool  `json:"shredded"`
-	FromClone sql.NullBool  `json:"from_clone"`
+	ID        int32       `json:"id"`
+	GameID    string      `json:"game_id"`
+	CardID    int32       `json:"card_id"`
+	Slot      int32       `json:"slot"`
+	Stack     int32       `json:"stack"`
+	PlayerID  pgtype.Int4 `json:"player_id"`
+	Revealed  pgtype.Bool `json:"revealed"`
+	Flipped   pgtype.Bool `json:"flipped"`
+	Shredded  pgtype.Bool `json:"shredded"`
+	FromClone pgtype.Bool `json:"from_clone"`
 }
 
 type GamePlayers struct {
-	GameID     int64         `json:"game_id"`
-	PlayerID   int64         `json:"player_id"`
-	Points     sql.NullInt64 `json:"points"`
-	Joined     sql.NullTime  `json:"joined"`
-	Initiative sql.NullInt64 `json:"initiative"`
+	GameID     int32            `json:"game_id"`
+	PlayerID   int32            `json:"player_id"`
+	Points     pgtype.Int4      `json:"points"`
+	Joined     pgtype.Timestamp `json:"joined"`
+	Initiative pgtype.Int4      `json:"initiative"`
 }
 
 type GameStates struct {
@@ -48,26 +48,26 @@ type GameStates struct {
 }
 
 type Games struct {
-	Name              string        `json:"name"`
-	ID                string        `json:"id"`
-	Created           sql.NullTime  `json:"created"`
-	OwnerID           int64         `json:"owner_id"`
-	State             string        `json:"state"`
-	InitiativeCurrent sql.NullInt64 `json:"initiative_current"`
+	Name              string           `json:"name"`
+	ID                string           `json:"id"`
+	Created           pgtype.Timestamp `json:"created"`
+	OwnerID           int32            `json:"owner_id"`
+	State             string           `json:"state"`
+	InitiativeCurrent pgtype.Int4      `json:"initiative_current"`
 }
 
 type Infractions struct {
-	ID        int64        `json:"id"`
-	GameID    string       `json:"game_id"`
-	Accused   int64        `json:"accused"`
-	Accuser   int64        `json:"accuser"`
-	Created   sql.NullTime `json:"created"`
-	Active    sql.NullBool `json:"active"`
-	Convicted sql.NullBool `json:"convicted"`
+	ID        int32            `json:"id"`
+	GameID    string           `json:"game_id"`
+	Accused   int32            `json:"accused"`
+	Accuser   int32            `json:"accuser"`
+	Created   pgtype.Timestamp `json:"created"`
+	Active    pgtype.Bool      `json:"active"`
+	Convicted pgtype.Bool      `json:"convicted"`
 }
 
 type Players struct {
-	ID      int64        `json:"id"`
-	Name    string       `json:"name"`
-	Created sql.NullTime `json:"created"`
+	ID      int32            `json:"id"`
+	Name    string           `json:"name"`
+	Created pgtype.Timestamp `json:"created"`
 }

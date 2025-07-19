@@ -7,14 +7,15 @@ package sqlc
 
 import (
 	"context"
-	"database/sql"
+
+	"github.com/jackc/pgx/v5/pgtype"
 )
 
 const card = `-- name: Card :one
-SELECT id, type, front, back, creator, created, "default" FROM cards WHERE id = ?1
+SELECT id, type, front, back, creator, created, generic FROM cards WHERE id = $1
 `
 
-func (q *Queries) Card(ctx context.Context, id int64) (Cards, error) {
+func (q *Queries) Card(ctx context.Context, id int32) (Cards, error) {
 	row := q.db.QueryRow(ctx, card, id)
 	var i Cards
 	err := row.Scan(
@@ -24,22 +25,22 @@ func (q *Queries) Card(ctx context.Context, id int64) (Cards, error) {
 		&i.Back,
 		&i.Creator,
 		&i.Created,
-		&i.Default,
+		&i.Generic,
 	)
 	return i, err
 }
 
 const cardCreate = `-- name: CardCreate :exec
 INSERT INTO cards (type, front, back, creator)
-VALUES (?1, ?2, ?3, ?4)
+VALUES ($1, $2, $3, $4)
 RETURNING id
 `
 
 type CardCreateParams struct {
-	Type    string         `json:"type"`
-	Front   string         `json:"front"`
-	Back    sql.NullString `json:"back"`
-	Creator sql.NullInt64  `json:"creator"`
+	Type    string      `json:"type"`
+	Front   string      `json:"front"`
+	Back    pgtype.Text `json:"back"`
+	Creator pgtype.Int4 `json:"creator"`
 }
 
 func (q *Queries) CardCreate(ctx context.Context, arg CardCreateParams) error {
@@ -53,31 +54,30 @@ func (q *Queries) CardCreate(ctx context.Context, arg CardCreateParams) error {
 }
 
 const cardDelete = `-- name: CardDelete :exec
-DELETE FROM cards WHERE id = ?1
+DELETE FROM cards WHERE id = $1
 `
 
-func (q *Queries) CardDelete(ctx context.Context, id int64) error {
+func (q *Queries) CardDelete(ctx context.Context, id int32) error {
 	_, err := q.db.Exec(ctx, cardDelete, id)
 	return err
 }
 
 const gameCardFlip = `-- name: GameCardFlip :exec
-;
 UPDATE game_cards
 SET flipped = NOT flipped
-WHERE game_cards.game_id = ?1
-    AND game_cards.card_id = ?2
+WHERE game_cards.game_id = $1
+    AND game_cards.card_id = $2
     AND game_cards.id = (
         SELECT game_cards.id
         FROM game_cards
-        WHERE game_cards.game_id = ?1 AND game_cards.card_id = ?2
+        WHERE game_cards.game_id = $1 AND game_cards.card_id = $2
         LIMIT 1
     )
 `
 
 type GameCardFlipParams struct {
 	GameID string `json:"game_id"`
-	CardID int64  `json:"card_id"`
+	CardID int32  `json:"card_id"`
 }
 
 func (q *Queries) GameCardFlip(ctx context.Context, arg GameCardFlipParams) error {
@@ -89,21 +89,21 @@ const gameCardMove = `-- name: GameCardMove :exec
 
 
 UPDATE game_cards
-SET player_id = ?1
-WHERE game_cards.game_id = ?2
-    AND game_cards.card_id = ?3
+SET player_id = $1
+WHERE game_cards.game_id = $2
+    AND game_cards.card_id = $3
     AND game_cards.id = (
         SELECT game_cards.id
         FROM game_cards
-        WHERE game_cards.game_id = ?2 AND game_cards.card_id = ?3
+        WHERE game_cards.game_id = $2 AND game_cards.card_id = $3
         LIMIT 1
     )
 `
 
 type GameCardMoveParams struct {
-	PlayerID sql.NullInt64 `json:"player_id"`
-	GameID   string        `json:"game_id"`
-	CardID   int64         `json:"card_id"`
+	PlayerID pgtype.Int4 `json:"player_id"`
+	GameID   string      `json:"game_id"`
+	CardID   int32       `json:"card_id"`
 }
 
 // GameCardCreate
@@ -138,19 +138,22 @@ func (q *Queries) GameCardMove(ctx context.Context, arg GameCardMoveParams) erro
 }
 
 const gameCardShred = `-- name: GameCardShred :exec
-;
 
-
+WITH cte AS (
+    SELECT id
+    FROM game_cards
+    WHERE game_cards.game_id = $1
+      AND game_cards.card_id = $2
+    LIMIT 1
+)
 UPDATE game_cards
 SET shredded = true
-WHERE game_id = ?1
-	AND card_id = ?2
-LIMIT 1
+WHERE id IN (SELECT id FROM cte)
 `
 
 type GameCardShredParams struct {
 	GameID string `json:"game_id"`
-	CardID int64  `json:"card_id"`
+	CardID int32  `json:"card_id"`
 }
 
 // GameCardClone
@@ -161,14 +164,14 @@ func (q *Queries) GameCardShred(ctx context.Context, arg GameCardShredParams) er
 
 const gameCreate = `-- name: GameCreate :exec
 INSERT INTO games (name, id, owner_id)
-VALUES (?1, ?2, ?3) 
+VALUES ($1, $2, $3)
 RETURNING id
 `
 
 type GameCreateParams struct {
 	Name    string `json:"name"`
 	ID      string `json:"id"`
-	OwnerID int64  `json:"owner_id"`
+	OwnerID int32  `json:"owner_id"`
 }
 
 func (q *Queries) GameCreate(ctx context.Context, arg GameCreateParams) error {
@@ -177,7 +180,7 @@ func (q *Queries) GameCreate(ctx context.Context, arg GameCreateParams) error {
 }
 
 const gameDelete = `-- name: GameDelete :exec
-DELETE FROM games WHERE id = ?1
+DELETE FROM games WHERE id = $1
 `
 
 func (q *Queries) GameDelete(ctx context.Context, id string) error {
@@ -186,15 +189,13 @@ func (q *Queries) GameDelete(ctx context.Context, id string) error {
 }
 
 const gamePlayerCreate = `-- name: GamePlayerCreate :exec
-;
-
 INSERT INTO game_players (game_id, player_id)
-VALUES (?1, ?2)
+VALUES ($1, $2)
 `
 
 type GamePlayerCreateParams struct {
-	GameID   int64 `json:"game_id"`
-	PlayerID int64 `json:"player_id"`
+	GameID   int32 `json:"game_id"`
+	PlayerID int32 `json:"player_id"`
 }
 
 func (q *Queries) GamePlayerCreate(ctx context.Context, arg GamePlayerCreateParams) error {
@@ -204,13 +205,13 @@ func (q *Queries) GamePlayerCreate(ctx context.Context, arg GamePlayerCreatePara
 
 const gamePlayerDelete = `-- name: GamePlayerDelete :exec
 DELETE FROM game_players 
-WHERE game_id = ?1 
-	AND player_id = ?2
+WHERE game_id = $1 
+	AND player_id = $2
 `
 
 type GamePlayerDeleteParams struct {
-	GameID   int64 `json:"game_id"`
-	PlayerID int64 `json:"player_id"`
+	GameID   int32 `json:"game_id"`
+	PlayerID int32 `json:"player_id"`
 }
 
 func (q *Queries) GamePlayerDelete(ctx context.Context, arg GamePlayerDeleteParams) error {
@@ -224,16 +225,17 @@ SELECT
 	points,
 	initiative
 FROM game_players 
-WHERE game_id = ?1
+WHERE game_id = $1
 `
 
 type GamePlayerPointsRow struct {
-	Name       string        `json:"name"`
-	Points     sql.NullInt64 `json:"points"`
-	Initiative sql.NullInt64 `json:"initiative"`
+	Name       string      `json:"name"`
+	Points     pgtype.Int4 `json:"points"`
+	Initiative pgtype.Int4 `json:"initiative"`
 }
 
-func (q *Queries) GamePlayerPoints(ctx context.Context, gameID int64) ([]GamePlayerPointsRow, error) {
+// TODO: is id=player_id correct?
+func (q *Queries) GamePlayerPoints(ctx context.Context, gameID int32) ([]GamePlayerPointsRow, error) {
 	rows, err := q.db.Query(ctx, gamePlayerPoints, gameID)
 	if err != nil {
 		return nil, err
@@ -254,7 +256,7 @@ func (q *Queries) GamePlayerPoints(ctx context.Context, gameID int64) ([]GamePla
 }
 
 const gameState = `-- name: GameState :one
-SELECT name, id, created, owner_id, state, initiative_current FROM games WHERE id = ?1
+SELECT name, id, created, owner_id, state, initiative_current FROM games WHERE id = $1
 `
 
 func (q *Queries) GameState(ctx context.Context, id string) (Games, error) {
@@ -275,11 +277,11 @@ const games = `-- name: Games :many
 SELECT name, id, created, owner_id, state, initiative_current FROM games WHERE code = (
 	SELECT game_id 
 	FROM game_players
-	WHERE player_id = ?1
+	WHERE player_id = $1
 )
 `
 
-func (q *Queries) Games(ctx context.Context, playerID int64) ([]Games, error) {
+func (q *Queries) Games(ctx context.Context, playerID int32) ([]Games, error) {
 	rows, err := q.db.Query(ctx, games, playerID)
 	if err != nil {
 		return nil, err
@@ -307,38 +309,36 @@ func (q *Queries) Games(ctx context.Context, playerID int64) ([]Games, error) {
 }
 
 const initiativeAdvance = `-- name: InitiativeAdvance :exec
-;
-
 UPDATE games
 SET initiative_current = (
     CASE 
         WHEN initiative_current = (
             SELECT MAX(game_players.initiative)
             FROM game_players
-            WHERE game_players.game_id = ?1
+            WHERE game_players.game_id = $1
         ) THEN 1
         ELSE initiative_current + 1
     END
 )
-WHERE games.id = ?1
+WHERE games.id = $1
 `
 
-func (q *Queries) InitiativeAdvance(ctx context.Context, gameID int64) error {
+func (q *Queries) InitiativeAdvance(ctx context.Context, gameID int32) error {
 	_, err := q.db.Exec(ctx, initiativeAdvance, gameID)
 	return err
 }
 
 const initiativeSet = `-- name: InitiativeSet :exec
 UPDATE game_players
-SET initiative = ?1
-WHERE game_id = ?2 
-	AND player_id = ?3
+SET initiative = $1
+WHERE game_id = $2
+    AND player_id = $3
 `
 
 type InitiativeSetParams struct {
-	Initiative sql.NullInt64 `json:"initiative"`
-	GameID     int64         `json:"game_id"`
-	PlayerID   int64         `json:"player_id"`
+	Initiative pgtype.Int4 `json:"initiative"`
+	GameID     int32       `json:"game_id"`
+	PlayerID   int32       `json:"player_id"`
 }
 
 func (q *Queries) InitiativeSet(ctx context.Context, arg InitiativeSetParams) error {
@@ -347,10 +347,10 @@ func (q *Queries) InitiativeSet(ctx context.Context, arg InitiativeSetParams) er
 }
 
 const player = `-- name: Player :one
-SELECT id, name, created FROM players WHERE id = ?1
+SELECT id, name, created FROM players WHERE id = $1
 `
 
-func (q *Queries) Player(ctx context.Context, id int64) (Players, error) {
+func (q *Queries) Player(ctx context.Context, id int32) (Players, error) {
 	row := q.db.QueryRow(ctx, player, id)
 	var i Players
 	err := row.Scan(&i.ID, &i.Name, &i.Created)
@@ -358,7 +358,7 @@ func (q *Queries) Player(ctx context.Context, id int64) (Players, error) {
 }
 
 const playerCreate = `-- name: PlayerCreate :exec
-INSERT INTO players (name) VALUES (?1) RETURNING id
+INSERT INTO players (name) VALUES ($1) RETURNING id
 `
 
 func (q *Queries) PlayerCreate(ctx context.Context, name string) error {
@@ -367,10 +367,10 @@ func (q *Queries) PlayerCreate(ctx context.Context, name string) error {
 }
 
 const playerDelete = `-- name: PlayerDelete :exec
-DELETE FROM players WHERE id = ?1
+DELETE FROM players WHERE id = $1
 `
 
-func (q *Queries) PlayerDelete(ctx context.Context, id int64) error {
+func (q *Queries) PlayerDelete(ctx context.Context, id int32) error {
 	_, err := q.db.Exec(ctx, playerDelete, id)
 	return err
 }

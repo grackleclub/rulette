@@ -1,5 +1,5 @@
 CREATE TABLE IF NOT EXISTS players (
-	id INTEGER PRIMARY KEY AUTOINCREMENT,
+	id SERIAL PRIMARY KEY,
 	name TEXT NOT NULL,
 	created TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
@@ -16,8 +16,9 @@ CREATE TABLE IF NOT EXISTS games (
 );
 
 CREATE TABLE IF NOT EXISTS game_states (
-	name TEXT NOT NULL
+	name TEXT NOT NULL PRIMARY KEY
 );
+
 INSERT INTO game_states (name)
 VALUES
 	('created'),
@@ -52,20 +53,20 @@ VALUES
 	('prompt');
 
 CREATE TABLE IF NOT EXISTS cards (
-	id INTEGER PRIMARY KEY AUTOINCREMENT,
+	id SERIAL PRIMARY KEY,
 	type TEXT NOT NULL,
 	front TEXT NOT NULL,
 	back TEXT,
 	creator INTEGER,
 	created TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-	default BOOLEAN DEFAULT FALSE,
+	generic BOOLEAN DEFAULT FALSE,
 	FOREIGN KEY (type) REFERENCES card_types(name) ON DELETE CASCADE,
 	FOREIGN KEY (creator) REFERENCES players(id)
 );
 
 -- no primary key because cloning a card is possible
 CREATE TABLE IF NOT EXISTS game_cards (
-	id INTEGER PRIMARY KEY AUTOINCREMENT, -- to distinguish between clones
+	id SERIAL PRIMARY KEY, -- to distinguish between clones
 	game_id VARCHAR(6) NOT NULL,
 	card_id INT NOT NULL,
 	slot INT NOT NULL, -- 1-indexed number of wheel slots
@@ -81,7 +82,7 @@ CREATE TABLE IF NOT EXISTS game_cards (
 );
 
 CREATE TABLE IF NOT EXISTS infractions (
-	id INTEGER PRIMARY KEY AUTOINCREMENT,
+	id SERIAL PRIMARY KEY,
 	game_id VARCHAR(6) NOT NULL,
 	accused INT NOT NULL,
 	accuser INT NOT NULL,
@@ -90,7 +91,6 @@ CREATE TABLE IF NOT EXISTS infractions (
 	convicted BOOLEAN DEFAULT FALSE,
 	FOREIGN KEY (game_id) REFERENCES games(id) ON DELETE CASCADE,
 	FOREIGN KEY (accused) REFERENCES players(id) ON DELETE CASCADE,
-	FOREIGN KEY (accuser) REFERENCES players(id) ON DELETE CASCADE,
-	PRIMARY KEY (game_id, accused, accuser)
+	FOREIGN KEY (accuser) REFERENCES players(id) ON DELETE CASCADE
 );
 
