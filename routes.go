@@ -23,6 +23,11 @@ func stateHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 // rootHandler
+func rootHandler(w http.ResponseWriter, r *http.Request) {
+	w.WriteHeader(http.StatusOK)
+	http.ServeFile(w, r, "./static/html/index.html")
+}
+
 // - GET: show make game button that can POST to /create
 
 // createHandler handles the '/create' endpoint to make a new game with requester as host.

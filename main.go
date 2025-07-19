@@ -21,6 +21,7 @@ var dbSchema string
 
 func main() {
 	mux := http.NewServeMux()
+	mux.HandleFunc("/", rootHandler)
 	mux.HandleFunc("/state", stateHandler)
 	ctx := context.Background()
 	// TODO: setup
