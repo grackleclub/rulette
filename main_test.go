@@ -2,6 +2,8 @@ package main
 
 import (
 	"context"
+	"net/http"
+	"net/http/httptest"
 	"testing"
 
 	"github.com/grackleclub/postgres"
@@ -26,4 +28,15 @@ func TestMain(t *testing.T) {
 	result, err := db.Conn.ExecContext(ctx, dbSchema)
 	require.NoError(t, err)
 	t.Log("schema up: ", result)
+
+	// s := httptest.NewServer(http.HandlerFunc(stateHandler))
+	t.Run("stateHandler test", func(t *testing.T) {
+		req := httptest.NewRequest("GET", "/", nil)
+		w := httptest.NewRecorder()
+
+		stateHandler(w, req)
+
+		require.Equal(t, http.StatusOK, w.Result().StatusCode)
+		t.Logf("Response: %s", w.Body.String())
+	})
 }
