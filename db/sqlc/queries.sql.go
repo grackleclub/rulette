@@ -40,7 +40,7 @@ type CardCreateParams struct {
 	Type    string      `json:"type"`
 	Front   string      `json:"front"`
 	Back    pgtype.Text `json:"back"`
-	Creator pgtype.Int4 `json:"creator"`
+	Creator interface{} `json:"creator"`
 }
 
 func (q *Queries) CardCreate(ctx context.Context, arg CardCreateParams) error {
@@ -226,6 +226,7 @@ SELECT
 	initiative
 FROM game_players 
 WHERE game_id = $1
+ORDER BY initiative ASC
 `
 
 type GamePlayerPointsRow struct {

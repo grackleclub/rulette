@@ -3,8 +3,10 @@ package main
 import (
 	"log/slog"
 	"net/http"
+	"strconv"
 
 	sqlc "github.com/grackleclub/rulette/db/sqlc"
+	"github.com/jackc/pgx/v5/pgtype"
 )
 
 func stateHandler(w http.ResponseWriter, r *http.Request) {
@@ -25,30 +27,11 @@ func stateHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 // rootHandler
+// - GET: show make game button that can POST to /create
 func rootHandler(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusOK)
 	http.ServeFile(w, r, "./static/html/index.html")
 }
-
-// - GET: show make game button that can POST to /create
-
-// createHandler handles the '/create' endpoint to make a new game with requester as host.
-func createHandler(w http.ResponseWriter, r *http.Request) {
-	w.Header().Set("Content-Type", "application/json")
-	name := "TODO:bobson"
-	err := queries.PlayerCreate(r.Context(), name)
-	// TODO: how the fuck do I get the player ID without RETURNING working?
-	if err != nil {
-		slog.Error("create player", "error", err, "name", name)
-		http.Error(w, "Bad Request", http.StatusBadRequest)
-		return
-	}
-	slog.Debug("created player", "id", id, "name", name)
-	queries.GameCreate(r.Context(), sqlc.GameCreateParams{})
-	w.WriteHeader(http.StatusOK)
-}
-
-// - POST
 
 // gameHandler handles the '/{game_id}' endpoint
 // This endpoint serves as a lobby pregame, and for primary play.
@@ -58,6 +41,28 @@ func createHandler(w http.ResponseWriter, r *http.Request) {
 func gameHandler(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusOK)
 	http.ServeFile(w, r, "./static/html/game.html")
+}
+
+// createHandler handles the '/create' endpoint to make a new game with requester as host.
+// - POST: create a new game with the requester as host
+func createHandler(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "application/json")
+	name := "TODO:bobson"
+	// TODO: get host player name
+	err := queries.PlayerCreate(r.Context(), name)
+	// TODO: how the fuck do I get the player ID without RETURNING working?
+	if err != nil {
+		slog.Error("create player", "error", err, "name", name)
+		http.Error(w, "Bad Request", http.StatusBadRequest)
+		return
+	}
+	slog.Debug("created player", "name", name)
+	err = queries.GameCreate(r.Context(), sqlc.GameCreateParams{})
+	if err != nil {
+		slog.Error("create game", "error", err)
+		http.Error(w, "Bad Request", http.StatusBadRequest)
+	}
+	w.WriteHeader(http.StatusOK)
 }
 
 // TODO: implement card selection stage of the game between invitation and spin.
@@ -73,3 +78,64 @@ func gameHandler(w http.ResponseWriter, r *http.Request) {
 // {game_id}/cards/{card_id}/{action}?ake
 // PATCH, PATCH, DELETE, POST
 // transfer, flip, shred, clone
+
+func spinHandler(w http.ResponseWriter, r *http.Request) {
+	playerID := r.URL.Query().Get("player_id")
+	if playerID == "" {
+		http.Error(w, "Player ID is required", http.StatusBadRequest)
+		return
+	}
+	// get player_id that spun it
+	gameID := r.URL.Query().Get("game_id")
+	if gameID == "" {
+		http.Error(w, "Game ID is required", http.StatusBadRequest)
+		return
+	}
+	// TODO: get initiative to enforce player turn
+	// enforce the correct players turn
+	// players, err := queries.GamePlayerPoints(r.Context(), gameID)
+
+	// select card
+	// transfer card
+	// [optional] be in prompt flow
+}
+
+func transferHandler(w http.ResponseWriter, r *http.Request) {
+	gameID := r.URL.Query().Get("game_id")
+	if gameID == "" {
+		http.Error(w, "Game ID is required", http.StatusBadRequest)
+		return
+	}
+	fromPlayerID := r.URL.Query().Get("from")
+	// it's okay to have a null from, because that's what happens when it moves form the wheel.
+	// TODO: maybe ensure if a fromPLayerID is passed, that it's valid?
+	toPlayerID := r.URL.Query().Get("to")
+
+	toPlayerIDInt, err := strconv.Atoi(toPlayerID)
+	if err != nil && toPlayerID != "" {
+		slog.Error("invalid to player ID", "error", err, "to_player_id", toPlayerID)
+		http.Error(w, "Invalid Player ID", http.StatusBadRequest)
+		return
+	}
+	toPlayerIDpg := pgtype.Int4{
+		Int32: int32(toPlayerIDInt),
+		Valid: true,
+	}
+	err = queries.GameCardMove(r.Context(), sqlc.GameCardMoveParams{
+		PlayerID: toPlayerIDpg,
+		GameID:   gameID,
+		CardID:   cardID,
+	})
+	if err != nil {
+		slog.Error("failed to move card",
+			"error", err,
+			"game_id", gameID,
+			"from_player_id", fromPlayerID,
+			"to_player_id", toPlayerID,
+		)
+		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
+	}
+}
+func flipHandler(w http.ResponseWriter, r *http.Request)  {}
+func shredHandler(w http.ResponseWriter, r *http.Request) {}
+func cloneHandler(w http.ResponseWriter, r *http.Request) {}

@@ -115,7 +115,8 @@ SELECT
 	points,
 	initiative
 FROM game_players 
-WHERE game_id = $1;
+WHERE game_id = $1
+ORDER BY initiative ASC;
 
 -- name: InitiativeSet :exec
 UPDATE game_players

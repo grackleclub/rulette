@@ -17,7 +17,7 @@ type Cards struct {
 	Type    string           `json:"type"`
 	Front   string           `json:"front"`
 	Back    pgtype.Text      `json:"back"`
-	Creator pgtype.Int4      `json:"creator"`
+	Creator interface{}      `json:"creator"`
 	Created pgtype.Timestamp `json:"created"`
 	Generic pgtype.Bool      `json:"generic"`
 }

@@ -12,9 +12,9 @@ CREATE TABLE IF NOT EXISTS games (
 	name TEXT NOT NULL,
 	id VARCHAR(6) PRIMARY KEY,
 	created TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-	owner_id INT NOT NULL,
+	owner_id INTEGER NOT NULL,
 	state TEXT NOT NULL DEFAULT 'created',
-	initiative_current INT DEFAULT 0, 
+	initiative_current INTEGER DEFAULT 0, 
 	FOREIGN KEY (owner_id) REFERENCES players(id) ON DELETE CASCADE,
 	FOREIGN KEY (state) REFERENCES game_states(name) ON DELETE CASCADE
 );
@@ -32,11 +32,11 @@ VALUES
 
 CREATE TABLE IF NOT EXISTS game_players (
 	game_id VARCHAR(6) NOT NULL,
-	player_id INT NOT NULL,
-	points INT DEFAULT 20,
+	player_id INTEGER NOT NULL,
+	points INTEGER DEFAULT 20,
 	-- is_host BOOLEAN DEFAULT FALSE, -- TODO: maybe just say that host is initiative 0?
 	joined TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-	initiative INT,
+	initiative INTEGER,
 	PRIMARY KEY (game_id, player_id),
 	FOREIGN KEY (game_id) REFERENCES games(id) ON DELETE CASCADE,
 	FOREIGN KEY (player_id) REFERENCES players(id) ON DELETE CASCADE
@@ -57,7 +57,7 @@ CREATE TABLE IF NOT EXISTS cards (
 	type TEXT NOT NULL,
 	front TEXT NOT NULL,
 	back TEXT,
-	creator INTEGER,
+	creator INTEGEREGER,
 	created TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
 	generic BOOLEAN DEFAULT FALSE,
 	FOREIGN KEY (type) REFERENCES card_types(name) ON DELETE CASCADE,
@@ -68,10 +68,10 @@ CREATE TABLE IF NOT EXISTS cards (
 CREATE TABLE IF NOT EXISTS game_cards (
 	id SERIAL PRIMARY KEY, -- to distinguish between clones
 	game_id VARCHAR(6) NOT NULL,
-	card_id INT NOT NULL,
-	slot INT NOT NULL, -- 1-indexed number of wheel slots
-	stack INT NOT NULL, -- 0 bottom, 1 middle, 2 top
-	player_id INT, -- only populated when revealed=true
+	card_id INTEGER NOT NULL,
+	slot INTEGER NOT NULL, -- 1-indexed number of wheel slots
+	stack INTEGER NOT NULL, -- 0 bottom, 1 middle, 2 top
+	player_id INTEGER, -- only populated when revealed=true
 	revealed BOOLEAN DEFAULT FALSE, -- on the wheel
 	flipped BOOLEAN DEFAULT FALSE,
 	shredded BOOLEAN DEFAULT FALSE,
@@ -84,8 +84,8 @@ CREATE TABLE IF NOT EXISTS game_cards (
 CREATE TABLE IF NOT EXISTS infractions (
 	id SERIAL PRIMARY KEY,
 	game_id VARCHAR(6) NOT NULL,
-	accused INT NOT NULL,
-	accuser INT NOT NULL,
+	accused INTEGER NOT NULL,
+	accuser INTEGER NOT NULL,
 	created TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
 	active BOOLEAN DEFAULT TRUE, -- active until applied or denied
 	convicted BOOLEAN DEFAULT FALSE,
