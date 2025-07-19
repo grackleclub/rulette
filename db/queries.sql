@@ -1,4 +1,4 @@
--- name: PlayerCreate :exec
+-- name: PlayerCreate :one
 INSERT INTO players (name) VALUES ($1) RETURNING id;
 
 -- name: Player :one

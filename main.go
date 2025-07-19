@@ -22,7 +22,9 @@ var dbSchema string
 func main() {
 	mux := http.NewServeMux()
 	mux.HandleFunc("/", rootHandler)
+	mux.HandleFunc("/{game_id}", gameHandler)
 	mux.HandleFunc("/state", stateHandler)
+
 	ctx := context.Background()
 	// TODO: setup
 	opts := postgres.PostgresOpts{

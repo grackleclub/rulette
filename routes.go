@@ -3,6 +3,8 @@ package main
 import (
 	"log/slog"
 	"net/http"
+
+	sqlc "github.com/grackleclub/rulette/db/sqlc"
 )
 
 func stateHandler(w http.ResponseWriter, r *http.Request) {
@@ -31,6 +33,21 @@ func rootHandler(w http.ResponseWriter, r *http.Request) {
 // - GET: show make game button that can POST to /create
 
 // createHandler handles the '/create' endpoint to make a new game with requester as host.
+func createHandler(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "application/json")
+	name := "TODO:bobson"
+	err := queries.PlayerCreate(r.Context(), name)
+	// TODO: how the fuck do I get the player ID without RETURNING working?
+	if err != nil {
+		slog.Error("create player", "error", err, "name", name)
+		http.Error(w, "Bad Request", http.StatusBadRequest)
+		return
+	}
+	slog.Debug("created player", "id", id, "name", name)
+	queries.GameCreate(r.Context(), sqlc.GameCreateParams{})
+	w.WriteHeader(http.StatusOK)
+}
+
 // - POST
 
 // gameHandler handles the '/{game_id}' endpoint
@@ -38,6 +55,10 @@ func rootHandler(w http.ResponseWriter, r *http.Request) {
 // - GET: if no cookie, join, if cookie, get state
 //   - if host: host view
 //   - if player: player view
+func gameHandler(w http.ResponseWriter, r *http.Request) {
+	w.WriteHeader(http.StatusOK)
+	http.ServeFile(w, r, "./static/html/game.html")
+}
 
 // TODO: implement card selection stage of the game between invitation and spin.
 

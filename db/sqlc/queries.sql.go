@@ -357,13 +357,15 @@ func (q *Queries) Player(ctx context.Context, id int32) (Players, error) {
 	return i, err
 }
 
-const playerCreate = `-- name: PlayerCreate :exec
+const playerCreate = `-- name: PlayerCreate :one
 INSERT INTO players (name) VALUES ($1) RETURNING id
 `
 
-func (q *Queries) PlayerCreate(ctx context.Context, name string) error {
-	_, err := q.db.Exec(ctx, playerCreate, name)
-	return err
+func (q *Queries) PlayerCreate(ctx context.Context, name string) (int32, error) {
+	row := q.db.QueryRow(ctx, playerCreate, name)
+	var id int32
+	err := row.Scan(&id)
+	return id, err
 }
 
 const playerDelete = `-- name: PlayerDelete :exec
