@@ -8,9 +8,13 @@ import (
 	"net/http"
 
 	"github.com/grackleclub/postgres"
+	sqlc "github.com/grackleclub/rulette/db/sqlc"
 )
 
-var portDefault = 7777
+var (
+	portDefault = 7777
+	queries     *sqlc.Queries
+)
 
 //go:embed db/schema.sql
 var dbSchema string
@@ -32,6 +36,11 @@ func main() {
 		panic(fmt.Sprintf("create test database: %v", err))
 	}
 	defer close()
+	pool, err := db.Pool(ctx)
+	if err != nil {
+		panic(fmt.Sprintf("create test database pool: %v", err))
+	}
+	queries = sqlc.New(pool)
 	slog.Info("created test database", "db", db)
 
 	slog.Info("starting server", "port", portDefault)

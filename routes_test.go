@@ -7,10 +7,12 @@ import (
 	"testing"
 
 	"github.com/grackleclub/postgres"
+	sqlc "github.com/grackleclub/rulette/db/sqlc"
 	"github.com/stretchr/testify/require"
 )
 
 func TestMain(t *testing.T) {
+	t.Log("setting up db")
 	opts := postgres.PostgresOpts{
 		Host:     "localhost",
 		User:     "postgres",
@@ -25,12 +27,21 @@ func TestMain(t *testing.T) {
 	require.NotNil(t, db)
 	t.Logf("database opened on %s:%s", db.Host, db.Port)
 
-	result, err := db.Conn.ExecContext(ctx, dbSchema)
+	t.Log("creating queries")
+	pool, err := db.Pool(ctx)
 	require.NoError(t, err)
-	t.Log("schema up: ", result)
+	require.NotNil(t, pool)
+	queries = sqlc.New(pool)
+	require.NotNil(t, queries)
+	t.Log("queries created")
 
-	// s := httptest.NewServer(http.HandlerFunc(stateHandler))
-	t.Run("stateHandler test", func(t *testing.T) {
+	t.Run("run migration", func(t *testing.T) {
+		result, err := db.Conn.ExecContext(ctx, dbSchema)
+		require.NoError(t, err)
+		t.Log("schema up: ", result)
+	})
+
+	t.Run("get state", func(t *testing.T) {
 		req := httptest.NewRequest("GET", "/", nil)
 		w := httptest.NewRecorder()
 
