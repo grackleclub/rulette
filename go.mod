@@ -5,6 +5,7 @@ go 1.24.3
 require (
 	github.com/grackleclub/postgres v0.0.3
 	github.com/jackc/pgx/v5 v5.7.5
+	github.com/stretchr/testify v1.10.0
 )
 
 require (
@@ -16,6 +17,7 @@ require (
 	github.com/containerd/log v0.1.0 // indirect
 	github.com/containerd/platforms v0.2.1 // indirect
 	github.com/cpuguy83/dockercfg v0.3.1 // indirect
+	github.com/davecgh/go-spew v1.1.1 // indirect
 	github.com/distribution/reference v0.6.0 // indirect
 	github.com/docker/docker v27.1.1+incompatible // indirect
 	github.com/docker/go-connections v0.5.0 // indirect
@@ -42,11 +44,11 @@ require (
 	github.com/opencontainers/go-digest v1.0.0 // indirect
 	github.com/opencontainers/image-spec v1.1.0 // indirect
 	github.com/pkg/errors v0.9.1 // indirect
+	github.com/pmezard/go-difflib v1.0.0 // indirect
 	github.com/power-devops/perfstat v0.0.0-20210106213030-5aafc221ea8c // indirect
 	github.com/shirou/gopsutil/v3 v3.23.12 // indirect
 	github.com/shoenig/go-m1cpu v0.1.6 // indirect
 	github.com/sirupsen/logrus v1.9.3 // indirect
-	github.com/stretchr/testify v1.10.0 // indirect
 	github.com/testcontainers/testcontainers-go v0.33.0 // indirect
 	github.com/testcontainers/testcontainers-go/modules/postgres v0.33.0 // indirect
 	github.com/tklauser/go-sysconf v0.3.12 // indirect
@@ -60,4 +62,5 @@ require (
 	golang.org/x/sync v0.13.0 // indirect
 	golang.org/x/sys v0.32.0 // indirect
 	golang.org/x/text v0.24.0 // indirect
+	gopkg.in/yaml.v3 v3.0.1 // indirect
 )

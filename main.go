@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	_ "embed"
 	"fmt"
 	"log/slog"
 	"net/http"
@@ -11,10 +12,14 @@ import (
 
 var portDefault = 7777
 
+//go:embed db/schema.sql
+var dbSchema string
+
 func main() {
 	mux := http.NewServeMux()
 	mux.HandleFunc("/state", stateHandler)
 	ctx := context.Background()
+	// TODO: setup
 	opts := postgres.PostgresOpts{
 		Host:     "localhost",
 		User:     "postgres",
