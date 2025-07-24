@@ -40,7 +40,7 @@ type CardCreateParams struct {
 	Type    string      `json:"type"`
 	Front   string      `json:"front"`
 	Back    pgtype.Text `json:"back"`
-	Creator interface{} `json:"creator"`
+	Creator pgtype.Int4 `json:"creator"`
 }
 
 func (q *Queries) CardCreate(ctx context.Context, arg CardCreateParams) error {

@@ -1,6 +1,8 @@
 package main
 
 import (
+	"crypto/sha256"
+	"encoding/hex"
 	"fmt"
 	"log/slog"
 	"net/http"
@@ -58,18 +60,32 @@ func gameHandler(w http.ResponseWriter, r *http.Request) {
 // - POST: create a new game with the requester as host
 func createHandler(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
-	name := "TODO:bobson"
-	// TODO: get host player name
-	id, err := queries.PlayerCreate(r.Context(), name)
-	slog.Debug("found player ID", "id", id, "name", name)
-	// TODO: how the fuck do I get the player ID without RETURNING working?
+	gamename := r.FormValue("gamename")
+	if gamename == "" {
+		http.Error(w, "missing required field: gamename", http.StatusBadRequest)
+		return
+	}
+	username := r.FormValue("username")
+	if username == "" {
+		http.Error(w, "missing required field: username", http.StatusBadRequest)
+		return
+	}
+	id, err := queries.PlayerCreate(r.Context(), username)
+	slog.Debug("createHandler made new user", "id", id, "username", username)
 	if err != nil {
-		slog.Error("create player", "error", err, "name", name)
+		slog.Error("create player", "error", err, "username", username)
 		http.Error(w, "Bad Request", http.StatusBadRequest)
 		return
 	}
-	slog.Debug("created player", "name", name)
-	err = queries.GameCreate(r.Context(), sqlc.GameCreateParams{})
+	slog.Debug("created player", "name", username)
+	hash := sha256.Sum256([]byte(gamename))
+	shortHash := hex.EncodeToString(hash[:3])
+	slog.Debug("short hash for game name", "gamename", gamename, "hash", shortHash)
+	err = queries.GameCreate(r.Context(), sqlc.GameCreateParams{
+		Name:    gamename,
+		OwnerID: id,
+		ID:      string(shortHash),
+	})
 	if err != nil {
 		slog.Error("create game", "error", err)
 		http.Error(w, "Bad Request", http.StatusBadRequest)

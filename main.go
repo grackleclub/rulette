@@ -28,6 +28,7 @@ func main() {
 	mux.HandleFunc("/{game_id}/flip/{card_id}", flipHandler)
 	mux.HandleFunc("/{game_id}/shred/{card_id}", shredHandler)
 	mux.HandleFunc("/{game_id}/clone/{card_id}", cloneHandler)
+	mux.HandleFunc("/create", createHandler)
 
 	// use debug slog handler
 	slog.SetLogLoggerLevel(slog.LevelDebug)
@@ -50,8 +51,13 @@ func main() {
 		panic(fmt.Sprintf("create test database pool: %v", err))
 	}
 	queries = sqlc.New(pool)
-	slog.Info("created test database", "db", db)
+	slog.Info("created test database and sqlc queries", "db", db)
 
+	_, err = db.Conn.ExecContext(ctx, dbSchema)
+	if err != nil {
+		slog.Error("schema migration", "error", err)
+		panic(fmt.Sprintf("schema migration: %v", err))
+	}
 	slog.Info("starting server", "port", portDefault)
 	http.ListenAndServe(fmt.Sprintf(":%d", portDefault), mux)
 
