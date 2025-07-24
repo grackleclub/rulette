@@ -4,16 +4,30 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Create a New Game</title>
+    <script src="https://unpkg.com/htmx.org"></script>
     <!-- <link rel="stylesheet" href="style.css"> -->
   </head>
   <body>
+    <section>
+      <h1>Rulette</h1>
+      <small>
+	<p>
+	  A rule building game based on Season 7, Episode 7 of Game Changer on [dropout.tv](https://dropout.tv).
+	</p>
+      </small>
     <!-- <script src="index.js"></script> -->
-    <form action="/create" method="POST">
-	<label for="gamename">Game name:</label>
-	<input type="text" id="gamename" name="gamename" required />
-        <label for="username">Provide your own username:</label>
-        <input type="text" id="username" name="username" required />
-        <input type="submit" value="Create Game" />
+	<!--    <form action="/create" method="POST"> -->
+	<!-- <label for="gamename">Game name:</label> -->
+	<!-- <input type="text" id="gamename" name="gamename" required /> -->
+	<!--        <label for="username">Provide your own username:</label> -->
+	<!--        <input type="text" id="username" name="username" required /> -->
+	<!--        <input type="submit" value="Create Game" /> -->
+	<!--    </form> -->
+    <form action="/create" method="POST" hx-post="/create" hx-target="#result" hx-swap="innerHTML">
+      <div id="result">
+	<label for="gamename">Game name:</label> <input type="text" id="gamename" name="gamename" required /> <label for="username">Enter your username:</label> <input type="text" id="username" name="username" required />
+	<input type="submit" value="Create Game" />
+      </div>
     </form>
     <!-- <input type="submit" value="Send Request" /> -->
     <!-- <button id="create-game">Create Game</button> -->
