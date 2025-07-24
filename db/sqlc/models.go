@@ -48,8 +48,8 @@ type GameStates struct {
 }
 
 type Games struct {
-	Name              string           `json:"name"`
 	ID                string           `json:"id"`
+	Name              string           `json:"name"`
 	Created           pgtype.Timestamp `json:"created"`
 	OwnerID           int32            `json:"owner_id"`
 	State             string           `json:"state"`

@@ -12,10 +12,10 @@
       <h1>Rulette</h1>
       <small>
 	<p>
-	  A rule building game based on Season 7, Episode 7 of Game Changer on [dropout.tv](https://dropout.tv).
+	  A rule building game based on Season 7, Episode 7 of Game Changer on <a href="https://www.dropout.tv/">DropoutTV</a>.
 	</p>
       </small>
-    <!-- <script src="index.js"></script> -->
+	<!-- <script src="index.js"></script> -->
 	<!--    <form action="/create" method="POST"> -->
 	<!-- <label for="gamename">Game name:</label> -->
 	<!-- <input type="text" id="gamename" name="gamename" required /> -->
@@ -25,7 +25,10 @@
 	<!--    </form> -->
     <form action="/create" method="POST" hx-post="/create" hx-target="#result" hx-swap="innerHTML">
       <div id="result">
-	<label for="gamename">Game name:</label> <input type="text" id="gamename" name="gamename" required /> <label for="username">Enter your username:</label> <input type="text" id="username" name="username" required />
+	<label for="gamename">Game name:</label>
+	<input type="text" id="gamename" name="gamename" required />
+	<label for="username">Enter your username:</label>
+	<input type="text" id="username" name="username" required />
 	<input type="submit" value="Create Game" />
       </div>
     </form>

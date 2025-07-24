@@ -93,7 +93,7 @@ func createHandler(w http.ResponseWriter, r *http.Request) {
 	// return game ID as html response
 	w.WriteHeader(http.StatusCreated)
 	w.Header().Set("Content-Type", "text/html")
-	// TODO: use templates?
+	// TODO: use templates.
 	response := fmt.Sprintf(
 		"<p>Game '%s' (%s) created by user '%s'</p>",
 		gamename, shortHash, username,

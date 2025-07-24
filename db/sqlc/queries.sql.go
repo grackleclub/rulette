@@ -257,15 +257,15 @@ func (q *Queries) GamePlayerPoints(ctx context.Context, gameID string) ([]GamePl
 }
 
 const gameState = `-- name: GameState :one
-SELECT name, id, created, owner_id, state, initiative_current FROM games WHERE id = $1
+SELECT id, name, created, owner_id, state, initiative_current FROM games WHERE id = $1
 `
 
 func (q *Queries) GameState(ctx context.Context, id string) (Games, error) {
 	row := q.db.QueryRow(ctx, gameState, id)
 	var i Games
 	err := row.Scan(
-		&i.Name,
 		&i.ID,
+		&i.Name,
 		&i.Created,
 		&i.OwnerID,
 		&i.State,
@@ -275,7 +275,7 @@ func (q *Queries) GameState(ctx context.Context, id string) (Games, error) {
 }
 
 const games = `-- name: Games :many
-SELECT name, id, created, owner_id, state, initiative_current FROM games WHERE id = (
+SELECT id, name, created, owner_id, state, initiative_current FROM games WHERE id = (
 	SELECT game_id 
 	FROM game_players
 	WHERE player_id = $1
@@ -292,8 +292,8 @@ func (q *Queries) Games(ctx context.Context, playerID int32) ([]Games, error) {
 	for rows.Next() {
 		var i Games
 		if err := rows.Scan(
-			&i.Name,
 			&i.ID,
+			&i.Name,
 			&i.Created,
 			&i.OwnerID,
 			&i.State,
