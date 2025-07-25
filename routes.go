@@ -1,6 +1,7 @@
 package main
 
 import (
+	"bytes"
 	"crypto/sha256"
 	"encoding/hex"
 	"fmt"
@@ -8,33 +9,23 @@ import (
 	"net/http"
 	"strconv"
 	"strings"
+	"text/template"
+	"time"
 
 	sqlc "github.com/grackleclub/rulette/db/sqlc"
 	"github.com/jackc/pgx/v5/pgtype"
 )
 
-// func stateHandler(w http.ResponseWriter, r *http.Request) {
-// 	w.Header().Set("Content-Type", "application/json")
-// 	w.WriteHeader(http.StatusOK)
-//
-// 	result, err := queries.Games(r.Context(), 1)
-// 	if err != nil {
-// 		slog.Error("failed to get games", "error", err)
-// 		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
-// 		return
-// 	}
-// 	slog.Info("retrieved games", "count", len(result), "result", result)
-// 	response := `{"status": "okey dokey"}`
-// 	if _, err := w.Write([]byte(response)); err != nil {
-// 		slog.Error("failed to write response", "error", err)
-// 	}
-// }
-
-// rootHandler
-// - GET: show make game button that can POST to /create
+// rootHandler provides the initial welcome page (index.html),
+// from which a user can start a new game with a POST to /create.
 func rootHandler(w http.ResponseWriter, r *http.Request) {
 	slog.Debug("rootHandler called", "path", r.URL.Path)
-	http.ServeFile(w, r, "./static/html/index.html")
+	file, err := static.ReadFile("static/html/index.html")
+	if err != nil {
+		http.Error(w, "server error", http.StatusInternalServerError)
+		return
+	}
+	http.ServeContent(w, r, "index.html", time.Now(), bytes.NewReader(file))
 }
 
 // gameHandler handles the '/{game_id}' endpoint
@@ -59,7 +50,10 @@ func gameHandler(w http.ResponseWriter, r *http.Request) {
 // createHandler handles the '/create' endpoint to make a new game with requester as host.
 // - POST: create a new game with the requester as host
 func createHandler(w http.ResponseWriter, r *http.Request) {
-	w.Header().Set("Content-Type", "application/json")
+	if r.Method != http.MethodPost {
+		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
 	gamename := r.FormValue("gamename")
 	if gamename == "" {
 		http.Error(w, "missing required field: gamename", http.StatusBadRequest)
@@ -74,7 +68,7 @@ func createHandler(w http.ResponseWriter, r *http.Request) {
 	slog.Debug("createHandler made new user", "id", id, "username", username)
 	if err != nil {
 		slog.Error("create player", "error", err, "username", username)
-		http.Error(w, "Bad Request", http.StatusBadRequest)
+		http.Error(w, "bad request", http.StatusBadRequest)
 		return
 	}
 	slog.Debug("created player", "name", username)
@@ -88,17 +82,43 @@ func createHandler(w http.ResponseWriter, r *http.Request) {
 	})
 	if err != nil {
 		slog.Error("create game", "error", err)
-		http.Error(w, "Bad Request", http.StatusBadRequest)
+		http.Error(w, "bad request", http.StatusBadRequest)
 	}
 	// return game ID as html response
 	w.WriteHeader(http.StatusCreated)
 	w.Header().Set("Content-Type", "text/html")
 	// TODO: use templates.
-	response := fmt.Sprintf(
-		"<p>Game '%s' (%s) created by user '%s'</p>",
-		gamename, shortHash, username,
-	)
-	w.Write([]byte(response))
+	templateFilepath := "static/html/join.html.tmpl"
+	tmplData, err := static.ReadFile(templateFilepath)
+	if err != nil {
+		slog.Error("read template file",
+			"error", err,
+			"filepath", templateFilepath,
+		)
+		http.Error(w, "internal server error", http.StatusInternalServerError)
+		return
+	}
+	tmpl, err := template.New("join").Parse(string(tmplData))
+	if err != nil {
+		slog.Error("parse template",
+			"error", err,
+			"template", templateFilepath)
+		http.Error(w, "internal server error", http.StatusInternalServerError)
+		return
+	}
+	err = tmpl.Execute(w, map[string]interface{}{
+		"game_id":   shortHash,
+		"game_name": gamename,
+	})
+	if err != nil {
+		slog.Error("execute template",
+			"error", err,
+			"template", templateFilepath,
+			"game_id", shortHash,
+		)
+		http.Error(w, "internal server error", http.StatusInternalServerError)
+		return
+	}
 }
 
 // TODO: implement card selection stage of the game between invitation and spin.

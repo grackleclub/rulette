@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"embed"
 	_ "embed"
 	"fmt"
 	"log/slog"
@@ -18,6 +19,9 @@ var (
 
 //go:embed db/schema.sql
 var dbSchema string
+
+//go:embed static
+var static embed.FS
 
 func main() {
 	mux := http.NewServeMux()
