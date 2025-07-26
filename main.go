@@ -25,14 +25,14 @@ var static embed.FS
 
 func main() {
 	mux := http.NewServeMux()
-	mux.HandleFunc("/", rootHandler)
+	mux.Handle("/", logMW(http.HandlerFunc(rootHandler)))
+	mux.Handle("/create", logMW(http.HandlerFunc(createHandler)))
 	mux.HandleFunc("/{game_id}", gameHandler)
 	mux.HandleFunc("/{game_id}/spin/{card_id}", spinHandler)
 	mux.HandleFunc("/{game_id}/transfer/{card_id}", transferHandler)
 	mux.HandleFunc("/{game_id}/flip/{card_id}", flipHandler)
 	mux.HandleFunc("/{game_id}/shred/{card_id}", shredHandler)
 	mux.HandleFunc("/{game_id}/clone/{card_id}", cloneHandler)
-	mux.HandleFunc("/create", createHandler)
 
 	// use debug slog handler
 	slog.SetLogLoggerLevel(slog.LevelDebug)

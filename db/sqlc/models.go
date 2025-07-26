@@ -39,11 +39,13 @@ type GamePlayers struct {
 	GameID     string           `json:"game_id"`
 	PlayerID   int32            `json:"player_id"`
 	Points     pgtype.Int4      `json:"points"`
+	SessionKey pgtype.Text      `json:"session_key"`
 	Joined     pgtype.Timestamp `json:"joined"`
 	Initiative pgtype.Int4      `json:"initiative"`
 }
 
 type GameStates struct {
+	ID   int32  `json:"id"`
 	Name string `json:"name"`
 }
 
@@ -52,7 +54,7 @@ type Games struct {
 	Name              string           `json:"name"`
 	Created           pgtype.Timestamp `json:"created"`
 	OwnerID           int32            `json:"owner_id"`
-	State             string           `json:"state"`
+	StateID           int32            `json:"state_id"`
 	InitiativeCurrent pgtype.Int4      `json:"initiative_current"`
 }
 

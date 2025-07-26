@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"log/slog"
 	"net/http"
+	"path"
 	"strconv"
 	"strings"
 	"text/template"
@@ -26,25 +27,6 @@ func rootHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	http.ServeContent(w, r, "index.html", time.Now(), bytes.NewReader(file))
-}
-
-// gameHandler handles the '/{game_id}' endpoint
-// This endpoint serves as a lobby pregame, and for primary play.
-// - GET: if no cookie, join, if cookie, get state
-//   - if host: host view
-//   - if player: player view
-func gameHandler(w http.ResponseWriter, r *http.Request) {
-	slog.Debug("gameHandler called", "path", r.URL.Path)
-	gameID := strings.Replace(r.URL.Path, "/", "", 1)
-	results, err := queries.GameState(r.Context(), fmt.Sprintf("/%s", gameID))
-	// TODO: check len of results?
-	if err != nil {
-		slog.Warn("fetch attempt to non-existent game", "error", err, "game_id", gameID)
-		http.Error(w, "Game not found", http.StatusNotFound)
-		return
-	}
-	slog.Debug("loading game page", "game_id", gameID, "results", results)
-	http.ServeFile(w, r, "./static/html/game.html")
 }
 
 // createHandler handles the '/create' endpoint to make a new game with requester as host.
@@ -84,6 +66,13 @@ func createHandler(w http.ResponseWriter, r *http.Request) {
 		slog.Error("create game", "error", err)
 		http.Error(w, "bad request", http.StatusBadRequest)
 	}
+	// TODO: store cookie in db and have it be more secure.
+	http.SetCookie(w, &http.Cookie{
+		Name:  "session",
+		Value: fmt.Sprintf("%v:%s", id, shortHash), // FIXME: insecure
+		Path:  fmt.Sprintf("/%s", shortHash),
+		// Path: "/",
+	})
 	// return game ID as html response
 	w.WriteHeader(http.StatusCreated)
 	w.Header().Set("Content-Type", "text/html")
@@ -134,6 +123,65 @@ func createHandler(w http.ResponseWriter, r *http.Request) {
 // {game_id}/cards/{card_id}/{action}?ake
 // PATCH, PATCH, DELETE, POST
 // transfer, flip, shred, clone
+
+// gameHandler handles the '/{game_id}' endpoint
+// This endpoint serves as a lobby pregame, and for primary play.
+// - GET: if no cookie, join, if cookie, get state
+//   - if host: host view
+//   - if player: player view
+func gameHandler(w http.ResponseWriter, r *http.Request) {
+	gameID := strings.Replace(r.URL.Path, "/", "", 1)
+	// for _, cookie := range r.Cookies() {
+	// 	slog.Debug("cookie found", "name", cookie.Name, "value", cookie.Value)
+	// }
+	cookie, err := r.Cookie("session")
+	if err != nil {
+		slog.Debug("no session cookie found", "error", err)
+		// TODO: enforce conditionally on game status
+	} else {
+		slog.Debug("session cookie found",
+			"cookie", cookie.Value,
+			"game_id", gameID,
+		)
+	}
+	results, err := queries.GameState(r.Context(), gameID)
+	// TODO: check len of results?
+	if err != nil {
+		slog.Warn("game not found", "error", err, "game_id", gameID)
+		http.Error(w, "game not found", http.StatusNotFound)
+		return
+	}
+	slog.Debug("loading game page", "game_id", gameID, "results", results)
+	// first join
+	// results.State
+
+	filepath := path.Join("static", "html", "game.html.tmpl")
+	tmpl, err := readParse(static, filepath)
+	if err != nil {
+		slog.Error("read and parse template",
+			"error", err,
+			"template", filepath,
+		)
+		http.Error(w, "internal server error", http.StatusInternalServerError)
+		return
+	}
+	err = tmpl.Execute(w, map[string]interface{}{
+		"game_id":            gameID,
+		"game_name":          results.Name,
+		"game_state":         results.StateName,
+		"owner_id":           results.OwnerID,
+		"initiative_current": results.InitiativeCurrent,
+	})
+	if err != nil {
+		slog.Error("execute template",
+			"error", err,
+			"template", filepath,
+			"game_id", gameID,
+		)
+		http.Error(w, "internal server error", http.StatusInternalServerError)
+		return
+	}
+}
 
 func spinHandler(w http.ResponseWriter, r *http.Request) {
 	slog.Debug("spinHandler called", "path", r.URL.Path)

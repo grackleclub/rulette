@@ -189,17 +189,19 @@ func (q *Queries) GameDelete(ctx context.Context, id string) error {
 }
 
 const gamePlayerCreate = `-- name: GamePlayerCreate :exec
-INSERT INTO game_players (game_id, player_id)
-VALUES ($1, $2)
+INSERT INTO game_players (game_id, player_id, session_key)
+VALUES ($1, $2, $3)
 `
 
 type GamePlayerCreateParams struct {
-	GameID   string `json:"game_id"`
-	PlayerID int32  `json:"player_id"`
+	GameID     string      `json:"game_id"`
+	PlayerID   int32       `json:"player_id"`
+	SessionKey pgtype.Text `json:"session_key"`
 }
 
+// session_key is expected to be valid for the duration of the game
 func (q *Queries) GamePlayerCreate(ctx context.Context, arg GamePlayerCreateParams) error {
-	_, err := q.db.Exec(ctx, gamePlayerCreate, arg.GameID, arg.PlayerID)
+	_, err := q.db.Exec(ctx, gamePlayerCreate, arg.GameID, arg.PlayerID, arg.SessionKey)
 	return err
 }
 
@@ -257,25 +259,45 @@ func (q *Queries) GamePlayerPoints(ctx context.Context, gameID string) ([]GamePl
 }
 
 const gameState = `-- name: GameState :one
-SELECT id, name, created, owner_id, state, initiative_current FROM games WHERE id = $1
+SELECT
+    id,
+    name,
+    owner_id,
+    state_id,
+    initiative_current,
+    (
+        SELECT name
+        FROM game_states
+        WHERE game_states.id = state_id
+    ) AS state_name
+FROM games WHERE games.id = $1
 `
 
-func (q *Queries) GameState(ctx context.Context, id string) (Games, error) {
+type GameStateRow struct {
+	ID                string      `json:"id"`
+	Name              string      `json:"name"`
+	OwnerID           int32       `json:"owner_id"`
+	StateID           int32       `json:"state_id"`
+	InitiativeCurrent pgtype.Int4 `json:"initiative_current"`
+	StateName         string      `json:"state_name"`
+}
+
+func (q *Queries) GameState(ctx context.Context, id string) (GameStateRow, error) {
 	row := q.db.QueryRow(ctx, gameState, id)
-	var i Games
+	var i GameStateRow
 	err := row.Scan(
 		&i.ID,
 		&i.Name,
-		&i.Created,
 		&i.OwnerID,
-		&i.State,
+		&i.StateID,
 		&i.InitiativeCurrent,
+		&i.StateName,
 	)
 	return i, err
 }
 
 const games = `-- name: Games :many
-SELECT id, name, created, owner_id, state, initiative_current FROM games WHERE id = (
+SELECT id, name, created, owner_id, state_id, initiative_current FROM games WHERE id = (
 	SELECT game_id 
 	FROM game_players
 	WHERE player_id = $1
@@ -296,7 +318,7 @@ func (q *Queries) Games(ctx context.Context, playerID int32) ([]Games, error) {
 			&i.Name,
 			&i.Created,
 			&i.OwnerID,
-			&i.State,
+			&i.StateID,
 			&i.InitiativeCurrent,
 		); err != nil {
 			return nil, err

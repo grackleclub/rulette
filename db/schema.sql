@@ -5,7 +5,8 @@ CREATE TABLE IF NOT EXISTS players (
 );
 
 CREATE TABLE IF NOT EXISTS game_states (
-	name TEXT NOT NULL PRIMARY KEY
+	id INTEGER PRIMARY KEY,
+	name TEXT NOT NULL
 );
 
 CREATE TABLE IF NOT EXISTS games (
@@ -13,27 +14,27 @@ CREATE TABLE IF NOT EXISTS games (
 	name TEXT NOT NULL,
 	created TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
 	owner_id INTEGER NOT NULL,
-	state TEXT NOT NULL DEFAULT 'created',
-	initiative_current INTEGER DEFAULT 0, 
+	state_id INTEGER NOT NULL DEFAULT 0,
+	initiative_current INTEGER DEFAULT 0, -- TODO: is this used?
 	FOREIGN KEY (owner_id) REFERENCES players(id) ON DELETE CASCADE,
-	FOREIGN KEY (state) REFERENCES game_states(name) ON DELETE CASCADE
+	FOREIGN KEY (state_id) REFERENCES game_states(id)
 );
 
-INSERT INTO game_states (name)
+INSERT INTO game_states (id, name)
 VALUES
-	('created'),
-	('inviting'),
-	('ready'), -- not yet started
-	('turn'), --player turn, spin wheel
-	('challenge'), -- pause for points adjustment
-	('end')
+	(0, 'created'),
+	(1, 'inviting'),
+	(2, 'ready'), -- not yet started
+	(3, 'turn'), --player turn, spin wheel
+	(4, 'challenge'), -- pause for points adjustment
+	(5, 'end')
 ;
-
 
 CREATE TABLE IF NOT EXISTS game_players (
 	game_id VARCHAR(6) NOT NULL,
 	player_id INTEGER NOT NULL,
 	points INTEGER DEFAULT 20,
+	session_key TEXT,
 	-- is_host BOOLEAN DEFAULT FALSE, -- TODO: maybe just say that host is initiative 0?
 	joined TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
 	initiative INTEGER,

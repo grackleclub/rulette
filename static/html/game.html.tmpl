@@ -7,8 +7,25 @@
     <!-- <link rel="stylesheet" href="style.css"> -->
   </head>
   <body>
+    <style>
+      * { border: 1px dotted black; }
+    </style>
     <!-- <script src="index.js"></script> -->
 
+    <section id="title">
+      <h1>{{ .game_name }}</h1>
+      <p>
+        <small>
+          <a href="/{{ .game_id }}">share link</a> |
+        </small>
+      </p>
+    </section>
+
+    <section id="initiative">
+      <p>{{ .game_state }}</p>
+    </section>
+
+    <!--
     <section>
       <h2>Wheel</h2>
       <button id="spin">Spin</button>
@@ -18,13 +35,12 @@
 
     <section>
       <h2>Players</h2>
-      <div id="{{player_id}}">
-        <h3>{{player_name}}</h3>
-        <h3>{{player_points}}</h3>
-        <!-- iterate this for every rule -->
+      <div id="{{ .player_id }}">
+        <h3>{player_name}</h3>
+        <h3>{player_points}</h3>
         <ul>
-          <li id="{{rule_id}}">
-            {{rule_text}} <button id="accuse.{{rule_id}}">accuse</button>
+          <li id="{ .rule_id }">
+            { .rule_text } <button id="accuse.{ .rule_id }">accuse</button>
           </li>
         </ul>
       </div>
@@ -33,13 +49,14 @@
     <section>
       <h2>Log</h2>
       <ol>
-        <li id="log.{{log_id}}">
-          {{log_text}} 
-          <button id="guilty.{{rule_id}}">guilty</button> 
-          <button id="innocent.{{rule_id}}">innocent</button>
+        <li id="log.{ .log }">
+          {log_text} 
+          <button id="guilty.{rule_id}">guilty</button> 
+          <button id="innocent.{rule_id}">innocent</button>
        </li>
       </ol>
     <section>
+    -->
   </body>
 </html>
 

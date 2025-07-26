@@ -35,7 +35,18 @@ SELECT * FROM games WHERE id = (
 DELETE FROM games WHERE id = $1;
 
 -- name: GameState :one
-SELECT * FROM games WHERE id = $1;
+SELECT
+    id,
+    name,
+    owner_id,
+    state_id,
+    initiative_current,
+    (
+        SELECT name
+        FROM game_states
+        WHERE game_states.id = state_id
+    ) AS state_name
+FROM games WHERE games.id = $1;
 
 -- GameCardCreate
 
@@ -99,9 +110,10 @@ SET shredded = true
 WHERE id IN (SELECT id FROM cte);
 
 
+-- session_key is expected to be valid for the duration of the game
 -- name: GamePlayerCreate :exec
-INSERT INTO game_players (game_id, player_id)
-VALUES ($1, $2);
+INSERT INTO game_players (game_id, player_id, session_key)
+VALUES ($1, $2, $3);
 
 -- name: GamePlayerDelete :exec
 DELETE FROM game_players 
