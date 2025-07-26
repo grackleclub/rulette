@@ -24,6 +24,11 @@ INSERT INTO games (name, id, owner_id)
 VALUES ($1, $2, $3)
 RETURNING id;
 
+-- name: GameUpdate :exec
+UPDATE games
+SET state_id = $1, initiative_current = $2
+WHERE id = $3;
+
 -- name: Games :many
 SELECT * FROM games WHERE id = (
 	SELECT game_id 
@@ -45,7 +50,12 @@ SELECT
         SELECT name
         FROM game_states
         WHERE game_states.id = state_id
-    ) AS state_name
+    ) AS state_name,
+    (
+        SELECT COUNT(player_id)
+        FROM game_players
+        WHERE game_players.game_id = games.id
+    ) AS player_count
 FROM games WHERE games.id = $1;
 
 -- GameCardCreate
@@ -123,8 +133,10 @@ WHERE game_id = $1
 -- name: GamePlayerPoints :many
 -- TODO: is id=player_id correct?
 SELECT 
+        player_id,
 	(SELECT name FROM players WHERE id=player_id) AS name, 
 	points,
+        session_key,
 	initiative
 FROM game_players 
 WHERE game_id = $1

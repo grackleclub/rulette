@@ -169,9 +169,9 @@ RETURNING id
 `
 
 type GameCreateParams struct {
-	Name    string `json:"name"`
-	ID      string `json:"id"`
-	OwnerID int32  `json:"owner_id"`
+	Name    string      `json:"name"`
+	ID      string      `json:"id"`
+	OwnerID pgtype.Int4 `json:"owner_id"`
 }
 
 func (q *Queries) GameCreate(ctx context.Context, arg GameCreateParams) error {
@@ -223,8 +223,10 @@ func (q *Queries) GamePlayerDelete(ctx context.Context, arg GamePlayerDeletePara
 
 const gamePlayerPoints = `-- name: GamePlayerPoints :many
 SELECT 
+        player_id,
 	(SELECT name FROM players WHERE id=player_id) AS name, 
 	points,
+        session_key,
 	initiative
 FROM game_players 
 WHERE game_id = $1
@@ -232,8 +234,10 @@ ORDER BY initiative ASC
 `
 
 type GamePlayerPointsRow struct {
+	PlayerID   int32       `json:"player_id"`
 	Name       string      `json:"name"`
 	Points     pgtype.Int4 `json:"points"`
+	SessionKey pgtype.Text `json:"session_key"`
 	Initiative pgtype.Int4 `json:"initiative"`
 }
 
@@ -247,7 +251,13 @@ func (q *Queries) GamePlayerPoints(ctx context.Context, gameID string) ([]GamePl
 	var items []GamePlayerPointsRow
 	for rows.Next() {
 		var i GamePlayerPointsRow
-		if err := rows.Scan(&i.Name, &i.Points, &i.Initiative); err != nil {
+		if err := rows.Scan(
+			&i.PlayerID,
+			&i.Name,
+			&i.Points,
+			&i.SessionKey,
+			&i.Initiative,
+		); err != nil {
 			return nil, err
 		}
 		items = append(items, i)
@@ -269,17 +279,23 @@ SELECT
         SELECT name
         FROM game_states
         WHERE game_states.id = state_id
-    ) AS state_name
+    ) AS state_name,
+    (
+        SELECT COUNT(player_id)
+        FROM game_players
+        WHERE game_players.game_id = games.id
+    ) AS player_count
 FROM games WHERE games.id = $1
 `
 
 type GameStateRow struct {
 	ID                string      `json:"id"`
 	Name              string      `json:"name"`
-	OwnerID           int32       `json:"owner_id"`
+	OwnerID           pgtype.Int4 `json:"owner_id"`
 	StateID           int32       `json:"state_id"`
 	InitiativeCurrent pgtype.Int4 `json:"initiative_current"`
 	StateName         string      `json:"state_name"`
+	PlayerCount       int64       `json:"player_count"`
 }
 
 func (q *Queries) GameState(ctx context.Context, id string) (GameStateRow, error) {
@@ -292,8 +308,26 @@ func (q *Queries) GameState(ctx context.Context, id string) (GameStateRow, error
 		&i.StateID,
 		&i.InitiativeCurrent,
 		&i.StateName,
+		&i.PlayerCount,
 	)
 	return i, err
+}
+
+const gameUpdate = `-- name: GameUpdate :exec
+UPDATE games
+SET state_id = $1, initiative_current = $2
+WHERE id = $3
+`
+
+type GameUpdateParams struct {
+	StateID           int32       `json:"state_id"`
+	InitiativeCurrent pgtype.Int4 `json:"initiative_current"`
+	ID                string      `json:"id"`
+}
+
+func (q *Queries) GameUpdate(ctx context.Context, arg GameUpdateParams) error {
+	_, err := q.db.Exec(ctx, gameUpdate, arg.StateID, arg.InitiativeCurrent, arg.ID)
+	return err
 }
 
 const games = `-- name: Games :many

@@ -2,20 +2,28 @@ package main
 
 import (
 	"bytes"
-	"crypto/sha256"
+	"crypto/rand"
 	"encoding/hex"
 	"fmt"
 	"log/slog"
+	"math"
+	mathrand "math/rand"
 	"net/http"
 	"path"
 	"strconv"
 	"strings"
-	"text/template"
 	"time"
 
 	sqlc "github.com/grackleclub/rulette/db/sqlc"
 	"github.com/jackc/pgx/v5/pgtype"
 )
+
+const (
+	sessionCookieName = "session"
+	secretLength      = 32 // crypto/rand
+)
+
+var gameNameSeedLength = int(math.Pow(2, 16)) // math/rand
 
 // rootHandler provides the initial welcome page (index.html),
 // from which a user can start a new game with a POST to /create.
@@ -41,88 +49,149 @@ func createHandler(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "missing required field: gamename", http.StatusBadRequest)
 		return
 	}
-	username := r.FormValue("username")
-	if username == "" {
-		http.Error(w, "missing required field: username", http.StatusBadRequest)
-		return
-	}
-	id, err := queries.PlayerCreate(r.Context(), username)
-	slog.Debug("createHandler made new user", "id", id, "username", username)
-	if err != nil {
-		slog.Error("create player", "error", err, "username", username)
-		http.Error(w, "bad request", http.StatusBadRequest)
-		return
-	}
-	slog.Debug("created player", "name", username)
-	hash := sha256.Sum256([]byte(gamename))
-	shortHash := hex.EncodeToString(hash[:3])
-	slog.Debug("short hash for game name", "gamename", gamename, "hash", shortHash)
-	err = queries.GameCreate(r.Context(), sqlc.GameCreateParams{
-		Name:    gamename,
-		OwnerID: id,
-		ID:      string(shortHash),
+
+	// construct random hex game identifier and create new game
+	gamecode := fmt.Sprintf("%06x", mathrand.Intn(0xffffff+1))
+	slog.Debug("short hash for game name", "gamename", gamename, "hash", gamecode)
+	err := queries.GameCreate(r.Context(), sqlc.GameCreateParams{
+		Name: gamename,
+		ID:   string(gamecode),
 	})
 	if err != nil {
 		slog.Error("create game", "error", err)
 		http.Error(w, "bad request", http.StatusBadRequest)
 	}
-	// TODO: store cookie in db and have it be more secure.
-	http.SetCookie(w, &http.Cookie{
-		Name:  "session",
-		Value: fmt.Sprintf("%v:%s", id, shortHash), // FIXME: insecure
-		Path:  fmt.Sprintf("/%s", shortHash),
-		// Path: "/",
-	})
+
 	// return game ID as html response
 	w.WriteHeader(http.StatusCreated)
 	w.Header().Set("Content-Type", "text/html")
-	// TODO: use templates.
-	templateFilepath := "static/html/join.html.tmpl"
-	tmplData, err := static.ReadFile(templateFilepath)
-	if err != nil {
-		slog.Error("read template file",
-			"error", err,
-			"filepath", templateFilepath,
-		)
-		http.Error(w, "internal server error", http.StatusInternalServerError)
-		return
-	}
-	tmpl, err := template.New("join").Parse(string(tmplData))
-	if err != nil {
-		slog.Error("parse template",
-			"error", err,
-			"template", templateFilepath)
-		http.Error(w, "internal server error", http.StatusInternalServerError)
-		return
-	}
+	templateFilepath := path.Join("static", "html", "join.html.tmpl")
+	tmpl, err := readParse(static, templateFilepath)
 	err = tmpl.Execute(w, map[string]interface{}{
-		"game_id":   shortHash,
+		"game_id":   gamecode,
 		"game_name": gamename,
 	})
 	if err != nil {
 		slog.Error("execute template",
 			"error", err,
 			"template", templateFilepath,
-			"game_id", shortHash,
+			"game_id", gamecode,
 		)
 		http.Error(w, "internal server error", http.StatusInternalServerError)
 		return
 	}
 }
 
-// TODO: implement card selection stage of the game between invitation and spin.
+func joinHandler(w http.ResponseWriter, r *http.Request) {
+	trimmed := strings.Trim(r.URL.Path, "/") // remove leading slash
+	parts := strings.Split(trimmed, "/")
+	if len(parts) != 2 {
+		slog.Debug("invalid join path", "path", r.URL.Path)
+		http.Error(w, "bad request", http.StatusBadRequest)
+		return
+	}
+	gameID := parts[0]
+	slog.With("handler", "joinHandler", "game_id", gameID)
 
-// {game_id}/spin
-// - POST: spin the wheel, update game state
-// {game_id}/accuse?accuser_id={accuser_id}&defendant_id={defendant_id}&rule_id={rule_id}
-// - POST:
-// {game_id}/judge?infraction_id={infraction_id}&verdict={verdict}
-//{game_id}/
-//
+	// require username
+	username := r.FormValue("username")
+	if username == "" {
+		http.Error(w, "missing required field: username", http.StatusBadRequest)
+		return
+	}
 
-// {game_id}/cards/{card_id}/{action}?ake
-// PATCH, PATCH, DELETE, POST
-// transfer, flip, shred, clone
+	// fetch game state
+	game, err := queries.GameState(r.Context(), gameID)
+	if err != nil {
+		slog.Warn("game not found", "error", err)
+		http.Error(w, "game not found", http.StatusNotFound)
+		return
+	}
+	switch game.StateID {
+	case 5:
+		slog.Info("join attempt to closed game")
+		http.Error(w, "game over", http.StatusGone)
+		return
+
+	case 4, 3, 2:
+		slog.Info("join attempt to game in progress",
+			"state_id", game.StateID,
+			"state_name", game.StateName,
+		)
+		http.Error(w, "game in progress", http.StatusConflict)
+		return
+	case 1, 0:
+		// first join updates state from 'created' to 'inviting'
+		if game.StateID == 0 {
+			slog.Debug("created game has first join, updating state to inviting")
+			err := queries.GameUpdate(r.Context(), sqlc.GameUpdateParams{
+				StateID:           1,
+				InitiativeCurrent: pgtype.Int4{Int32: 0, Valid: true},
+				ID:                gameID,
+			})
+			if err != nil {
+				slog.Error("update game from created to inviting", "error", err)
+				http.Error(w, "internal server error", http.StatusInternalServerError)
+				return
+			}
+		}
+		// check for active players
+		players, err := queries.GamePlayerPoints(r.Context(), gameID)
+		if err != nil {
+			slog.Error("failed to get game players",
+				"error", err,
+				"game_id", gameID,
+			)
+			http.Error(w, "internal server error", http.StatusInternalServerError)
+			return
+		}
+		// enforce no duplicate player names
+		for _, player := range players {
+			if player.Name == username {
+				slog.Debug("player already exists in game",
+					"game_id", gameID,
+					"username", username,
+				)
+				http.Error(w, "player already exists in game", http.StatusConflict)
+				return
+			}
+		}
+		// TODO: make sure player doesn't already exist
+		id, err := queries.PlayerCreate(r.Context(), username)
+		if err != nil {
+			slog.Error("create player", "error", err, "username", username)
+			http.Error(w, "username: bad request", http.StatusBadRequest)
+			return
+		}
+		// generate session key for game player and add them to the game.
+		secret := make([]byte, secretLength)
+		_, err = rand.Read(secret)
+		if err != nil {
+			slog.Error("make secret", "error", err)
+			http.Error(w, "internal server error", http.StatusInternalServerError)
+			return
+		}
+		secretStr := hex.EncodeToString(secret)
+		err = queries.GamePlayerCreate(r.Context(), sqlc.GamePlayerCreateParams{
+			PlayerID:   id,
+			GameID:     gameID,
+			SessionKey: pgtype.Text{String: secretStr, Valid: true},
+		})
+
+		// give the player their session cookie
+		http.SetCookie(w, &http.Cookie{
+			Name:  "session",
+			Value: fmt.Sprintf("%v:%s", id, secretStr),
+			Path:  fmt.Sprintf("/%s", gameID),
+		})
+		slog.Info("player joined game",
+			"game_id", gameID,
+			"player_id", id,
+			"username", username,
+		)
+		http.Redirect(w, r, fmt.Sprintf("/%s", gameID), http.StatusSeeOther)
+	}
+}
 
 // gameHandler handles the '/{game_id}' endpoint
 // This endpoint serves as a lobby pregame, and for primary play.
@@ -131,29 +200,77 @@ func createHandler(w http.ResponseWriter, r *http.Request) {
 //   - if player: player view
 func gameHandler(w http.ResponseWriter, r *http.Request) {
 	gameID := strings.Replace(r.URL.Path, "/", "", 1)
-	// for _, cookie := range r.Cookies() {
-	// 	slog.Debug("cookie found", "name", cookie.Name, "value", cookie.Value)
-	// }
+	slog.With("handler", "gameHandler", "game_id", gameID)
+
+	if r.Method != http.MethodGet {
+		slog.Debug("unsupported method", "method", r.Method)
+		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+	}
+
+	var cookieID string
+	var cookieKey string
 	cookie, err := r.Cookie("session")
 	if err != nil {
-		slog.Debug("no session cookie found", "error", err)
-		// TODO: enforce conditionally on game status
+		slog.Debug("no session cookie found",
+			"error", err,
+			"cookie_value", cookie, // NOTE: only print invalid cookies
+		)
+		http.Error(w, "session cookie required", http.StatusUnauthorized)
+		return
 	} else {
+		parts := strings.Split(cookie.Value, ":")
+		if len(parts) != 2 {
+			slog.Debug("invalid session cookie format",
+				"cookie_value", cookie.Value,
+			)
+			http.Error(w, "invalid cookie", http.StatusBadRequest)
+			return
+		}
+		cookieID = parts[0]
+		cookieKey = parts[1]
 		slog.Debug("session cookie found",
-			"cookie", cookie.Value,
-			"game_id", gameID,
+			"player_id", cookieID,
 		)
 	}
-	results, err := queries.GameState(r.Context(), gameID)
-	// TODO: check len of results?
+
+	// fetch game state and active players
+	game, err := queries.GameState(r.Context(), gameID)
 	if err != nil {
-		slog.Warn("game not found", "error", err, "game_id", gameID)
+		slog.Warn("game not found", "error", err)
 		http.Error(w, "game not found", http.StatusNotFound)
 		return
 	}
-	slog.Debug("loading game page", "game_id", gameID, "results", results)
-	// first join
-	// results.State
+	players, err := queries.GamePlayerPoints(r.Context(), gameID)
+	if err != nil {
+		slog.Error("failed to get game players",
+			"error", err,
+			"game_id", gameID,
+		)
+		http.Error(w, "internal server error", http.StatusInternalServerError)
+		return
+	}
+	slog.Debug("TEMP", "game", game, "players", players)
+	slog.Debug("fetched game state",
+		"player_count", len(players),
+		"game_id", gameID,
+		"game_name", game.Name,
+		"game_state", game.StateName,
+	)
+
+	var isMember bool
+	for _, player := range players {
+		if player.SessionKey.String == cookieKey {
+			isMember = true
+			break
+		}
+	}
+	if !isMember {
+		slog.Debug("player rejected from game",
+			"game_id", gameID,
+			"player_id_from_cookie", cookieID,
+		)
+		http.Error(w, "player not in game", http.StatusForbidden)
+	}
 
 	filepath := path.Join("static", "html", "game.html.tmpl")
 	tmpl, err := readParse(static, filepath)
@@ -167,10 +284,10 @@ func gameHandler(w http.ResponseWriter, r *http.Request) {
 	}
 	err = tmpl.Execute(w, map[string]interface{}{
 		"game_id":            gameID,
-		"game_name":          results.Name,
-		"game_state":         results.StateName,
-		"owner_id":           results.OwnerID,
-		"initiative_current": results.InitiativeCurrent,
+		"game_name":          game.Name,
+		"game_state":         game.StateName,
+		"owner_id":           game.OwnerID,
+		"initiative_current": game.InitiativeCurrent,
 	})
 	if err != nil {
 		slog.Error("execute template",
@@ -245,6 +362,27 @@ func transferHandler(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
 	}
 }
+
+// joinPlayerToGame is an idempotent function to join a player to a game,
+// setting up secrets and cookie.
+// If the player is already in the game, the
+// func joinPlayerToGame(r *http.Request) (sqlc.GamePlayerPointsRow, error) {
+// }
+
 func flipHandler(w http.ResponseWriter, r *http.Request)  {}
 func shredHandler(w http.ResponseWriter, r *http.Request) {}
 func cloneHandler(w http.ResponseWriter, r *http.Request) {}
+
+// TODO: implement card selection stage of the game between invitation and spin.
+
+// {game_id}/spin
+// - POST: spin the wheel, update game state
+// {game_id}/accuse?accuser_id={accuser_id}&defendant_id={defendant_id}&rule_id={rule_id}
+// - POST:
+// {game_id}/judge?infraction_id={infraction_id}&verdict={verdict}
+//{game_id}/
+//
+
+// {game_id}/cards/{card_id}/{action}?ake
+// PATCH, PATCH, DELETE, POST
+// transfer, flip, shred, clone

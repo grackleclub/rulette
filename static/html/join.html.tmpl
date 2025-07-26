@@ -1,6 +1,10 @@
 <section>
-  <h2>Game created!</h2>
-  <p>
-    Join <a href="/{{ .game_id }}">{{ .game_name }}</a> now!
-  </p>
+  <h1>{{ .game_name }}</h1>
+    <form action="/{{ .game_id }}/join" method="POST">
+      <div id="join">
+        <label for="username">Enter a username to join:</label>
+        <input type="text" id="username" name="username" required />
+        <input type="submit" value="Join" />
+      </div>
+    </form>
 </section>

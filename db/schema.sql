@@ -13,7 +13,7 @@ CREATE TABLE IF NOT EXISTS games (
 	id VARCHAR(6) PRIMARY KEY,
 	name TEXT NOT NULL,
 	created TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-	owner_id INTEGER NOT NULL,
+	owner_id INTEGER,
 	state_id INTEGER NOT NULL DEFAULT 0,
 	initiative_current INTEGER DEFAULT 0, -- TODO: is this used?
 	FOREIGN KEY (owner_id) REFERENCES players(id) ON DELETE CASCADE,
@@ -22,12 +22,12 @@ CREATE TABLE IF NOT EXISTS games (
 
 INSERT INTO game_states (id, name)
 VALUES
-	(0, 'created'),
-	(1, 'inviting'),
-	(2, 'ready'), -- not yet started
-	(3, 'turn'), --player turn, spin wheel
+	(0, 'created'),   -- game created, but not joined
+	(1, 'inviting'),  -- at least one player has joined
+	(2, 'ready'),     -- invitations closed, inititive set
+	(3, 'turn'),      -- player turn, spin wheel
 	(4, 'challenge'), -- pause for points adjustment
-	(5, 'end')
+	(5, 'end')        -- game over :)
 ;
 
 CREATE TABLE IF NOT EXISTS game_players (

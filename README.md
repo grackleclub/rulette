@@ -2,8 +2,16 @@
 
 rule stacking game based on DropoutTV's _Rulette_ from season 7
 
-## State Diagram
+## Routes
+```mermaid
+flowchart TD
+  root --> create
+  create --> join
+  join --> gameID
+```
 
+
+## Game States
 ```mermaid
 flowchart TD
   subgraph init
@@ -26,7 +34,7 @@ flowchart TD
   play ---> accuse
   subgraph accusations
     accuse --> convict --> consequences
-    accuse --> absolve --> consequences
+ accuse --> absolve --> consequences
   end
   consequences ---> play
 ```

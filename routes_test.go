@@ -45,7 +45,7 @@ func TestMain(t *testing.T) {
 		req := httptest.NewRequest("GET", "/", nil)
 		w := httptest.NewRecorder()
 
-		stateHandler(w, req)
+		gameHandler(w, req)
 
 		require.Equal(t, http.StatusOK, w.Result().StatusCode)
 		t.Logf("Response: %s", w.Body.String())
