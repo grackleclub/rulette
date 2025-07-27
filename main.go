@@ -25,15 +25,23 @@ var static embed.FS
 
 func main() {
 	mux := http.NewServeMux()
+	// pregame
 	mux.Handle("/", logMW(http.HandlerFunc(rootHandler)))
 	mux.Handle("/create", logMW(http.HandlerFunc(createHandler)))
 	mux.Handle("/{game_id}/join", logMW(http.HandlerFunc(joinHandler)))
+	// game routes
 	mux.Handle("/{game_id}", logMW(http.HandlerFunc(gameHandler)))
-	mux.HandleFunc("/{game_id}/spin/{card_id}", spinHandler)
-	mux.HandleFunc("/{game_id}/transfer/{card_id}", transferHandler)
-	mux.HandleFunc("/{game_id}/flip/{card_id}", flipHandler)
-	mux.HandleFunc("/{game_id}/shred/{card_id}", shredHandler)
-	mux.HandleFunc("/{game_id}/clone/{card_id}", cloneHandler)
+	mux.Handle("/{game_id}/table", logMW(http.HandlerFunc(tableHandler)))
+	// mux.HandleFunc("/{game_id}/spin/{card_id}", spinHandler)
+	// mux.HandleFunc("/{game_id}/transfer/{card_id}", transferHandler)
+	// mux.HandleFunc("/{game_id}/flip/{card_id}", flipHandler)
+	// mux.HandleFunc("/{game_id}/shred/{card_id}", shredHandler)
+	// mux.HandleFunc("/{game_id}/clone/{card_id}", cloneHandler)
+
+	// static files
+	mux.Handle("/static/html/", http.FileServer(http.FS(static)))
+	mux.Handle("/static/css/", http.FileServer(http.FS(static)))
+	mux.Handle("/static/js/", http.FileServer(http.FS(static)))
 
 	// use debug slog handler
 	slog.SetLogLoggerLevel(slog.LevelDebug)

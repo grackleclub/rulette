@@ -1,0 +1,8 @@
+<article id="playspace">
+  <ol id="wheel" hx-get="/{{ .game_id }}/wheel" hx-trigger="every 500ms" hx-swap="outterHTML">
+    <li>Loading...</li>
+  </ol>
+  <p>Click the button to spin the wheel!</p>
+  <button id="spin" hx-post="/{{ .game_id }}/spin">Spin</button>
+  <small>{{ .game_state }}</small>
+</article>

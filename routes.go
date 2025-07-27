@@ -29,7 +29,8 @@ var gameNameSeedLength = int(math.Pow(2, 16)) // math/rand
 // from which a user can start a new game with a POST to /create.
 func rootHandler(w http.ResponseWriter, r *http.Request) {
 	slog.Debug("rootHandler called", "path", r.URL.Path)
-	file, err := static.ReadFile("static/html/index.html")
+	indexPath := path.Join("static", "html", "index.html")
+	file, err := static.ReadFile(indexPath)
 	if err != nil {
 		http.Error(w, "server error", http.StatusInternalServerError)
 		return
@@ -60,6 +61,7 @@ func createHandler(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		slog.Error("create game", "error", err)
 		http.Error(w, "bad request", http.StatusBadRequest)
+		return
 	}
 
 	// return game ID as html response
@@ -82,6 +84,7 @@ func createHandler(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
+// joinHandler handles the '/{game_id}/join' endpoint where players may join a game.
 func joinHandler(w http.ResponseWriter, r *http.Request) {
 	trimmed := strings.Trim(r.URL.Path, "/") // remove leading slash
 	parts := strings.Split(trimmed, "/")
@@ -156,7 +159,6 @@ func joinHandler(w http.ResponseWriter, r *http.Request) {
 				return
 			}
 		}
-		// TODO: make sure player doesn't already exist
 		id, err := queries.PlayerCreate(r.Context(), username)
 		if err != nil {
 			slog.Error("create player", "error", err, "username", username)
@@ -193,11 +195,28 @@ func joinHandler(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
+// cookie inspects the request for cookie and returns the player ID and session key, or any error.
+func cookie(r *http.Request) (string, string, error) {
+	var cookieID string
+	var cookieKey string
+	cookie, err := r.Cookie("session")
+	if err != nil {
+		return "", "", ErrCookieMissing
+	}
+	parts := strings.Split(cookie.Value, ":")
+	if len(parts) != 2 {
+		slog.Debug("invalid session cookie format",
+			"cookie_value", cookie.Value,
+		)
+		return "", "", ErrCookieInvalid
+	}
+	cookieID = parts[0]
+	cookieKey = parts[1]
+	return cookieID, cookieKey, nil
+}
+
 // gameHandler handles the '/{game_id}' endpoint
 // This endpoint serves as a lobby pregame, and for primary play.
-// - GET: if no cookie, join, if cookie, get state
-//   - if host: host view
-//   - if player: player view
 func gameHandler(w http.ResponseWriter, r *http.Request) {
 	gameID := strings.Replace(r.URL.Path, "/", "", 1)
 	slog.With("handler", "gameHandler", "game_id", gameID)
@@ -207,69 +226,39 @@ func gameHandler(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
 	}
 
-	var cookieID string
-	var cookieKey string
-	cookie, err := r.Cookie("session")
+	cookieID, cookieKey, err := cookie(r)
 	if err != nil {
-		slog.Debug("no session cookie found",
-			"error", err,
-			"cookie_value", cookie, // NOTE: only print invalid cookies
-		)
-		http.Error(w, "session cookie required", http.StatusUnauthorized)
-		return
-	} else {
-		parts := strings.Split(cookie.Value, ":")
-		if len(parts) != 2 {
-			slog.Debug("invalid session cookie format",
-				"cookie_value", cookie.Value,
-			)
-			http.Error(w, "invalid cookie", http.StatusBadRequest)
+		switch err {
+		case ErrCookieMissing:
+			slog.Debug("cookie missing")
+			http.Error(w, "session cookie missing", http.StatusUnauthorized)
+			return
+		case ErrCookieInvalid:
+			slog.Debug("cookie invalid")
+			http.Error(w, "invalid session cookie", http.StatusUnauthorized)
+			return
+		default:
+			slog.Error("unexpected error getting cookie", "error", err)
+			http.Error(w, "internal server error", http.StatusInternalServerError)
 			return
 		}
-		cookieID = parts[0]
-		cookieKey = parts[1]
-		slog.Debug("session cookie found",
-			"player_id", cookieID,
-		)
 	}
 
-	// fetch game state and active players
-	game, err := queries.GameState(r.Context(), gameID)
+	state, err := stateFromCache(r.Context(), &cache, gameID)
 	if err != nil {
-		slog.Warn("game not found", "error", err)
-		http.Error(w, "game not found", http.StatusNotFound)
-		return
-	}
-	players, err := queries.GamePlayerPoints(r.Context(), gameID)
-	if err != nil {
-		slog.Error("failed to get game players",
-			"error", err,
-			"game_id", gameID,
-		)
+		slog.Error("game state from cache", "error", err, "game_id", gameID)
+		// TODO: provide more detailed error handling
 		http.Error(w, "internal server error", http.StatusInternalServerError)
 		return
 	}
-	slog.Debug("TEMP", "game", game, "players", players)
-	slog.Debug("fetched game state",
-		"player_count", len(players),
-		"game_id", gameID,
-		"game_name", game.Name,
-		"game_state", game.StateName,
-	)
-
-	var isMember bool
-	for _, player := range players {
-		if player.SessionKey.String == cookieKey {
-			isMember = true
-			break
-		}
-	}
-	if !isMember {
-		slog.Debug("player rejected from game",
-			"game_id", gameID,
-			"player_id_from_cookie", cookieID,
+	if !state.isPlayerInGame(cookieKey) {
+		slog.Info(
+			"prohibiting unauthorized player access",
+			"cookie_key", cookieKey,
+			"cookie_id", cookieID,
 		)
 		http.Error(w, "player not in game", http.StatusForbidden)
+		return
 	}
 
 	filepath := path.Join("static", "html", "game.html.tmpl")
@@ -284,10 +273,10 @@ func gameHandler(w http.ResponseWriter, r *http.Request) {
 	}
 	err = tmpl.Execute(w, map[string]interface{}{
 		"game_id":            gameID,
-		"game_name":          game.Name,
-		"game_state":         game.StateName,
-		"owner_id":           game.OwnerID,
-		"initiative_current": game.InitiativeCurrent,
+		"game_name":          state.game.Name,
+		"game_state":         state.game.StateName,
+		"owner_id":           state.game.OwnerID,
+		"initiative_current": state.game.InitiativeCurrent,
 	})
 	if err != nil {
 		slog.Error("execute template",
@@ -297,6 +286,96 @@ func gameHandler(w http.ResponseWriter, r *http.Request) {
 		)
 		http.Error(w, "internal server error", http.StatusInternalServerError)
 		return
+	}
+}
+
+func tableHandler(w http.ResponseWriter, r *http.Request) {
+	gameID := strings.TrimPrefix(r.URL.Path, "/")
+	slog.With("handler", "tableHandler", "game_id", gameID)
+	if r.Method != http.MethodGet {
+		slog.Debug("unsupported method", "method", r.Method)
+		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+	cookieID, cookieKey, err := cookie(r)
+	if err != nil {
+		switch err {
+		case ErrCookieMissing:
+			slog.Debug("cookie missing")
+			http.Error(w, "session cookie missing", http.StatusUnauthorized)
+			return
+		case ErrCookieInvalid:
+			slog.Debug("cookie invalid")
+			http.Error(w, "invalid session cookie", http.StatusUnauthorized)
+			return
+		default:
+			slog.Error("unexpected error getting cookie", "error", err)
+			http.Error(w, "internal server error", http.StatusInternalServerError)
+			return
+		}
+	}
+	state, err := stateFromCache(r.Context(), &cache, gameID)
+	if err != nil {
+		slog.Error("game state from cache", "error", err, "game_id", gameID)
+		http.Error(w, "internal server error", http.StatusInternalServerError)
+		return
+	}
+	if !state.isPlayerInGame(cookieKey) {
+		slog.Info(
+			"prohibiting unauthorized player access",
+			"cookie_key", cookieKey,
+			"cookie_id", cookieID,
+		)
+		http.Error(w, "player not in game", http.StatusForbidden)
+		return
+	}
+	switch state.game.StateID {
+	case 5:
+		slog.Info("game is over", "game_id", gameID)
+		http.Error(w, "game over", http.StatusGone)
+		return
+	case 4, 3, 2:
+		// TODO: return spinning wheel
+		filepath := path.Join("static", "html", "table.spin.html.tmpl")
+		tmpl, err := readParse(static, filepath)
+		if err != nil {
+			slog.Error("read and parse template", "filepath", filepath, "error", err)
+			http.Error(w, "internal server error", http.StatusInternalServerError)
+			return
+		}
+		err = tmpl.Execute(w, map[string]interface{}{
+			"game_state": state.game.StateID,
+			"game_id":    gameID,
+		})
+		if err != nil {
+			slog.Error("execute template",
+				"error", err,
+				"template", filepath,
+			)
+			http.Error(w, "internal server error", http.StatusInternalServerError)
+			return
+		}
+
+	case 1, 0:
+		filepath := path.Join("static", "html", "table.invite.html.tmpl")
+		tmpl, err := readParse(static, filepath)
+		if err != nil {
+			slog.Error("read and parse template", "filepath", filepath, "error", err)
+			http.Error(w, "internal server error", http.StatusInternalServerError)
+			return
+		}
+		err = tmpl.Execute(w, map[string]interface{}{
+			"game_state": state.game.StateID,
+			"game_id":    gameID,
+		})
+		if err != nil {
+			slog.Error("execute template",
+				"error", err,
+				"template", filepath,
+			)
+			http.Error(w, "internal server error", http.StatusInternalServerError)
+			return
+		}
 	}
 }
 

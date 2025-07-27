@@ -3,9 +3,17 @@ package main
 import (
 	"embed"
 	"fmt"
+	"log/slog"
+	"net/http"
 	"path/filepath"
 	"text/template"
 )
+
+// TODO: start using this for all static files
+func staticHandler(w http.ResponseWriter, r *http.Request) {
+	slog.Info("request for static resource", "path", r.URL.Path)
+	http.FileServer(http.FS(static)).ServeHTTP(w, r)
+}
 
 // readParse reads a template file from an embedded filesystem,
 // parses it, and returns the resulting *template.Template or any error.

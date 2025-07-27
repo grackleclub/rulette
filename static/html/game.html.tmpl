@@ -4,59 +4,50 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Rulette | {{ .game_name }}</title>
-    <!-- <link rel="stylesheet" href="style.css"> -->
+    <link rel="stylesheet" href="/static/css/style.css"> 
   </head>
   <body>
-    <style>
-      * { border: 1px dotted black; }
-    </style>
     <!-- <script src="index.js"></script> -->
 
-    <section id="title">
+    <article id="title">
       <h1>{{ .game_name }}</h1>
-      <p>
-        <small>
-          <a href="/{{ .game_id }}">share link</a> |
-        </small>
-      </p>
-    </section>
+    </article>
 
-    <section id="initiative">
-      <p>{{ .game_state }}</p>
-    </section>
+    <article id="players">
+      <h2>players</h2>
+      <table>
+        <thead>
+          <tr>
+            <th>name</th>
+            <th>points</th>
+          </tr>
+        </thead>
+        <tbody>
+          {{ range .players }}
+            <tr id="{{ .id }}">
+              <td class="name">{{ .name }}</td>
+              <td class="points">{{ .points }}</td>
+            </tr>
+          {{ end }}
+        </tbody>
+      </table>
+    </article>
 
-    <!--
-    <section>
-      <h2>Wheel</h2>
-      <button id="spin">Spin</button>
-      <p>TODO: results go here</p>
-    </section>
+    <article id="playspace" hx-get="/{{ .game_id }}/play" hx-trigger="every 500ms" hx-swap="innerHTML">
+        Loading...
+    </article>
 
+    <article id="log">
+      <h2>log</h2>
+    </article>
 
-    <section>
-      <h2>Players</h2>
-      <div id="{{ .player_id }}">
-        <h3>{player_name}</h3>
-        <h3>{player_points}</h3>
-        <ul>
-          <li id="{ .rule_id }">
-            { .rule_text } <button id="accuse.{ .rule_id }">accuse</button>
-          </li>
-        </ul>
-      </div>
-    </section>
+    <br>
 
-    <section>
-      <h2>Log</h2>
-      <ol>
-        <li id="log.{ .log }">
-          {log_text} 
-          <button id="guilty.{rule_id}">guilty</button> 
-          <button id="innocent.{rule_id}">innocent</button>
-       </li>
-      </ol>
-    <section>
-    -->
+    <footer>
+      <small>
+        A rule stacking game based on Season 7, Episode 7 of Game Changer on <a href="https://www.dropout.tv/">DropoutTV</a>.
+      </small>
+    </footer>
   </body>
 </html>
 

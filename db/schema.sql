@@ -6,7 +6,8 @@ CREATE TABLE IF NOT EXISTS players (
 
 CREATE TABLE IF NOT EXISTS game_states (
 	id INTEGER PRIMARY KEY,
-	name TEXT NOT NULL
+	name TEXT NOT NULL,
+	description TEXT
 );
 
 CREATE TABLE IF NOT EXISTS games (
@@ -20,14 +21,14 @@ CREATE TABLE IF NOT EXISTS games (
 	FOREIGN KEY (state_id) REFERENCES game_states(id)
 );
 
-INSERT INTO game_states (id, name)
+INSERT INTO game_states (id, name, description)
 VALUES
-	(0, 'created'),   -- game created, but not joined
-	(1, 'inviting'),  -- at least one player has joined
-	(2, 'ready'),     -- invitations closed, inititive set
-	(3, 'turn'),      -- player turn, spin wheel
-	(4, 'challenge'), -- pause for points adjustment
-	(5, 'end')        -- game over :)
+	(0, 'created', 'game created, but no members have joined'),
+	(1, 'inviting', 'at least one player has joined'), --  TODO: useless?
+	(2, 'ready', 'joining is closed, ready to start (or paused)'),
+	(3, 'turn', 'player is mid-turn, spinning wheel or responding'),
+	(4, 'challenge', ''), -- pause for points adjustment |  TODO: useless?
+	(5, 'end', 'game over')
 ;
 
 CREATE TABLE IF NOT EXISTS game_players (

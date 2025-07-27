@@ -45,8 +45,9 @@ type GamePlayers struct {
 }
 
 type GameStates struct {
-	ID   int32  `json:"id"`
-	Name string `json:"name"`
+	ID          int32       `json:"id"`
+	Name        string      `json:"name"`
+	Description pgtype.Text `json:"description"`
 }
 
 type Games struct {
