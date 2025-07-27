@@ -41,7 +41,7 @@ func (s *state) isPlayerInGame(cookieKey string) bool {
 // stateFromCache returns the current state of the game specified by gameID,
 // drawing from cache if newer than maxCacheAge, otherwise fetching from the database.
 func stateFromCache(ctx context.Context, cache *sync.Map, gameID string) (state, error) {
-	slog.With("caller", "state", "game_id", gameID)
+	slog := slog.With("caller", "state", "game_id", gameID)
 
 	// cache hit
 	if value, ok := cache.Load(gameID); ok {

@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Rulette | {{ .game_name }}</title>
     <link rel="stylesheet" href="/static/css/style.css"> 
-    <script src="/static/js/htmx/htmx.min.js"></script>
+    <script src="/static/js/htmx.min.js"></script>
   </head>
   <body>
     <!-- <script src="index.js"></script> -->
@@ -35,7 +35,7 @@
     </article>
 
     <article id="table" hx-get="/{{ .game_id }}/table" 
-      hx-target="#table-top" hx-trigger="every 500ms" hx-swap="outerHTML">
+      hx-target="#table-top" hx-trigger="load, every 500ms" hx-swap="innerHTML">
       <section id="table-top">Loading...</section>
     </article>
 
