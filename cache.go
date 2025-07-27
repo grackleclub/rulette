@@ -4,6 +4,8 @@ import (
 	"context"
 	"fmt"
 	"log/slog"
+	"net/http"
+	"strings"
 	"sync"
 	"time"
 
@@ -86,4 +88,27 @@ func fetchState(ctx context.Context, gameID string) (state, error) {
 		"game_state", game.StateName,
 	)
 	return stateFresh, nil
+}
+
+// cookie inspects the request for cookie and returns
+// the player ID and session key, or any error.
+//
+// Cookie format is: {player_id}:{session_key}
+func cookie(r *http.Request) (string, string, error) {
+	var cookieID string
+	var cookieKey string
+	cookie, err := r.Cookie("session")
+	if err != nil {
+		return "", "", ErrCookieMissing
+	}
+	parts := strings.Split(cookie.Value, ":")
+	if len(parts) != 2 {
+		slog.Debug("invalid session cookie format",
+			"cookie_value", cookie.Value,
+		)
+		return "", "", ErrCookieInvalid
+	}
+	cookieID = parts[0]
+	cookieKey = parts[1]
+	return cookieID, cookieKey, nil
 }

@@ -5,6 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Rulette | {{ .game_name }}</title>
     <link rel="stylesheet" href="/static/css/style.css"> 
+    <script src="https://unpkg.com/htmx.org"></script>
   </head>
   <body>
     <!-- <script src="index.js"></script> -->
@@ -33,8 +34,9 @@
       </table>
     </article>
 
-    <article id="playspace" hx-get="/{{ .game_id }}/play" hx-trigger="every 500ms" hx-swap="innerHTML">
-        Loading...
+    <article id="table" hx-get="/{{ .game_id }}/table" 
+      hx-target="#table-top" hx-trigger="every 500ms" hx-swap="outerHTML">
+      <section id="table-top">Loading...</section>
     </article>
 
     <article id="log">

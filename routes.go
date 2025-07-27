@@ -195,26 +195,6 @@ func joinHandler(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-// cookie inspects the request for cookie and returns the player ID and session key, or any error.
-func cookie(r *http.Request) (string, string, error) {
-	var cookieID string
-	var cookieKey string
-	cookie, err := r.Cookie("session")
-	if err != nil {
-		return "", "", ErrCookieMissing
-	}
-	parts := strings.Split(cookie.Value, ":")
-	if len(parts) != 2 {
-		slog.Debug("invalid session cookie format",
-			"cookie_value", cookie.Value,
-		)
-		return "", "", ErrCookieInvalid
-	}
-	cookieID = parts[0]
-	cookieKey = parts[1]
-	return cookieID, cookieKey, nil
-}
-
 // gameHandler handles the '/{game_id}' endpoint
 // This endpoint serves as a lobby pregame, and for primary play.
 func gameHandler(w http.ResponseWriter, r *http.Request) {
@@ -247,7 +227,12 @@ func gameHandler(w http.ResponseWriter, r *http.Request) {
 	state, err := stateFromCache(r.Context(), &cache, gameID)
 	if err != nil {
 		slog.Error("game state from cache", "error", err, "game_id", gameID)
-		// TODO: provide more detailed error handling
+		if err == ErrStateNoGame {
+			slog.Info("game not found", "game_id", gameID)
+			http.Error(w, "game not found", http.StatusNotFound)
+			return
+		}
+		slog.Error("unexpected error fetching game state", "error", err)
 		http.Error(w, "internal server error", http.StatusInternalServerError)
 		return
 	}
@@ -290,8 +275,16 @@ func gameHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 func tableHandler(w http.ResponseWriter, r *http.Request) {
-	gameID := strings.TrimPrefix(r.URL.Path, "/")
+	pathLong := strings.TrimPrefix(r.URL.Path, "/")
+	parts := strings.Split(pathLong, "/")
+	if len(parts) == 0 { // NOTE: probably impossible
+		http.Error(w, "game ID is required", http.StatusBadRequest)
+		return
+	}
+	gameID := parts[0]
+
 	slog.With("handler", "tableHandler", "game_id", gameID)
+	slog.Info("tableHandler called", "game_id", gameID)
 	if r.Method != http.MethodGet {
 		slog.Debug("unsupported method", "method", r.Method)
 		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
@@ -316,7 +309,12 @@ func tableHandler(w http.ResponseWriter, r *http.Request) {
 	}
 	state, err := stateFromCache(r.Context(), &cache, gameID)
 	if err != nil {
-		slog.Error("game state from cache", "error", err, "game_id", gameID)
+		if err == ErrStateNoGame {
+			slog.Info("game not found", "game_id", gameID)
+			http.Error(w, "game not found", http.StatusNotFound)
+			return
+		}
+		slog.Error("unexpected error getting state", "error", err, "game_id", gameID)
 		http.Error(w, "internal server error", http.StatusInternalServerError)
 		return
 	}
