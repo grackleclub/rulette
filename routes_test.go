@@ -11,6 +11,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+// FIXME: redo testing
 func TestMain(t *testing.T) {
 	t.Log("setting up db")
 	opts := postgres.PostgresOpts{
