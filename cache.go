@@ -38,10 +38,10 @@ func (s *state) isPlayerInGame(cookieKey string) bool {
 	return false
 }
 
-// stateFromCache returns the current state of the game specified by gameID,
+// stateFromCacheOrDB returns the current state of the game specified by gameID,
 // drawing from cache if newer than maxCacheAge, otherwise fetching from the database.
-func stateFromCache(ctx context.Context, cache *sync.Map, gameID string) (state, error) {
-	slog := slog.With("caller", "state", "game_id", gameID)
+func stateFromCacheOrDB(ctx context.Context, cache *sync.Map, gameID string) (state, error) {
+	slog := slog.With("caller", "stateFromCache", "game_id", gameID)
 
 	// cache hit
 	if value, ok := cache.Load(gameID); ok {
@@ -55,7 +55,7 @@ func stateFromCache(ctx context.Context, cache *sync.Map, gameID string) (state,
 	}
 	// cache miss
 	slog.Debug("cache miss")
-	stateFresh, err := fetchState(ctx, gameID)
+	stateFresh, err := fetchStateFromDB(ctx, gameID)
 	if err != nil {
 		return state{}, err
 	}
@@ -65,8 +65,8 @@ func stateFromCache(ctx context.Context, cache *sync.Map, gameID string) (state,
 	return stateFresh, nil
 }
 
-// fetchState retrieves the game state and players from the database for the given gameID.
-func fetchState(ctx context.Context, gameID string) (state, error) {
+// fetchStateFromDB retrieves the game state and players from the database for the given gameID.
+func fetchStateFromDB(ctx context.Context, gameID string) (state, error) {
 	var stateFresh state
 	// get game state
 	game, err := queries.GameState(ctx, gameID)

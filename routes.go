@@ -195,6 +195,21 @@ func joinHandler(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
+// setCookieErr make logs messages and sets HTTP status responses appropriately.
+func setCookieErr(w http.ResponseWriter, err error) {
+	switch err {
+	case ErrCookieMissing:
+		slog.Debug(ErrCookieMissing.Error())
+		http.Error(w, "session cookie missing", http.StatusUnauthorized)
+	case ErrCookieInvalid:
+		slog.Debug(ErrCookieInvalid.Error())
+		http.Error(w, "invalid session cookie", http.StatusForbidden)
+	default:
+		slog.Error("unexpected error getting cookie", "error", err)
+		http.Error(w, "internal server error", http.StatusInternalServerError)
+	}
+}
+
 // gameHandler handles the '/{game_id}' endpoint
 // This endpoint serves as a lobby pregame, and for primary play.
 func gameHandler(w http.ResponseWriter, r *http.Request) {
@@ -208,23 +223,11 @@ func gameHandler(w http.ResponseWriter, r *http.Request) {
 
 	cookieID, cookieKey, err := cookie(r)
 	if err != nil {
-		switch err {
-		case ErrCookieMissing:
-			slog.Debug("cookie missing")
-			http.Error(w, "session cookie missing", http.StatusUnauthorized)
-			return
-		case ErrCookieInvalid:
-			slog.Debug("cookie invalid")
-			http.Error(w, "invalid session cookie", http.StatusUnauthorized)
-			return
-		default:
-			slog.Error("unexpected error getting cookie", "error", err)
-			http.Error(w, "internal server error", http.StatusInternalServerError)
-			return
-		}
+		setCookieErr(w, err)
+		return
 	}
 
-	state, err := stateFromCache(r.Context(), &cache, gameID)
+	state, err := stateFromCacheOrDB(r.Context(), &cache, gameID)
 	if err != nil {
 		slog.Error("game state from cache", "error", err, "game_id", gameID)
 		if err == ErrStateNoGame {
@@ -292,22 +295,10 @@ func tableHandler(w http.ResponseWriter, r *http.Request) {
 	}
 	cookieID, cookieKey, err := cookie(r)
 	if err != nil {
-		switch err {
-		case ErrCookieMissing:
-			slog.Debug("cookie missing")
-			http.Error(w, "session cookie missing", http.StatusUnauthorized)
-			return
-		case ErrCookieInvalid:
-			slog.Debug("cookie invalid")
-			http.Error(w, "invalid session cookie", http.StatusUnauthorized)
-			return
-		default:
-			slog.Error("unexpected error getting cookie", "error", err)
-			http.Error(w, "internal server error", http.StatusInternalServerError)
-			return
-		}
+		setCookieErr(w, err)
+		return
 	}
-	state, err := stateFromCache(r.Context(), &cache, gameID)
+	state, err := stateFromCacheOrDB(r.Context(), &cache, gameID)
 	if err != nil {
 		if err == ErrStateNoGame {
 			slog.Info("game not found", "game_id", gameID)

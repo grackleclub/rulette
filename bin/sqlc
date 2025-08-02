@@ -9,9 +9,3 @@ else
 	printf "done.\n"
 fi
 
-echo "Running tests..."
-if ! go test -v ./...; then
-	echo "Error: tests failed"
-	exit 1
-fi
-

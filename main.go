@@ -25,6 +25,10 @@ var static embed.FS
 
 func main() {
 	mux := http.NewServeMux()
+	// static files
+	mux.Handle("/static/html/", http.FileServer(http.FS(static)))
+	mux.Handle("/static/css/", http.FileServer(http.FS(static)))
+	mux.Handle("/static/js/", http.FileServer(http.FS(static)))
 	// pregame
 	mux.Handle("/", logMW(http.HandlerFunc(rootHandler)))
 	mux.Handle("/create", logMW(http.HandlerFunc(createHandler)))
@@ -37,11 +41,6 @@ func main() {
 	// mux.HandleFunc("/{game_id}/flip/{card_id}", flipHandler)
 	// mux.HandleFunc("/{game_id}/shred/{card_id}", shredHandler)
 	// mux.HandleFunc("/{game_id}/clone/{card_id}", cloneHandler)
-
-	// static files
-	mux.Handle("/static/html/", http.FileServer(http.FS(static)))
-	mux.Handle("/static/css/", http.FileServer(http.FS(static)))
-	mux.Handle("/static/js/", http.FileServer(http.FS(static)))
 
 	// use debug slog handler
 	slog.SetLogLoggerLevel(slog.LevelDebug)
