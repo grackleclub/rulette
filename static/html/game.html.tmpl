@@ -34,7 +34,7 @@
       </table>
     </article>
 
-    <article id="table" hx-get="/{{ .game_id }}/table" 
+    <article id="table" hx-get="/{{ .game_id }}/data/table" 
       hx-target="#table-top" hx-trigger="load, every 2000ms" hx-swap="innerHTML">
       <section id="table-top">Loading...</section>
     </article>

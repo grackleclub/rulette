@@ -1,14 +1,13 @@
 package main
 
 import (
-	"log/slog"
 	"net/http"
 )
 
 // logMW logs every incoming request.
 func logMW(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		slog.Debug("request received",
+		log.Info("request received",
 			"path", r.URL.Path,
 			"method", r.Method,
 			"query", r.URL.RawQuery,
