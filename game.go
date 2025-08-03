@@ -15,6 +15,7 @@ func gameHandler(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodGet {
 		log.Debug("unsupported method", "method", r.Method)
 		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+		return
 	}
 
 	cookieID, cookieKey, err := cookie(r)

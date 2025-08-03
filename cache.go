@@ -2,7 +2,6 @@ package main
 
 import (
 	"context"
-	"log/slog"
 	"net/http"
 	"strings"
 	"sync"
@@ -38,20 +37,20 @@ func stateFromCacheOrDB(ctx context.Context, cache *sync.Map, gameID string) (st
 		cachedState := value.(*state)
 		cacheAge := time.Since(cachedState.updated)
 		if cacheAge < maxCacheAge {
-			log.Debug("cache hit", "cache_age", cacheAge)
+			log.Info("cache hit", "cache_age", cacheAge)
 			return *cachedState, nil
 		}
-		log.Debug("cache stale", "cache_age", cacheAge)
+		log.Info("cache stale", "cache_age", cacheAge)
 	}
 	// cache miss
-	log.Debug("cache miss")
+	log.Info("cache miss")
 	stateFresh, err := fetchStateFromDB(ctx, gameID)
 	if err != nil {
 		return state{}, err
 	}
 	// Update the cache
 	cache.Store(gameID, &stateFresh)
-	log.Debug("cache updated", "game_id", gameID)
+	log.Info("cache updated", "game_id", gameID)
 	return stateFresh, nil
 }
 
@@ -71,7 +70,7 @@ func fetchStateFromDB(ctx context.Context, gameID string) (state, error) {
 	}
 	stateFresh.players = players
 	stateFresh.updated = time.Now().UTC()
-	log.Debug("fetched game state and players",
+	log.Info("fetched game state and players",
 		"player_count", len(players),
 		"game_id", gameID,
 		"game_name", game.Name,
@@ -93,7 +92,7 @@ func cookie(r *http.Request) (string, string, error) {
 	}
 	parts := strings.Split(cookie.Value, ":")
 	if len(parts) != 2 {
-		log.Debug("invalid session cookie format",
+		log.Info("invalid session cookie format",
 			"cookie_value", cookie.Value,
 		)
 		return "", "", ErrCookieInvalid
