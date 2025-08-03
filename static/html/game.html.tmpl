@@ -3,7 +3,7 @@
   <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Rulette | {{ .game_name }}</title>
+    <title>Rulette | {{ .Game.Name }}</title>
     <link rel="stylesheet" href="/static/css/style.css"> 
     <script src="/static/js/htmx.min.js"></script>
   </head>
@@ -11,37 +11,23 @@
     <!-- <script src="index.js"></script> -->
 
     <article id="title">
-      <h1>{{ .game_name }}</h1>
+      <h1>{{ .Game.Name }}</h1>
+      <footer>{{ .Game.StateName }}</footer>
     </article>
 
-    <article id="players">
-      <h2>players</h2>
-      <table>
-        <thead>
-          <tr>
-            <th>name</th>
-            <th>points</th>
-          </tr>
-        </thead>
-        <tbody>
-          {{ range .players }}
-            <tr id="{{ .id }}">
-              <td class="name">{{ .name }}</td>
-              <td class="points">{{ .points }}</td>
-            </tr>
-          {{ end }}
-        </tbody>
-      </table>
-    </article>
+    <section id="players-section" hx-get="/{{ .Game.ID }}/data/players" 
+      hx-target="#players-section" hx-trigger="load, every {{ .Config.refresh }}" hx-swap="innerHTML">
+      <article id="loading-players">
+        <p>loading players...</p>
+      </article>
+    </section>
 
-    <article id="table" hx-get="/{{ .game_id }}/data/table" 
-      hx-target="#table-top" hx-trigger="load, every 2000ms" hx-swap="innerHTML">
-      <section id="table-top">Loading...</section>
-    </article>
-
-    <article id="log">
-      <h2>log</h2>
-    </article>
+    <section id="section-table" hx-get="/{{ .Game.ID }}/data/table" 
+      hx-target="#table-section" hx-trigger="load, every {{ .Config.refresh }}" hx-swap="innerHTML">
+      <article id="loading-table">
+        <p>loading table...</p>
+      </article>
+    </section>
 
     <br>
 

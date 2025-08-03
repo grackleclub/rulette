@@ -1,17 +1,18 @@
 <article id="players">
   <h2>players</h2>
-  {{ range .players }}
+  {{ range .Players }}
   <section id="player-{{ .id }}" class="player">
-    <div>{{ .name }}</div>
-    <div>{{ .points }}</div>
+    <div>{{ .Name }}</div>
+    <div>{{ .Points }}</div>
+    <!-- TODO: handle cards
     {{ range .cards }}
     <ul>
       <li class="card">{{ . }}</li>
     </ul>
-    {{ end }}
+    -->
   </section>
-  {{ else }}
-  {{ if .game_state == "inviting" }}
+  {{ end }}
+  {{ if eq .Game.StateName "inviting" }}
   <section class="player">
     <p>Invite players with a <a href="/{{ .game_id }}/join">Share Link</a></p>
   </section>

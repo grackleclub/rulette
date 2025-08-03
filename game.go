@@ -56,13 +56,7 @@ func gameHandler(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "internal server error", http.StatusInternalServerError)
 		return
 	}
-	err = tmpl.Execute(w, map[string]interface{}{
-		"game_id":            gameID,
-		"game_name":          state.game.Name,
-		"game_state":         state.game.StateName,
-		"owner_id":           state.game.OwnerID,
-		"initiative_current": state.game.InitiativeCurrent,
-	})
+	err = tmpl.Execute(w, state)
 	if err != nil {
 		log.Error("execute template",
 			"error", err,
@@ -116,64 +110,47 @@ func dataHandler(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "player not in game", http.StatusForbidden)
 		return
 	}
-	switch state.game.StateID {
-	case 5:
+	switch state.Game.StateID {
+	case 5: // game over
 		log.Info("request to ended game", "game_id", gameID)
 		http.Error(w, "game over", http.StatusGone)
 		return
-	case 4, 3, 2:
+	case 4, 3, 2: // game in progress
 		switch topic {
-		case "table":
-			// TODO: return spinning wheel
-			filepath := path.Join("static", "html", "table.spin.html.tmpl")
-			tmpl, err := readParse(static, filepath)
-			if err != nil {
-				log.Error("read and parse template", "filepath", filepath, "error", err)
-				http.Error(w, "internal server error", http.StatusInternalServerError)
-				return
-			}
-			err = tmpl.Execute(w, map[string]interface{}{
-				"game_state": state.game.StateID,
-				"game_id":    gameID,
-			})
-			if err != nil {
-				log.Error("execute template",
-					"error", err,
-					"template", filepath,
-				)
-				http.Error(w, "internal server error", http.StatusInternalServerError)
-				return
-			}
 		case "players":
+			// TODO: complete
+			http.Error(w, "TODO", http.StatusNotImplemented)
+		case "table":
+			// TODO: complete
+			http.Error(w, "TODO", http.StatusNotImplemented)
 		default:
 			log.Info(ErrNoSuchTopic.Error())
 			http.Error(w, ErrNoSuchTopic.Error(), http.StatusBadRequest)
 			return
 		}
 
-	case 1, 0:
+	case 1, 0: // pregame
 		switch topic {
-		case "table":
-			filepath := path.Join("static", "html", "table.invite.html.tmpl")
+		case "players":
+			filepath := path.Join("static", "html", "players.html.tmpl")
 			tmpl, err := readParse(static, filepath)
 			if err != nil {
-				log.Error("read and parse template", "filepath", filepath, "error", err)
+				log.Error(ErrReadParseTemplate.Error(), "filepath", filepath, "error", err)
 				http.Error(w, "internal server error", http.StatusInternalServerError)
 				return
 			}
-			err = tmpl.Execute(w, map[string]interface{}{
-				"game_state": state.game.StateID,
-				"game_id":    gameID,
-			})
+			err = tmpl.Execute(w, state)
 			if err != nil {
 				log.Error("execute template",
 					"error", err,
 					"template", filepath,
 				)
 				http.Error(w, "internal server error", http.StatusInternalServerError)
-				return
 			}
-		case "players":
+			return
+		case "table":
+			// TODO: complete
+			http.Error(w, "TODO", http.StatusNotImplemented)
 		default:
 			log.Info(ErrNoSuchTopic.Error())
 			http.Error(w, ErrNoSuchTopic.Error(), http.StatusBadRequest)

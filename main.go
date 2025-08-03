@@ -18,19 +18,21 @@ import (
 )
 
 var (
-	queries     *sqlc.Queries
-	cache       sync.Map
-	log         *slog.Logger
-	maxCacheAge = 500 * time.Millisecond
-	portDefault = 7777
+	queries                *sqlc.Queries
+	cache                  sync.Map
+	log                    *slog.Logger
+	maxCacheAge                   = 500 * time.Millisecond
+	portDefault                   = 7777
+	defaultFrontendRefresh string = "2000ms"
 )
 
 var (
-	ErrCookieMissing = fmt.Errorf("session cookie missing")
-	ErrCookieInvalid = fmt.Errorf("invalid session cookie")
-	ErrStateNoGame   = fmt.Errorf("no game found")
-	ErrFetchPlayers  = fmt.Errorf("fetching players failed")
-	ErrNoSuchTopic   = fmt.Errorf("no such topic")
+	ErrCookieMissing     = fmt.Errorf("session cookie missing")
+	ErrCookieInvalid     = fmt.Errorf("invalid session cookie")
+	ErrStateNoGame       = fmt.Errorf("no game found")
+	ErrFetchPlayers      = fmt.Errorf("fetching players failed")
+	ErrNoSuchTopic       = fmt.Errorf("no such topic")
+	ErrReadParseTemplate = fmt.Errorf("cannot read and parse template")
 )
 
 //go:embed db/schema.sql

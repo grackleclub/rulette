@@ -26,7 +26,6 @@ var gameNameSeedLength = int(math.Pow(2, 16)) // math/rand
 // rootHandler provides the initial welcome page (index.html),
 // from which a user can start a new game with a POST to /create.
 func rootHandler(w http.ResponseWriter, r *http.Request) {
-	log.Debug("rootHandler called", "path", r.URL.Path)
 	indexPath := path.Join("static", "html", "index.html")
 	file, err := static.ReadFile(indexPath)
 	if err != nil {
@@ -101,14 +100,14 @@ func joinHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// fetch game state
-	game, err := queries.GameState(r.Context(), gameID)
+	// fetch state state
+	state, err := queries.GameState(r.Context(), gameID)
 	if err != nil {
 		log.Warn("game not found", "error", err)
 		http.Error(w, "game not found", http.StatusNotFound)
 		return
 	}
-	switch game.StateID {
+	switch state.StateID {
 	case 5:
 		log.Info("join attempt to closed game")
 		http.Error(w, "game over", http.StatusGone)
@@ -116,14 +115,14 @@ func joinHandler(w http.ResponseWriter, r *http.Request) {
 
 	case 4, 3, 2:
 		log.Info("join attempt to game in progress",
-			"state_id", game.StateID,
-			"state_name", game.StateName,
+			"state_id", state.StateID,
+			"state_name", state.StateName,
 		)
 		http.Error(w, "game in progress", http.StatusConflict)
 		return
 	case 1, 0:
 		// first join updates state from 'created' to 'inviting'
-		if game.StateID == 0 {
+		if state.StateID == 0 {
 			log.Debug("created game has first join, updating state to inviting")
 			err := queries.GameUpdate(r.Context(), sqlc.GameUpdateParams{
 				StateID:           1,

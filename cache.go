@@ -12,14 +12,15 @@ import (
 
 // state is a struct to populate the global game cache.
 type state struct {
-	updated time.Time
-	game    sqlc.GameStateRow
-	players []sqlc.GamePlayerPointsRow
+	Updated time.Time
+	Game    sqlc.GameStateRow
+	Players []sqlc.GamePlayerPointsRow
+	Config  map[string]string // generic baggage (e.g. frontend refresh rate)
 }
 
 // isPlayerInGame returns true when cookieKey exists in game_players.
 func (s *state) isPlayerInGame(cookieKey string) bool {
-	for _, player := range s.players {
+	for _, player := range s.Players {
 		if player.SessionKey.String == cookieKey {
 			return true
 		}
@@ -35,22 +36,30 @@ func stateFromCacheOrDB(ctx context.Context, cache *sync.Map, gameID string) (st
 	// cache hit
 	if value, ok := cache.Load(gameID); ok {
 		cachedState := value.(*state)
-		cacheAge := time.Since(cachedState.updated)
+		cacheAge := time.Since(cachedState.Updated)
 		if cacheAge < maxCacheAge {
 			log.Info("cache hit", "cache_age", cacheAge)
 			return *cachedState, nil
 		}
 		log.Info("cache stale", "cache_age", cacheAge)
 	}
+
 	// cache miss
 	log.Info("cache miss")
 	stateFresh, err := fetchStateFromDB(ctx, gameID)
 	if err != nil {
 		return state{}, err
 	}
+	log.Debug("new state fetched from DB", "data", stateFresh)
+
+	// Add any default config
+	stateFresh.Config = make(map[string]string)
+	stateFresh.Config["refresh"] = defaultFrontendRefresh
+
 	// Update the cache
 	cache.Store(gameID, &stateFresh)
 	log.Info("cache updated", "game_id", gameID)
+
 	return stateFresh, nil
 }
 
@@ -62,14 +71,14 @@ func fetchStateFromDB(ctx context.Context, gameID string) (state, error) {
 	if err != nil {
 		return state{}, ErrStateNoGame
 	}
-	stateFresh.game = game
+	stateFresh.Game = game
 	// get game players
 	players, err := queries.GamePlayerPoints(ctx, gameID)
 	if err != nil {
 		return state{}, ErrFetchPlayers
 	}
-	stateFresh.players = players
-	stateFresh.updated = time.Now().UTC()
+	stateFresh.Players = players
+	stateFresh.Updated = time.Now().UTC()
 	log.Info("fetched game state and players",
 		"player_count", len(players),
 		"game_id", gameID,
