@@ -1,19 +1,19 @@
 <article id="players">
   <h2>players</h2>
   {{ range .players }}
-    <section id="player-{{ .id }}" class="player">
-      <div>{{ .name }}</div>
-      <div>{{ .points }}</div>
-      <div>
-        {{ range .cards }}
-        <div class="card">{{ . }}</div>
-        {{ end }}
-      </div>
-    </section>
+  <section id="player-{{ .id }}" class="player">
+    <div>{{ .name }}</div>
+    <div>{{ .points }}</div>
+    {{ range .cards }}
+    <ul>
+      <li class="card">{{ . }}</li>
+    </ul>
+    {{ end }}
+  </section>
   {{ else }}
-  {{ if .game_state == "waiting" }}
-    <section class="player">
-      <p>Invite players with a <a href="/{{ .game_id }}/join">Share Link</a></p>
-    </section>
+  {{ if .game_state == "inviting" }}
+  <section class="player">
+    <p>Invite players with a <a href="/{{ .game_id }}/join">Share Link</a></p>
+  </section>
   {{ end }}
 </article>

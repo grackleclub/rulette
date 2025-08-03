@@ -118,7 +118,7 @@ func dataHandler(w http.ResponseWriter, r *http.Request) {
 	}
 	switch state.game.StateID {
 	case 5:
-		log.Info("game is over", "game_id", gameID)
+		log.Info("request to ended game", "game_id", gameID)
 		http.Error(w, "game over", http.StatusGone)
 		return
 	case 4, 3, 2:
