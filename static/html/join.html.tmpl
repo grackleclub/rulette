@@ -1,9 +1,8 @@
 <article>
-  <h2>{{ .game_name }}</h2>
-  <p>Game created!</p>
-  <form action="/{{ .game_id }}/join" method="POST">
+  <h2>{{ .Name }}</h2>
+  <form action="/{{ .ID }}/join" method="POST">
     <div id="join">
-      <label for="username">Enter a username to join:</label>
+      <label for="username">Enter a username to join '{{ .Name }}':</label>
       <input type="text" id="username" name="username" required />
       <input type="submit" value="Join" />
     </div>

@@ -119,9 +119,11 @@ func dataHandler(w http.ResponseWriter, r *http.Request) {
 		switch topic {
 		case "players":
 			// TODO: complete
+			log.Error("not implemented")
 			http.Error(w, "TODO", http.StatusNotImplemented)
 		case "table":
 			// TODO: complete
+			log.Error("not implemented")
 			http.Error(w, "TODO", http.StatusNotImplemented)
 		default:
 			log.Info(ErrNoSuchTopic.Error())
@@ -150,6 +152,7 @@ func dataHandler(w http.ResponseWriter, r *http.Request) {
 			return
 		case "table":
 			// TODO: complete
+			log.Error("not implemented")
 			http.Error(w, "TODO", http.StatusNotImplemented)
 		default:
 			log.Info(ErrNoSuchTopic.Error())

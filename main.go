@@ -23,7 +23,7 @@ var (
 	log                    *slog.Logger
 	maxCacheAge                   = 500 * time.Millisecond
 	portDefault                   = 7777
-	defaultFrontendRefresh string = "2000ms"
+	defaultFrontendRefresh string = "1000ms"
 )
 
 var (
@@ -62,6 +62,7 @@ func main() {
 	// game.go
 	mux.Handle("/{game_id}", logMW(http.HandlerFunc(gameHandler)))
 	mux.Handle("/{game_id}/data/{topic}", logMW(http.HandlerFunc(dataHandler)))
+	mux.Handle("/{game_id}/action/{action}", logMW(http.HandlerFunc(actionHandler)))
 
 	// actions.go
 	// mux.HandleFunc("/{game_id}/spin/{card_id}", spinHandler)
