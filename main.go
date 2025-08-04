@@ -23,7 +23,7 @@ var (
 	log                    *slog.Logger
 	maxCacheAge                   = 500 * time.Millisecond
 	portDefault                   = 7777
-	defaultFrontendRefresh string = "1000ms"
+	defaultFrontendRefresh string = "5000ms"
 )
 
 var (
@@ -31,7 +31,8 @@ var (
 	ErrCookieInvalid     = fmt.Errorf("invalid session cookie")
 	ErrStateNoGame       = fmt.Errorf("no game found")
 	ErrFetchPlayers      = fmt.Errorf("fetching players failed")
-	ErrNoSuchTopic       = fmt.Errorf("no such topic")
+	ErrTopicInvalid      = fmt.Errorf("topic invalid for context or does not exist")
+	ErrActionInvaid      = fmt.Errorf("action invalid for context or does not exist")
 	ErrReadParseTemplate = fmt.Errorf("cannot read and parse template")
 )
 

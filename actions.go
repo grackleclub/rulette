@@ -3,6 +3,9 @@ package main
 import (
 	"net/http"
 	"strings"
+
+	sqlc "github.com/grackleclub/rulette/db/sqlc"
+	"github.com/jackc/pgx/v5/pgtype"
 )
 
 func actionHandler(w http.ResponseWriter, r *http.Request) {
@@ -10,10 +13,11 @@ func actionHandler(w http.ResponseWriter, r *http.Request) {
 	parts := strings.Split(pathLong, "/")
 	if len(parts) != 3 {
 		http.Error(w, "invalid path", http.StatusBadRequest)
+		return
 	}
 	gameID := parts[0]
 	action := parts[2]
-	log := log.With("handler", "dataHandler", "game_id", gameID, "action", action)
+	log := log.With("handler", "actionHandler", "game_id", gameID, "action", action)
 	log.Info("actionHandler called")
 	cookieID, cookieKey, err := cookie(r)
 	if err != nil {
@@ -23,7 +27,7 @@ func actionHandler(w http.ResponseWriter, r *http.Request) {
 	state, err := stateFromCacheOrDB(r.Context(), &cache, gameID)
 	if err != nil {
 		if err == ErrStateNoGame {
-			log.Info("game not found", "game_id", gameID)
+			log.Info(ErrStateNoGame.Error(), "game_id", gameID)
 			http.Error(w, "game not found", http.StatusNotFound)
 			return
 		}
@@ -46,8 +50,26 @@ func actionHandler(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "game over", http.StatusGone)
 		return
 	case 1, 0: // pregame
-		log.Info("game not started yet, no actions allowed")
-		http.Error(w, "game not started yet", http.StatusTooEarly)
+		switch action {
+		case "start":
+			err := queries.GameUpdate(r.Context(), sqlc.GameUpdateParams{
+				ID:                gameID,
+				StateID:           2, // in progress
+				InitiativeCurrent: pgtype.Int4{Int32: 0, Valid: true},
+			})
+			if err != nil {
+				log.Error("start game", "error", err)
+				http.Error(w, "server error", http.StatusInternalServerError)
+				return
+			}
+			log.Info("game started")
+			w.WriteHeader(http.StatusOK)
+			return
+		default:
+			log.Info(ErrActionInvaid.Error())
+			http.Error(w, ErrActionInvaid.Error(), http.StatusTooEarly)
+			return
+		}
 	case 4, 3, 2: // game in progress
 		switch action {
 		case "flip":
@@ -81,6 +103,21 @@ func actionHandler(w http.ResponseWriter, r *http.Request) {
 			// TODO: implement
 			log.Error("not implmented")
 			http.Error(w, "not implemented", http.StatusNotImplemented)
+		case "end":
+			// NOTE: any player can end the game
+			err := queries.GameUpdate(r.Context(), sqlc.GameUpdateParams{
+				ID:                gameID,
+				StateID:           5, // game over
+				InitiativeCurrent: pgtype.Int4{Int32: 0, Valid: true},
+			})
+			if err != nil {
+				log.Error("end game", "error", err)
+				http.Error(w, "server error", http.StatusInternalServerError)
+				return
+			}
+			log.Info("game ended")
+			w.WriteHeader(http.StatusGone)
+			return
 		default:
 			log.Info("unsupported action requested")
 			http.Error(w, "unsupported action", http.StatusNotImplemented)

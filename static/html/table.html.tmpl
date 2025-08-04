@@ -1,0 +1,19 @@
+<article id="table">
+  <h2>table</h2>
+  {{ if eq .Game.StateName "inviting" }}
+  <section class="action">
+    <button 
+      hx-post="/{{ .Game.ID }}/action/start" 
+      hx-swap="none">
+      Start Game
+    </button>
+  </section>
+  {{ else }}
+  <section class="action">
+    <button 
+      hx-post="/{{ .Game.ID }}/action/spin" 
+      hx-swap="none">
+      Spin
+    </button>
+  {{ end }}
+</article>

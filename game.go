@@ -115,23 +115,7 @@ func dataHandler(w http.ResponseWriter, r *http.Request) {
 		log.Info("request to ended game", "game_id", gameID)
 		http.Error(w, "game over", http.StatusGone)
 		return
-	case 4, 3, 2: // game in progress
-		switch topic {
-		case "players":
-			// TODO: complete
-			log.Error("not implemented")
-			http.Error(w, "TODO", http.StatusNotImplemented)
-		case "table":
-			// TODO: complete
-			log.Error("not implemented")
-			http.Error(w, "TODO", http.StatusNotImplemented)
-		default:
-			log.Info(ErrNoSuchTopic.Error())
-			http.Error(w, ErrNoSuchTopic.Error(), http.StatusBadRequest)
-			return
-		}
-
-	case 1, 0: // pregame
+	case 4, 3, 2, 1, 0: // game in progress
 		switch topic {
 		case "players":
 			filepath := path.Join("static", "html", "players.html.tmpl")
@@ -151,13 +135,27 @@ func dataHandler(w http.ResponseWriter, r *http.Request) {
 			}
 			return
 		case "table":
-			// TODO: complete
-			log.Error("not implemented")
-			http.Error(w, "TODO", http.StatusNotImplemented)
+			filepath := path.Join("static", "html", "table.html.tmpl")
+			tmpl, err := readParse(static, filepath)
+			if err != nil {
+				log.Error(ErrReadParseTemplate.Error(), "filepath", filepath, "error", err)
+				http.Error(w, "internal server error", http.StatusInternalServerError)
+				return
+			}
+			err = tmpl.Execute(w, state)
+			if err != nil {
+				log.Error("execute template",
+					"error", err,
+					"template", filepath,
+				)
+				http.Error(w, "internal server error", http.StatusInternalServerError)
+			}
+			return
 		default:
-			log.Info(ErrNoSuchTopic.Error())
-			http.Error(w, ErrNoSuchTopic.Error(), http.StatusBadRequest)
+			log.Info(ErrTopicInvalid.Error())
+			http.Error(w, ErrTopicInvalid.Error(), http.StatusBadRequest)
 			return
 		}
+
 	}
 }

@@ -15,15 +15,15 @@
       <footer>{{ .Game.StateName }}</footer>
     </article>
 
-    <section id="players-section" hx-get="/{{ .Game.ID }}/data/players" 
-      hx-target="#players-section" hx-trigger="load, every {{ .Config.refresh }}" hx-swap="innerHTML">
+    <section id="players" hx-get="/{{ .Game.ID }}/data/players" 
+      hx-target="#players" hx-trigger="load, every {{ .Config.refresh }}" hx-swap="innerHTML">
       <article id="loading-players">
         <p>loading players...</p>
       </article>
     </section>
 
-    <section id="section-table" hx-get="/{{ .Game.ID }}/data/table" 
-      hx-target="#table-section" hx-trigger="load, every {{ .Config.refresh }}" hx-swap="innerHTML">
+    <section id="table" hx-get="/{{ .Game.ID }}/data/table" 
+      hx-target="#table" hx-trigger="load, every {{ .Config.refresh }}" hx-swap="innerHTML">
       <article id="loading-table">
         <p>loading table...</p>
       </article>

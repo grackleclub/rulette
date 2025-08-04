@@ -1,10 +1,23 @@
-<article>
-  <h2>{{ .Name }}</h2>
-  <form action="/{{ .ID }}/join" method="POST">
-    <div id="join">
-      <label for="username">Enter a username to join '{{ .Name }}':</label>
-      <input type="text" id="username" name="username" required />
-      <input type="submit" value="Join" />
-    </div>
-  </form>
-</article>
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Rulette | {{ .Name }}</title>
+    <link rel="stylesheet" href="/static/css/style.css">
+    <link rel="icon" type="image/png" sizes="192x192" href="/favicon.ico">
+    <script src="/static/js/htmx.min.js"></script>
+  </head>
+  <body>
+    <article>
+      <h2>{{ .Name }}</h2>
+      <form action="/{{ .ID }}/join" method="POST">
+        <div id="join">
+          <label for="username">Enter a username to join '{{ .Name }}':</label>
+          <input type="text" id="username" name="username" required />
+          <input type="submit" value="Join" />
+        </div>
+      </form>
+    </article>
+  </body>
+</html>
