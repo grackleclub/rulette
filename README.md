@@ -1,17 +1,10 @@
 # rulette
+[![Test](https://github.com/grackleclub/rulette/actions/workflows/test.yml/badge.svg)](https://github.com/grackleclub/rulette/actions/workflows/test.yml)
+rule stacking game based on [dropout.tv](https://dropout.tv)'s [_Rulette_ (S7E7](https://www.dropout.tv/game-changer/season:7/videos/rulette)
 
-rule stacking game based on DropoutTV's _Rulette_ from season 7
+---
 
-## Routes
-```mermaid
-flowchart TD
-  root --> create
-  create --> join
-  join --> gameID
-```
-
-
-## Game States
+## game states
 ```mermaid
 flowchart TD
   subgraph init
@@ -19,11 +12,13 @@ flowchart TD
     invite --> player1
     invite --> player2
     invite --> player3
-    player1 --> initiative
-    player2 --> initiative
-    player3 --> initiative
+    player1 --> join
+    player2 --> join
+    player3 --> join
+    join --> start
+    start --> play
   end
-  initiative --> spin
+  spin
   subgraph play
     spin --> rule --> next
     spin --> modifier --> next
@@ -38,3 +33,24 @@ flowchart TD
   end
   consequences ---> play
 ```
+
+
+## routes
+```mermaid
+flowchart TD
+  subgraph pregame
+    root --> create
+    create --> join
+    join --> game
+  end
+  subgraph data
+    game/data/player
+    game/data/player
+    game/data/table
+  end
+  subgraph actions
+    game/action/start
+    game/action/end
+  end
+```
+
