@@ -1,0 +1,30 @@
+name: Test
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [ "main" ]
+  pull_request:
+    branches: [ "main" ]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v4
+    - uses: sqlc-dev/setup-sqlc@v3
+      with:
+        sqlc-version: 'latest'
+
+    - name: Set up Go
+      uses: actions/setup-go@v4
+      with:
+        go-version: 'latest'
+
+    - name: Test
+      run: bin/test -v
+
+    # all updated sqlc definitions should be committed
+    - uses: stefanzweifel/git-auto-commit-action@v6
+      with:
+        commit_message: "automated sqlc updates"
