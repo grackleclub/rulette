@@ -56,6 +56,6 @@ flowchart LR
     ending
   end
 
-  frontend --> data
-  frontend --> actions
+  frontend -->|htmx| data
+  frontend -->|post| actions
 ```
