@@ -1,7 +1,7 @@
 # rulette
 [![Test](https://github.com/grackleclub/rulette/actions/workflows/test.yml/badge.svg)](https://github.com/grackleclub/rulette/actions/workflows/test.yml)
 
-rule stacking game based on [dropout.tv](https://dropout.tv)'s [_Rulette_ (S7E7](https://www.dropout.tv/game-changer/season:7/videos/rulette))
+rule stacking game based on [dropout.tv](https://dropout.tv)'s [_Rulette_ (S7E7)](https://www.dropout.tv/game-changer/season:7/videos/rulette)
 
 ---
 
