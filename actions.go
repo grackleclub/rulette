@@ -63,6 +63,8 @@ func actionHandler(w http.ResponseWriter, r *http.Request) {
 				return
 			}
 			log.Info("game started")
+			// invalidate cache for this game
+			cache.Delete(gameID)
 			w.WriteHeader(http.StatusOK)
 			return
 		default:
@@ -72,6 +74,10 @@ func actionHandler(w http.ResponseWriter, r *http.Request) {
 		}
 	case 4, 3, 2: // game in progress
 		switch action {
+		case "spin":
+			// TODO: implement
+			log.Error("not implmented")
+			http.Error(w, "not implemented", http.StatusNotImplemented)
 		case "flip":
 			// TODO: implement
 			log.Error("not implmented")
@@ -96,10 +102,6 @@ func actionHandler(w http.ResponseWriter, r *http.Request) {
 		case "judge":
 			// - POST:
 			// {game_id}/judge?infraction_id={infraction_id}&verdict={verdict}
-			// TODO: implement
-			log.Error("not implmented")
-			http.Error(w, "not implemented", http.StatusNotImplemented)
-		case "spin":
 			// TODO: implement
 			log.Error("not implmented")
 			http.Error(w, "not implemented", http.StatusNotImplemented)
