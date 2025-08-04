@@ -24,7 +24,7 @@ esac
 if [ -n "$verbose" ]; then
   echo "verbose mode enabled"
 fi
-#
+
 # run go tests
 echo "go: testing..."
 if ! go test "$verbose" ./...; then
