@@ -58,9 +58,4 @@ flowchart LR
 
   frontend --> data
   frontend --> actions
-
-
-
 ```
-
-
