@@ -8,7 +8,7 @@ rule stacking game based on [dropout.tv](https://dropout.tv)'s [_Rulette_ (S7E7)
 ## game states
 ```mermaid
 flowchart LR
-  subgraph init
+  subgraph pregame
     create --> invite
     invite --> player1
     invite --> player2
@@ -17,22 +17,20 @@ flowchart LR
     player2 --> join
     player3 --> join
     join --> start
-    start --> play
   end
-  spin
-  subgraph play
-    spin --> rule --> next
-    spin --> modifier --> next
-    spin --> prompt --> next
-    spin --> over
-    next --> spin
+  start --> spin
+  subgraph game
+    subgraph turn
+      spin --> rule --> points
+      spin --> modifier --> points
+      spin --> prompt --> points
+    end
+    subgraph accusations
+      accuse --> convict
+      accuse --x absolve
+    end
+    convict --> points
   end
-  play ---> accuse
-  subgraph accusations
-    accuse --> convict --> consequences
- accuse --> absolve --> consequences
-  end
-  consequences ---> play
 ```
 
 
