@@ -12,7 +12,10 @@
 
     <article id="title">
       <h1>{{ .Game.Name }}</h1>
-      <footer>{{ .Game.StateName }}</footer>
+      <section id="status-fetch" hx-get="/{{ .Game.ID }}/data/status" 
+      hx-target="#status" hx-trigger="load, every {{ .Config.refresh }}" hx-swap="innerHTML">
+        <footer id="status">{{ .Game.StateName }}</footer>
+      </section>
     </article>
 
     <section id="players" hx-get="/{{ .Game.ID }}/data/players" 

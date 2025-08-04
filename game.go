@@ -151,6 +151,15 @@ func dataHandler(w http.ResponseWriter, r *http.Request) {
 				http.Error(w, "internal server error", http.StatusInternalServerError)
 			}
 			return
+		case "status":
+			w.Header().Set("Content-Type", "text/plain")
+			w.WriteHeader(http.StatusOK)
+			_, err := w.Write([]byte(state.Game.StateName))
+			if err != nil {
+				log.Error("write status response", "error", err)
+				http.Error(w, "server error", http.StatusInternalServerError)
+				return
+			}
 		default:
 			log.Info(ErrTopicInvalid.Error())
 			http.Error(w, ErrTopicInvalid.Error(), http.StatusBadRequest)
