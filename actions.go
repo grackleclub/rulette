@@ -63,6 +63,17 @@ func actionHandler(w http.ResponseWriter, r *http.Request) {
 				return
 			}
 			log.Info("game started")
+			err = queries.GameUpdate(r.Context(), sqlc.GameUpdateParams{
+				ID:                gameID,
+				StateID:           3,
+				InitiativeCurrent: pgtype.Int4{Int32: 1, Valid: true},
+			})
+			if err != nil {
+				log.Error("update initiative", "error", err)
+				http.Error(w, "server error", http.StatusInternalServerError)
+			}
+			log.Info("game started", "state", "ready", "initiative", 1)
+
 			// invalidate cache for this game
 			cache.Delete(gameID)
 			w.WriteHeader(http.StatusOK)
