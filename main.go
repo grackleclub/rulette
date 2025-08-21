@@ -81,6 +81,7 @@ func main() {
 		Port:     "5432",
 		Sslmode:  "disable",
 	}
+	// FIXME: replace with prod
 	db, close, err := postgres.NewTestDB(ctx, opts)
 	if err != nil {
 		panic(fmt.Sprintf("create test database: %v", err))
