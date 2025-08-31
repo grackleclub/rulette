@@ -5,7 +5,8 @@
 	color: purple;
 }
 
-.card {
+.card,
+.player {
     text-align: left;
     flex: 1 1 45%;
     margin: 1em;
