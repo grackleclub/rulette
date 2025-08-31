@@ -46,7 +46,7 @@ func gameHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	filepath := path.Join("static", "html", "game.html.tmpl")
+	filepath := path.Join("static", "html", "tmpl.game.html")
 	tmpl, err := readParse(static, filepath)
 	if err != nil {
 		log.Error("read and parse template",
@@ -118,7 +118,7 @@ func dataHandler(w http.ResponseWriter, r *http.Request) {
 	case 4, 3, 2, 1, 0: // game in progress
 		switch topic {
 		case "players":
-			filepath := path.Join("static", "html", "players.html.tmpl")
+			filepath := path.Join("static", "html", "tmpl.players.html")
 			tmpl, err := readParse(static, filepath)
 			if err != nil {
 				log.Error(ErrReadParseTemplate.Error(), "filepath", filepath, "error", err)
@@ -135,7 +135,7 @@ func dataHandler(w http.ResponseWriter, r *http.Request) {
 			}
 			return
 		case "table":
-			filepath := path.Join("static", "html", "table.html.tmpl")
+			filepath := path.Join("static", "html", "tmpl.table.html")
 			tmpl, err := readParse(static, filepath)
 			if err != nil {
 				log.Error(ErrReadParseTemplate.Error(), "filepath", filepath, "error", err)
