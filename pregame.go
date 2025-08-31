@@ -87,7 +87,7 @@ func joinHandler(w http.ResponseWriter, r *http.Request) {
 	switch r.Method {
 	case http.MethodGet:
 		w.Header().Set("Content-Type", "text/html")
-		templateFilepath := path.Join("static", "html", "join.html.tmpl")
+		templateFilepath := path.Join("static", "html", "tmpl.join.html")
 		tmpl, err := readParse(static, templateFilepath)
 		err = tmpl.Execute(w, game)
 		if err != nil {

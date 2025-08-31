@@ -4,3 +4,15 @@
     box-sizing: border-box;
 	color: purple;
 }
+
+.card {
+    text-align: left;
+    flex: 1 1 45%;
+    margin: 1em;
+    display: flex;
+    border-radius: 0.5em;
+    align-items: center;
+    padding: 0.5em 2em 0.5em 0.5em;
+    line-height: 1.6;
+    gap: 1em;
+  }
