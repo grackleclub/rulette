@@ -26,7 +26,6 @@ func gameHandler(w http.ResponseWriter, r *http.Request) {
 
 	state, err := stateFromCacheOrDB(r.Context(), &cache, gameID)
 	if err != nil {
-		log.Error("game state from cache", "error", err, "game_id", gameID)
 		if err == ErrStateNoGame {
 			log.Info("game not found", "game_id", gameID)
 			http.Error(w, "game not found", http.StatusNotFound)
