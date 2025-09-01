@@ -70,18 +70,6 @@ INSERT INTO game_cards (game_id, card_id, slot, stack, player_id)
 
 
 
--- TODO: this needs a lot of work
-
--- name: GameCardsInit :exec
-INSERT INTO game_cards (game_id, card_id, slot, stack, player_id)
-(
-    SELECT $1, cards.id, 0, 0, 0 -- FIXME: bullshit zeros
-    FROM cards
-    WHERE generic IS TRUE
-);
-
-
-
 -- GameCardCreate
 
 -- WITH slots AS (
