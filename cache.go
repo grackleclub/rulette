@@ -30,6 +30,22 @@ func (s *state) isPlayerInGame(cookieKey string) bool {
 	return false
 }
 
+// isHost verifies that the player is host
+// by checking that they are initiative 0 for the game.
+func (s *state) isHost(cookieKey string) bool {
+	var inGame bool
+	for _, player := range s.Players {
+		if player.SessionKey.String == cookieKey {
+			inGame = true
+			if player.Initiative.Int32 == int32(0) {
+				return true
+			}
+		}
+	}
+	log.Info("player not host", "in_game", inGame)
+	return false
+}
+
 // stateFromCacheOrDB returns the current state of the game specified by gameID,
 // drawing from cache if newer than maxCacheAge, otherwise fetching from the database.
 func stateFromCacheOrDB(ctx context.Context, cache *sync.Map, gameID string) (state, error) {

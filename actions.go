@@ -117,7 +117,11 @@ func actionHandler(w http.ResponseWriter, r *http.Request) {
 			log.Error("not implmented")
 			http.Error(w, "not implemented", http.StatusNotImplemented)
 		case "end":
-			// NOTE: any player can end the game
+			if !state.isHost(cookieKey) {
+				log.Info("prohibiting non-host from ending game")
+				http.Error(w, "only host can end game", http.StatusForbidden)
+				return
+			}
 			err := queries.GameUpdate(r.Context(), sqlc.GameUpdateParams{
 				ID:                gameID,
 				StateID:           5, // game over
