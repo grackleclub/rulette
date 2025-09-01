@@ -325,12 +325,15 @@ ORDER BY initiative ASC
 `
 
 type GamePlayerPointsRow struct {
-	PlayerID   int32       `json:"player_id"`
-	Name       string      `json:"name"`
-	Points     pgtype.Int4 `json:"points"`
-	SessionKey pgtype.Text `json:"session_key"`
-	Initiative pgtype.Int4 `json:"initiative"`
-	Initiative pgtype.Int4 `json:"initiative"`
+	PlayerID     int32       `json:"player_id"`
+	Name         string      `json:"name"`
+	Points       pgtype.Int4 `json:"points"`
+	SessionKey   pgtype.Text `json:"session_key"`
+	PlayerID_2   pgtype.Int4 `json:"player_id_2"`
+	Name_2       string      `json:"name_2"`
+	Points_2     pgtype.Int4 `json:"points_2"`
+	SessionKey_2 pgtype.Text `json:"session_key_2"`
+	Initiative   pgtype.Int4 `json:"initiative"`
 }
 
 // TODO: is id=player_id correct?
@@ -348,6 +351,10 @@ func (q *Queries) GamePlayerPoints(ctx context.Context, gameID string) ([]GamePl
 			&i.Name,
 			&i.Points,
 			&i.SessionKey,
+			&i.PlayerID_2,
+			&i.Name_2,
+			&i.Points_2,
+			&i.SessionKey_2,
 			&i.Initiative,
 		); err != nil {
 			return nil, err

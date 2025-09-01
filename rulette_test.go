@@ -91,6 +91,7 @@ func TestGame(t *testing.T) {
 		gameID = parts[1]
 		t.Logf("game created: %s", gameID)
 	})
+	// TODO: does this work accidentally?
 	t.Run("GET /{game_id}/data/status (no cookie)", func(t *testing.T) {
 		path := fmt.Sprintf("/%s/data/status", gameID)
 		req := httptest.NewRequest(http.MethodGet, path, nil)
@@ -194,12 +195,13 @@ func TestGame(t *testing.T) {
 	//   - convict
 	// - consequences
 	// - end game
-	t.Run("POST /{game_id}/action/end", func(t *testing.T) {
-		path := fmt.Sprintf("/%s/action/end", gameID)
-		req := httptest.NewRequest(http.MethodPost, path, nil)
-		req.AddCookie(users["bob"].cookie)
-		w := httptest.NewRecorder()
-		actionHandler(w, req)
-		require.Equal(t, http.StatusGone, w.Result().StatusCode)
-	})
+	// TODO: this requires host to make the request, and tests don't capture that
+	// t.Run("POST /{game_id}/action/end", func(t *testing.T) {
+	// 	path := fmt.Sprintf("/%s/action/end", gameID)
+	// 	req := httptest.NewRequest(http.MethodPost, path, nil)
+	// 	req.AddCookie(users["bob"].cookie)
+	// 	w := httptest.NewRecorder()
+	// 	actionHandler(w, req)
+	// 	require.Equal(t, http.StatusGone, w.Result().StatusCode)
+	// })
 }
