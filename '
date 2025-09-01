@@ -92,7 +92,6 @@ func fetchStateFromDB(ctx context.Context, gameID string) (state, error) {
 		Game:    game,
 		Players: players,
 		Updated: time.Now().UTC(),
-		Cards:   cards,
 	}, nil
 }
 

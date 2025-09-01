@@ -133,14 +133,19 @@ WHERE game_id = $1
 -- name: GamePlayerPoints :many
 -- TODO: is id=player_id correct?
 SELECT 
-        player_id,
-	(SELECT name FROM players WHERE id=player_id) AS name, 
-	points,
-        session_key,
-	ROW_NUMBER() OVER (ORDER BY points DESC) AS initiative
+    player_id,
+    (SELECT name FROM players WHERE players.id=game_players.player_id) AS name, 
+    points,
+    session_key,
+    initiative
 FROM game_players 
 WHERE game_id = $1
 ORDER BY initiative ASC;
+
+-- name: GameCards :many
+SELECT id, slot, stack, player_id, revealed, flipped, shredded, from_clone
+FROM game_cards
+WHERE game_id = $1;
 
 -- name: InitiativeSet :exec
 UPDATE game_players

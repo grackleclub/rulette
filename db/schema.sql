@@ -72,7 +72,7 @@ CREATE TABLE IF NOT EXISTS game_cards (
 	game_id VARCHAR(6) NOT NULL,
 	card_id INTEGER NOT NULL,
 	slot INTEGER NOT NULL, -- 1-indexed number of wheel slots
-	stack INTEGER NOT NULL, -- 0 bottom, 1 middle, 2 top
+	stack INTEGER NOT NULL, -- 0 bottom, 1 middle, 2 top; irrelevant if revealed
 	player_id INTEGER, -- only populated when revealed=true
 	revealed BOOLEAN DEFAULT FALSE, -- on the wheel
 	flipped BOOLEAN DEFAULT FALSE,

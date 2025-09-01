@@ -162,6 +162,52 @@ func (q *Queries) GameCardShred(ctx context.Context, arg GameCardShredParams) er
 	return err
 }
 
+const gameCards = `-- name: GameCards :many
+SELECT id, slot, stack, player_id, revealed, flipped, shredded, from_clone
+FROM game_cards
+WHERE game_id = $1
+`
+
+type GameCardsRow struct {
+	ID        int32       `json:"id"`
+	Slot      int32       `json:"slot"`
+	Stack     int32       `json:"stack"`
+	PlayerID  pgtype.Int4 `json:"player_id"`
+	Revealed  pgtype.Bool `json:"revealed"`
+	Flipped   pgtype.Bool `json:"flipped"`
+	Shredded  pgtype.Bool `json:"shredded"`
+	FromClone pgtype.Bool `json:"from_clone"`
+}
+
+func (q *Queries) GameCards(ctx context.Context, gameID string) ([]GameCardsRow, error) {
+	rows, err := q.db.Query(ctx, gameCards, gameID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []GameCardsRow
+	for rows.Next() {
+		var i GameCardsRow
+		if err := rows.Scan(
+			&i.ID,
+			&i.Slot,
+			&i.Stack,
+			&i.PlayerID,
+			&i.Revealed,
+			&i.Flipped,
+			&i.Shredded,
+			&i.FromClone,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const gameCreate = `-- name: GameCreate :exec
 INSERT INTO games (name, id, owner_id)
 VALUES ($1, $2, $3)
@@ -223,11 +269,11 @@ func (q *Queries) GamePlayerDelete(ctx context.Context, arg GamePlayerDeletePara
 
 const gamePlayerPoints = `-- name: GamePlayerPoints :many
 SELECT 
-        player_id,
-	(SELECT name FROM players WHERE id=player_id) AS name, 
-	points,
-        session_key,
-	ROW_NUMBER() OVER (ORDER BY points DESC) AS initiative
+    player_id,
+    (SELECT name FROM players WHERE players.id=game_players.player_id) AS name, 
+    points,
+    session_key,
+    initiative
 FROM game_players 
 WHERE game_id = $1
 ORDER BY initiative ASC
@@ -238,7 +284,7 @@ type GamePlayerPointsRow struct {
 	Name       string      `json:"name"`
 	Points     pgtype.Int4 `json:"points"`
 	SessionKey pgtype.Text `json:"session_key"`
-	Initiative int64       `json:"initiative"`
+	Initiative pgtype.Int4 `json:"initiative"`
 }
 
 // TODO: is id=player_id correct?
