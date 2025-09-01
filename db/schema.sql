@@ -66,6 +66,11 @@ CREATE TABLE IF NOT EXISTS cards (
 	FOREIGN KEY (creator) REFERENCES players(id)
 );
 
+INSERT INTO cards (type, front, back, creator, created, generic)
+VALUES
+	('rule', 'wearing a giant hat', 'wearing a tiny hat', 0, CURRENT_TIMESTAMP, TRUE),
+	('rule', 'while doing your best Robert Dinero impersonation', 'wearing a tiny hat', 0, CURRENT_TIMESTAMP, TRUE);
+
 -- no primary key because cloning a card is possible
 CREATE TABLE IF NOT EXISTS game_cards (
 	id SERIAL PRIMARY KEY, -- to distinguish between clones
