@@ -2,5 +2,24 @@
     font-family: 'Roboto', sans-serif;
     border: 1px dotted #000;
     box-sizing: border-box;
-	color: purple;
+	  color: purple;
+    border-radius: .5rem;
 }
+
+.players {
+  display: flex;
+  flex-wrap: wrap;
+}
+
+.card,
+.player {
+    text-align: left;
+    flex: 1 1 45%;
+    margin: 1em;
+    display: flex;
+    border-radius: 0.5em;
+    align-items: center;
+    padding: 0.5em 2em 0.5em 0.5em;
+    line-height: 1.6;
+    gap: 1em;
+  }

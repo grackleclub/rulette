@@ -1,9 +1,11 @@
-<article id="players">
+<article id="players" class="players">
   <h2>players</h2>
   {{ range .Players }}
   <section id="player-{{ .PlayerID }}" class="player">
     <div>{{ .Name }}</div>
-    <div>{{ .Points.Value }}</div>
+    <div>points: {{ .Points.Value }}</div>
+    <div>TODO: Rule Cards</div>
+    <div>{{ .Initiative }}</div>
     <!-- TODO: handle cards -->
   </section>
   {{ end }}
