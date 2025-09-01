@@ -110,9 +110,9 @@ func actionHandler(w http.ResponseWriter, r *http.Request) {
 			// TODO: implement
 			log.Error("not implmented")
 			http.Error(w, "not implemented", http.StatusNotImplemented)
-		case "judge":
+		case "decide":
 			// - POST:
-			// {game_id}/judge?infraction_id={infraction_id}&verdict={verdict}
+			// {game_id}/decide?infraction_id={infraction_id}&verdict={verdict}
 			// TODO: implement
 			log.Error("not implmented")
 			http.Error(w, "not implemented", http.StatusNotImplemented)
