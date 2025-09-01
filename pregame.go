@@ -89,8 +89,7 @@ func createHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// TODO: this is a temporary measure to set some default card
-	// immediatley upon game creation.
+	// immediately upon game creation.
 	// Future intention is that players will set this together during pregame.
 	err = queries.GameCardsInit(r.Context(), gamecode)
 	if err != nil {
