@@ -2,7 +2,13 @@
     font-family: 'Roboto', sans-serif;
     border: 1px dotted #000;
     box-sizing: border-box;
-	color: purple;
+	  color: purple;
+    border-radius: .5rem;
+}
+
+.players {
+  display: flex;
+  flex-wrap: wrap;
 }
 
 .card,
