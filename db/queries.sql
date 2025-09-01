@@ -58,6 +58,18 @@ SELECT
     ) AS player_count
 FROM games WHERE games.id = $1;
 
+-- TODO: this needs a lot of work
+
+-- name: GameCardsInit :exec
+INSERT INTO game_cards (game_id, card_id, slot, stack, player_id)
+(
+    SELECT $1, cards.id, 0, 0, 0 -- FIXME: bullshit zeros
+    FROM cards
+    WHERE generic IS TRUE
+);
+
+
+
 -- GameCardCreate
 
 -- WITH slots AS (
@@ -133,14 +145,19 @@ WHERE game_id = $1
 -- name: GamePlayerPoints :many
 -- TODO: is id=player_id correct?
 SELECT 
-        player_id,
-	(SELECT name FROM players WHERE id=player_id) AS name, 
-	points,
-        session_key,
-	ROW_NUMBER() OVER (ORDER BY points DESC) AS initiative
+    player_id,
+    (SELECT name FROM players WHERE players.id=game_players.player_id) AS name, 
+    points,
+    session_key,
+    initiative
 FROM game_players 
 WHERE game_id = $1
 ORDER BY initiative ASC;
+
+-- name: GameCards :many
+SELECT id, slot, stack, player_id, revealed, flipped, shredded, from_clone
+FROM game_cards
+WHERE game_id = $1;
 
 -- name: InitiativeSet :exec
 UPDATE game_players

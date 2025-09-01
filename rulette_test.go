@@ -189,7 +189,7 @@ func TestGame(t *testing.T) {
 	// spin
 	// TODO: implement the rest
 	t.Run("POST /{game_id}/action/spin", func(t *testing.T) {})
-	// - accuse, judge
+	// - accuse, decide
 	//   - absolve
 	//   - convict
 	// - consequences

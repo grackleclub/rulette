@@ -62,9 +62,13 @@ CREATE TABLE IF NOT EXISTS cards (
 	creator INTEGER,
 	created TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
 	generic BOOLEAN DEFAULT FALSE,
-	FOREIGN KEY (type) REFERENCES card_types(name) ON DELETE CASCADE,
-	FOREIGN KEY (creator) REFERENCES players(id)
+	FOREIGN KEY (type) REFERENCES card_types(name) ON DELETE CASCADE
 );
+
+INSERT INTO cards (type, front, back, creator, created, generic)
+VALUES
+	('rule', 'wearing a giant hat', 'wearing a tiny hat', 0, CURRENT_TIMESTAMP, TRUE),
+	('rule', 'while doing your best Robert Dinero impersonation', 'wearing a tiny hat', 0, CURRENT_TIMESTAMP, TRUE);
 
 -- no primary key because cloning a card is possible
 CREATE TABLE IF NOT EXISTS game_cards (
@@ -72,15 +76,14 @@ CREATE TABLE IF NOT EXISTS game_cards (
 	game_id VARCHAR(6) NOT NULL,
 	card_id INTEGER NOT NULL,
 	slot INTEGER NOT NULL, -- 1-indexed number of wheel slots
-	stack INTEGER NOT NULL, -- 0 bottom, 1 middle, 2 top
+	stack INTEGER NOT NULL, -- 0 bottom, 1 middle, 2 top; irrelevant if revealed
 	player_id INTEGER, -- only populated when revealed=true
 	revealed BOOLEAN DEFAULT FALSE, -- on the wheel
 	flipped BOOLEAN DEFAULT FALSE,
 	shredded BOOLEAN DEFAULT FALSE,
 	from_clone BOOLEAN DEFAULT FALSE,
 	FOREIGN KEY (game_id) REFERENCES games(id) ON DELETE CASCADE,
-	FOREIGN KEY (card_id) REFERENCES cards(id) ON DELETE CASCADE,
-	FOREIGN KEY (player_id) REFERENCES players(id)
+	FOREIGN KEY (card_id) REFERENCES cards(id) ON DELETE CASCADE
 );
 
 CREATE TABLE IF NOT EXISTS infractions (

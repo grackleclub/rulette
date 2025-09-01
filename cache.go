@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"fmt"
 	"net/http"
 	"strings"
 	"sync"
@@ -15,6 +16,7 @@ type state struct {
 	Updated time.Time
 	Game    sqlc.GameStateRow
 	Players []sqlc.GamePlayerPointsRow
+	Cards   []sqlc.GameCardsRow
 	Config  map[string]string // generic baggage (e.g. frontend refresh rate)
 }
 
@@ -65,27 +67,33 @@ func stateFromCacheOrDB(ctx context.Context, cache *sync.Map, gameID string) (st
 
 // fetchStateFromDB retrieves the game state and players from the database for the given gameID.
 func fetchStateFromDB(ctx context.Context, gameID string) (state, error) {
-	var stateFresh state
 	// get game state
 	game, err := queries.GameState(ctx, gameID)
 	if err != nil {
 		return state{}, ErrStateNoGame
 	}
-	stateFresh.Game = game
 	// get game players
 	players, err := queries.GamePlayerPoints(ctx, gameID)
 	if err != nil {
 		return state{}, ErrFetchPlayers
 	}
-	stateFresh.Players = players
-	stateFresh.Updated = time.Now().UTC()
+	// get game cards
+	cards, err := queries.GameCards(ctx, game.ID)
+	if err != nil {
+		return state{}, fmt.Errorf("fetch cards for game: %w", err)
+	}
 	log.Info("fetched game state and players",
 		"player_count", len(players),
 		"game_id", gameID,
 		"game_name", game.Name,
 		"game_state", game.StateName,
 	)
-	return stateFresh, nil
+	return state{
+		Game:    game,
+		Players: players,
+		Updated: time.Now().UTC(),
+		Cards:   cards,
+	}, nil
 }
 
 // cookie inspects the request for cookie and returns
