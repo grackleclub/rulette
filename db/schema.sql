@@ -62,8 +62,7 @@ CREATE TABLE IF NOT EXISTS cards (
 	creator INTEGER,
 	created TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
 	generic BOOLEAN DEFAULT FALSE,
-	FOREIGN KEY (type) REFERENCES card_types(name) ON DELETE CASCADE,
-	FOREIGN KEY (creator) REFERENCES players(id)
+	FOREIGN KEY (type) REFERENCES card_types(name) ON DELETE CASCADE
 );
 
 INSERT INTO cards (type, front, back, creator, created, generic)
