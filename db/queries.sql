@@ -70,6 +70,18 @@ INSERT INTO game_cards (game_id, card_id, slot, stack, player_id)
 
 
 
+-- TODO: this needs a lot of work
+
+-- name: GameCardsInit :exec
+INSERT INTO game_cards (game_id, card_id, slot, stack, player_id)
+(
+    SELECT $1, cards.id, 0, 0, 0 -- FIXME: bullshit zeros
+    FROM cards
+    WHERE generic IS TRUE
+);
+
+
+
 -- GameCardCreate
 
 -- WITH slots AS (
@@ -145,6 +157,11 @@ WHERE game_id = $1
 -- name: GamePlayerPoints :many
 -- TODO: is id=player_id correct?
 SELECT 
+    player_id,
+    (SELECT name FROM players WHERE players.id=game_players.player_id) AS name, 
+    points,
+    session_key,
+    initiative
     player_id,
     (SELECT name FROM players WHERE players.id=game_players.player_id) AS name, 
     points,

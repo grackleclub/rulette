@@ -314,6 +314,11 @@ SELECT
     points,
     session_key,
     initiative
+    player_id,
+    (SELECT name FROM players WHERE players.id=game_players.player_id) AS name, 
+    points,
+    session_key,
+    initiative
 FROM game_players 
 WHERE game_id = $1
 ORDER BY initiative ASC
@@ -324,6 +329,7 @@ type GamePlayerPointsRow struct {
 	Name       string      `json:"name"`
 	Points     pgtype.Int4 `json:"points"`
 	SessionKey pgtype.Text `json:"session_key"`
+	Initiative pgtype.Int4 `json:"initiative"`
 	Initiative pgtype.Int4 `json:"initiative"`
 }
 
