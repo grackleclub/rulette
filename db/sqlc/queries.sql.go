@@ -208,6 +208,22 @@ func (q *Queries) GameCards(ctx context.Context, gameID string) ([]GameCardsRow,
 	return items, nil
 }
 
+const gameCardsInit = `-- name: GameCardsInit :exec
+
+INSERT INTO game_cards (game_id, card_id, slot, stack, player_id)
+(
+    SELECT $1, cards.id, 0, 0, 0 -- FIXME: bullshit zeros
+    FROM cards
+    WHERE generic IS TRUE
+)
+`
+
+// TODO: this needs a lot of work
+func (q *Queries) GameCardsInit(ctx context.Context, gameID string) error {
+	_, err := q.db.Exec(ctx, gameCardsInit, gameID)
+	return err
+}
+
 const gameCreate = `-- name: GameCreate :exec
 INSERT INTO games (name, id, owner_id)
 VALUES ($1, $2, $3)
