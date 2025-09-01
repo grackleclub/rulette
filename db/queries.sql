@@ -134,8 +134,8 @@ WHERE id IN (SELECT id FROM cte);
 
 -- session_key is expected to be valid for the duration of the game
 -- name: GamePlayerCreate :exec
-INSERT INTO game_players (game_id, player_id, session_key)
-VALUES ($1, $2, $3);
+INSERT INTO game_players (game_id, player_id, session_key, initiative)
+VALUES ($1, $2, $3, $4);
 
 -- name: GamePlayerDelete :exec
 DELETE FROM game_players 
@@ -155,9 +155,21 @@ WHERE game_id = $1
 ORDER BY initiative ASC;
 
 -- name: GameCards :many
-SELECT id, slot, stack, player_id, revealed, flipped, shredded, from_clone
+SELECT
+    game_cards.id, 
+    cards.type, 
+    cards.front, 
+    cards.back,
+    game_cards.stack, 
+    game_cards.slot, 
+    game_cards.player_id, 
+    game_cards.revealed, 
+    game_cards.flipped, 
+    game_cards.shredded, 
+    game_cards.from_clone
 FROM game_cards
-WHERE game_id = $1;
+JOIN cards ON cards.id = game_cards.card_id
+WHERE game_cards.game_id = $1;
 
 -- name: InitiativeSet :exec
 UPDATE game_players

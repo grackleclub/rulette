@@ -36,7 +36,7 @@ CREATE TABLE IF NOT EXISTS game_players (
 	player_id INTEGER NOT NULL,
 	points INTEGER DEFAULT 20,
 	session_key TEXT,
-	-- is_host BOOLEAN DEFAULT FALSE, -- TODO: maybe just say that host is initiative 0?
+	-- is_host BOOLEAN DEFAULT FALSE, // NOTE: host has initiative zero
 	joined TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
 	initiative INTEGER,
 	PRIMARY KEY (game_id, player_id),

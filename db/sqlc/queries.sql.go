@@ -163,15 +163,30 @@ func (q *Queries) GameCardShred(ctx context.Context, arg GameCardShredParams) er
 }
 
 const gameCards = `-- name: GameCards :many
-SELECT id, slot, stack, player_id, revealed, flipped, shredded, from_clone
+SELECT
+    game_cards.id, 
+    cards.type, 
+    cards.front, 
+    cards.back,
+    game_cards.stack, 
+    game_cards.slot, 
+    game_cards.player_id, 
+    game_cards.revealed, 
+    game_cards.flipped, 
+    game_cards.shredded, 
+    game_cards.from_clone
 FROM game_cards
-WHERE game_id = $1
+JOIN cards ON cards.id = game_cards.card_id
+WHERE game_cards.game_id = $1
 `
 
 type GameCardsRow struct {
 	ID        int32       `json:"id"`
-	Slot      int32       `json:"slot"`
+	Type      string      `json:"type"`
+	Front     string      `json:"front"`
+	Back      pgtype.Text `json:"back"`
 	Stack     int32       `json:"stack"`
+	Slot      int32       `json:"slot"`
 	PlayerID  pgtype.Int4 `json:"player_id"`
 	Revealed  pgtype.Bool `json:"revealed"`
 	Flipped   pgtype.Bool `json:"flipped"`
@@ -190,8 +205,11 @@ func (q *Queries) GameCards(ctx context.Context, gameID string) ([]GameCardsRow,
 		var i GameCardsRow
 		if err := rows.Scan(
 			&i.ID,
-			&i.Slot,
+			&i.Type,
+			&i.Front,
+			&i.Back,
 			&i.Stack,
+			&i.Slot,
 			&i.PlayerID,
 			&i.Revealed,
 			&i.Flipped,
@@ -251,19 +269,25 @@ func (q *Queries) GameDelete(ctx context.Context, id string) error {
 }
 
 const gamePlayerCreate = `-- name: GamePlayerCreate :exec
-INSERT INTO game_players (game_id, player_id, session_key)
-VALUES ($1, $2, $3)
+INSERT INTO game_players (game_id, player_id, session_key, initiative)
+VALUES ($1, $2, $3, $4)
 `
 
 type GamePlayerCreateParams struct {
 	GameID     string      `json:"game_id"`
 	PlayerID   int32       `json:"player_id"`
 	SessionKey pgtype.Text `json:"session_key"`
+	Initiative pgtype.Int4 `json:"initiative"`
 }
 
 // session_key is expected to be valid for the duration of the game
 func (q *Queries) GamePlayerCreate(ctx context.Context, arg GamePlayerCreateParams) error {
-	_, err := q.db.Exec(ctx, gamePlayerCreate, arg.GameID, arg.PlayerID, arg.SessionKey)
+	_, err := q.db.Exec(ctx, gamePlayerCreate,
+		arg.GameID,
+		arg.PlayerID,
+		arg.SessionKey,
+		arg.Initiative,
+	)
 	return err
 }
 
