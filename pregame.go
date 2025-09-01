@@ -71,6 +71,7 @@ func createHandler(w http.ResponseWriter, r *http.Request) {
 	err := queries.GameCreate(r.Context(), sqlc.GameCreateParams{
 		Name: gamename,
 		ID:   string(gamecode),
+		// TODO: missing owner_id for now
 	})
 	if err != nil {
 		log.Error("create game", "error", err)
@@ -79,7 +80,7 @@ func createHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// TODO: this is a temporary measure to set some default card
-	// immediatley upon game creation.
+	// immediately upon game creation.
 	// Future intention is that players will set this together during pregame.
 	err = queries.GameCardsInit(r.Context(), gamecode)
 	if err != nil {
@@ -148,6 +149,7 @@ func joinHandler(w http.ResponseWriter, r *http.Request) {
 			return
 		case 1, 0:
 			// first join updates state from 'created' to 'inviting'
+			// NOTE: first to join is automatically set as host (initiative 0)
 			if game.StateID == 0 {
 				log.Debug("created game has first join, updating state to inviting")
 				err := queries.GameUpdate(r.Context(), sqlc.GameUpdateParams{
@@ -172,7 +174,15 @@ func joinHandler(w http.ResponseWriter, r *http.Request) {
 				return
 			}
 			// enforce no duplicate player names
+			var initiativeMax int
 			for _, player := range players {
+				if player.Initiative.Int32 > int32(initiativeMax) {
+					log.Debug("updating max initiative",
+						"old", initiativeMax,
+						"new", player.Initiative.Int32,
+					)
+					initiativeMax = int(player.Initiative.Int32)
+				}
 				if player.Name == username {
 					log.Debug("player already exists in game",
 						"game_id", gameID,
@@ -201,6 +211,7 @@ func joinHandler(w http.ResponseWriter, r *http.Request) {
 				PlayerID:   id,
 				GameID:     gameID,
 				SessionKey: pgtype.Text{String: secretStr, Valid: true},
+				Initiative: pgtype.Int4{Int32: int32(initiativeMax + 1), Valid: true},
 			})
 
 			// give the player their session cookie
