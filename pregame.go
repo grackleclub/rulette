@@ -18,12 +18,27 @@ import (
 
 const (
 	sessionCookieName = "session"
-	secretLength      = 32 // crypto/rand
+	secretLength      = 32 // crypto/rand used for session key
 )
 
 // TODO: implement card selection stage of the game between invitation and spin.
 
-var gameNameSeedLength = int(math.Pow(2, 16)) // math/rand
+var gameNameSeedLength = int(math.Pow(2, 16)) // math/rand used for game id
+
+// setCookieErr make logs messages and sets HTTP status responses appropriately.
+func setCookieErr(w http.ResponseWriter, err error) {
+	switch err {
+	case ErrCookieMissing:
+		log.Debug(ErrCookieMissing.Error())
+		http.Error(w, "session cookie missing", http.StatusUnauthorized)
+	case ErrCookieInvalid:
+		log.Debug(ErrCookieInvalid.Error())
+		http.Error(w, "invalid session cookie", http.StatusForbidden)
+	default:
+		log.Error("unexpected error getting cookie", "error", err)
+		http.Error(w, "internal server error", http.StatusInternalServerError)
+	}
+}
 
 // rootHandler provides the initial welcome page (index.html),
 // from which a user can start a new game with a POST to /create.
@@ -196,20 +211,5 @@ func joinHandler(w http.ResponseWriter, r *http.Request) {
 		}
 	default:
 		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
-	}
-}
-
-// setCookieErr make logs messages and sets HTTP status responses appropriately.
-func setCookieErr(w http.ResponseWriter, err error) {
-	switch err {
-	case ErrCookieMissing:
-		log.Debug(ErrCookieMissing.Error())
-		http.Error(w, "session cookie missing", http.StatusUnauthorized)
-	case ErrCookieInvalid:
-		log.Debug(ErrCookieInvalid.Error())
-		http.Error(w, "invalid session cookie", http.StatusForbidden)
-	default:
-		log.Error("unexpected error getting cookie", "error", err)
-		http.Error(w, "internal server error", http.StatusInternalServerError)
 	}
 }

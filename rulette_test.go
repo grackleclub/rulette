@@ -28,9 +28,13 @@ var users = map[string]testuser{
 		username: "Mike Truk",
 		cookie:   nil,
 	},
+	"todd": {
+		username: "Todd Bonzales",
+		cookie:   nil,
+	},
 }
 
-func TestMain(t *testing.T) {
+func TestGame(t *testing.T) {
 	t.Log("setting up db")
 	opts := postgres.PostgresOpts{
 		Host:     "localhost",
@@ -180,7 +184,7 @@ func TestMain(t *testing.T) {
 		dataHandler(w, req)
 		require.Equal(t, http.StatusOK, w.Result().StatusCode)
 		status := w.Body.String()
-		require.Contains(t, status, "ready")
+		require.Contains(t, status, "turn")
 	})
 	// spin
 	// TODO: implement the rest

@@ -137,7 +137,7 @@ SELECT
 	(SELECT name FROM players WHERE id=player_id) AS name, 
 	points,
         session_key,
-	initiative
+	ROW_NUMBER() OVER (ORDER BY points DESC) AS initiative
 FROM game_players 
 WHERE game_id = $1
 ORDER BY initiative ASC;
