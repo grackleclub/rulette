@@ -2,16 +2,22 @@
 <article id="players" class="players">
   <h2>players</h2>
   {{ range .Players }}
+  {{ $playerID := .PlayerID }}
   <section id="player-{{ .PlayerID }}" class="player">
     <div>{{ .Name }}</div>
-    <div>points: {{ .Points.Value }}</div>
+    <div>current points: {{ .Points.Value }}</div>
+    <!-- TODO: hide this behind isHost -->
+    <input type="number"/>
+    <button>Change Points</button>
+    <!--  -->
     <div>{{ .Initiative }}</div>
     <div>
       {{ range $cards }}
-      <div>{{ .Front }}</div>
+      {{ if eq .PlayerID.Value $playerID }}
+      <button>{{ .Front }}</button>
+      {{ end }}
       {{ end }}
     </div>
-    <!-- TODO: handle cards -->
   </section>
   {{ end }}
   {{ if eq .Game.StateName "inviting" }}
