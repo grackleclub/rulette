@@ -23,7 +23,7 @@ var (
 	log                    *slog.Logger
 	maxCacheAge                   = 500 * time.Millisecond
 	portDefault                   = 7777
-	defaultFrontendRefresh string = fmt.Sprintf("%dms", 500)
+	defaultFrontendRefresh string = fmt.Sprintf("%ds", 10)
 )
 
 var (

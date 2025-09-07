@@ -2,6 +2,7 @@ package main
 
 import (
 	"net/http"
+	"strconv"
 	"strings"
 
 	sqlc "github.com/grackleclub/rulette/db/sqlc"
@@ -116,6 +117,40 @@ func actionHandler(w http.ResponseWriter, r *http.Request) {
 			// TODO: implement
 			log.Error("not implmented")
 			http.Error(w, "not implemented", http.StatusNotImplemented)
+		case "points":
+			if !state.isHost(cookieKey) {
+				log.Info("prohibiting non-host from adjusting points", "key", cookieKey)
+				http.Error(w, "only host can adjust points", http.StatusForbidden)
+				return
+			}
+			playerID := r.URL.Query().Get("playerId")
+			if playerID == "" {
+				http.Error(w, "required param missing: playerId", http.StatusBadRequest)
+			}
+			playerIdInt, err := strconv.Atoi(playerID)
+			if err != nil {
+				http.Error(w, "playerId must be an int", http.StatusBadRequest)
+			}
+
+			points := r.URL.Query().Get("points")
+			if points == "" {
+				http.Error(w, "required param missing: points", http.StatusBadRequest)
+			}
+			pointsInt, err := strconv.Atoi(points)
+			if err != nil {
+				http.Error(w, "points value must be an int", http.StatusBadRequest)
+			}
+			for _, player := range state.Players {
+				if player.PlayerID == int32(playerIdInt) {
+					p := player.Points.Int32 + int32(pointsInt)
+					// TODO: update database with new points
+					log.Info("mock: updated points",
+						"points_prior", player.Points.Int32,
+						"points_new", p,
+						"player_name", player.Name,
+					)
+				}
+			}
 		case "end":
 			if !state.isHost(cookieKey) {
 				log.Info("prohibiting non-host from ending game")

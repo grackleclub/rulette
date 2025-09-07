@@ -6,27 +6,42 @@
     <title>Rulette | {{ .Game.Name }}</title>
     <link rel="stylesheet" href="/static/css/style.css"> 
     <script src="/static/js/htmx.min.js"></script>
+    <script src="/static/js/numbers.js"></script>
   </head>
   <body>
-    <!-- <script src="index.js"></script> -->
 
     <article id="title">
       <h1>{{ .Game.Name }}</h1>
-      <section id="status-fetch" hx-get="/{{ .Game.ID }}/data/status" 
-      hx-target="#status" hx-trigger="load, every {{ .Config.refresh }}" hx-swap="innerHTML">
+      <section 
+        id="status-fetch" 
+        hx-get="/{{ .Game.ID }}/data/status" 
+        hx-target="#status" 
+        hx-trigger="load, every {{ .Config.refresh }}" 
+        hx-swap="innerHTML"
+        >
         <footer id="status">{{ .Game.StateName }}</footer>
       </section>
     </article>
 
-    <section id="players" hx-get="/{{ .Game.ID }}/data/players" 
-      hx-target="#players" hx-trigger="load, every {{ .Config.refresh }}" hx-swap="innerHTML">
+    <section 
+      id="players" 
+      hx-get="/{{ .Game.ID }}/data/players"   
+      hx-target="#players" 
+      hx-trigger="load, every {{ .Config.refresh }}" 
+      hx-swap="innerHTML"
+      >
       <article id="loading-players">
         <p>loading players...</p>
       </article>
     </section>
 
-    <section id="table" hx-get="/{{ .Game.ID }}/data/table" 
-      hx-target="#table" hx-trigger="load, every {{ .Config.refresh }}" hx-swap="innerHTML">
+    <section 
+      id="table" 
+      hx-get="/{{ .Game.ID }}/data/table" 
+      hx-target="#table" 
+      hx-trigger="load, every {{ .Config.refresh }}" 
+      hx-swap="innerHTML"
+      >
       <article id="loading-table">
         <p>loading table...</p>
       </article>
@@ -39,6 +54,18 @@
         A rule stacking game based on Season 7, Episode 7 of Game Changer on <a href="https://dropout.tv">DropoutTV</a>.
       </small>
     </footer>
+
+    <!--Modal-->
+    <div id="points-modal" class="modal">
+      <div class="modal-content">
+        <span id="close-modal" class="close">&times;</span>
+        <h3><span id="player-name"></span>: Change Points?</h3>
+        <input type="number" id="modal-points-input" />
+        <input type="hidden" id="modal-player-id" />
+        <button id="modal-save-btn">Save</button>
+      </div>
+    </div>
+
   </body>
 </html>
 

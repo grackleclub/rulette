@@ -7,8 +7,7 @@
     <div>{{ .Name }}</div>
     <div>current points: {{ .Points.Value }}</div>
     <!-- TODO: hide this behind isHost -->
-    <input type="number"/>
-    <button>Change Points</button>
+    <button type="button" onclick="openPointsModal('{{ $.Game.ID }}','{{ .PlayerID}}', '{{ .Points.Value}}', '{{ .Name }}')">change points</button>
     <!--  -->
     <div>{{ .Initiative }}</div>
     <div>
@@ -26,3 +25,4 @@
   </section>
   {{ end }}
 </article>
+

@@ -37,6 +37,10 @@ func (s *state) isHost(cookieKey string) bool {
 	for _, player := range s.Players {
 		if player.SessionKey.String == cookieKey {
 			inGame = true
+			log.Info("initiative",
+				"player_name", player.Name,
+				"player_initiative", player.Initiative,
+			)
 			if player.Initiative.Int32 == int32(0) {
 				return true
 			}
