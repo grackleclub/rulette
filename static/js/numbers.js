@@ -22,10 +22,26 @@ function attachModalHandlers() {
         }),
       })
       .then(response => {
-        document.getElementById('points-modal').classList.remove('show');
+        const msg = document.getElementById('modal-msg');
+        if (response.ok) {
+          msg.textContent = 'Points updated!';
+          msg.style.display = 'block';
+          msg.style.color = 'green'
+          setTimeout(() => {
+            msg.style.display = 'none';
+            document.getElementById('points-modal').classList.remove('show');
+          }, 5000);
+        } else {
+          msg.textContent = 'Failed. ' + (response.status === 403 ? 'Only the host can change points.' : 'Try again.');
+          msg.style.display = 'block';
+          msg.style.color = 'red';
+        }
       })
       .catch(error => {
-        alert('Failed to update points');
+        const msg = document.getElementById('modal-msg');
+        msg.textContent = 'Failed. Try again.';
+        msg.style.display = 'block'
+        msg.style.color = 'red';
       });
     };
   }
