@@ -31,13 +31,21 @@ function attachModalHandlers() {
             msg.style.display = 'none';
             document.getElementById('points-modal').classList.remove('show');
           }, 5000);
-        } else {
-          msg.textContent = 'Failed. ' + (response.status === 403 ? 'Only the host can change points.' : 'Try again.');
-          msg.style.display = 'block';
-          msg.style.color = 'red';
-        }
+          } else if (response.status === 403) {
+            msg.textContent = 'Failed. Only the host can change points.';
+            msg.style.display = 'block';
+            msg.style.color = 'red';
+          } else if (response.status === 425) {
+            msg.textContent = 'Failed. The game has not started yet.';
+            msg.style.display = 'block';
+            msg.style.color = 'red';
+          } else {
+            msg.textContent = 'Failed. Try again.';
+            msg.style.display = 'block';
+            msg.style.color = 'red';
+          }
       })
-      .catch(error => {
+      .catch(() => {
         const msg = document.getElementById('modal-msg');
         msg.textContent = 'Failed. Try again.';
         msg.style.display = 'block'
@@ -52,10 +60,10 @@ document.addEventListener('htmx:afterSwap', attachModalHandlers);
 
 let currentGameId = null;
 let currentPlayerId = null;
-function openPointsModal (gameId, playerId, currentPoints, playerName) {
+function openPointsModal (gameId, playerId, playerName) {
   currentGameId = gameId
   currentPlayerId = playerId;
-  document.getElementById('modal-points-input').value = currentPoints;
+  document.getElementById('modal-points-input').value = 0;
   document.getElementById('player-name').textContent = playerName;
   document.getElementById('modal-player-id').value = playerId;
   document.getElementById('points-modal').classList.add('show');
