@@ -11,22 +11,19 @@ function attachModalHandlers() {
       e.preventDefault();
       const newPoints = document.getElementById('modal-points-input').value;
       const playerId = document.getElementById('modal-player-id').value;
-      fetch(`/${currentGameId}/action/points`, {
+      const params = new URLSearchParams({
+        playerId: playerId,
+        points: newPoints,
+      });
+      fetch(`/${currentGameId}/action/points?${params.toString()}`, {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          player_id: Number(playerId),
-          points: Number(newPoints),
-        }),
       })
       .then(response => {
         const msg = document.getElementById('modal-msg');
         if (response.ok) {
           msg.textContent = 'Points updated!';
           msg.style.display = 'block';
-          msg.style.color = 'green'
+          msg.style.color = 'green';
           setTimeout(() => {
             msg.style.display = 'none';
             document.getElementById('points-modal').classList.remove('show');
@@ -48,7 +45,7 @@ function attachModalHandlers() {
       .catch(() => {
         const msg = document.getElementById('modal-msg');
         msg.textContent = 'Failed. Try again.';
-        msg.style.display = 'block'
+        msg.style.display = 'block';
         msg.style.color = 'red';
       });
     };
@@ -61,7 +58,7 @@ document.addEventListener('htmx:afterSwap', attachModalHandlers);
 let currentGameId = null;
 let currentPlayerId = null;
 function openPointsModal (gameId, playerId, playerName) {
-  currentGameId = gameId
+  currentGameId = gameId;
   currentPlayerId = playerId;
   document.getElementById('modal-points-input').value = 0;
   document.getElementById('player-name').textContent = playerName;
