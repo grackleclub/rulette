@@ -126,6 +126,7 @@ func actionHandler(w http.ResponseWriter, r *http.Request) {
 			playerID := r.URL.Query().Get("playerId")
 			if playerID == "" {
 				http.Error(w, "required param missing: playerId", http.StatusBadRequest)
+				return
 			}
 			playerIdInt, err := strconv.Atoi(playerID)
 			if err != nil {
