@@ -9,8 +9,10 @@ function attachModalHandlers() {
   if (saveBtn) {
     saveBtn.onclick = function(e) {
       e.preventDefault();
+      // get newPoints and playerId from modal inputs
       const newPoints = document.getElementById('modal-points-input').value;
       const playerId = document.getElementById('modal-player-id').value;
+      // prepare URL params for request
       const params = new URLSearchParams({
         playerId: playerId,
         points: newPoints,
@@ -18,9 +20,11 @@ function attachModalHandlers() {
       fetch(`/${currentGameId}/action/points?${params.toString()}`, {
         method: 'POST',
       })
+      // handle responses 
       .then(response => {
         const msg = document.getElementById('modal-msg');
         if (response.ok) {
+          // success msg and close modal after 5s
           msg.textContent = 'Points updated!';
           msg.style.display = 'block';
           msg.style.color = 'green';
@@ -43,6 +47,7 @@ function attachModalHandlers() {
           }
       })
       .catch(() => {
+        // msg for network or other fetch error
         const msg = document.getElementById('modal-msg');
         msg.textContent = 'Failed. Try again.';
         msg.style.display = 'block';
@@ -52,11 +57,14 @@ function attachModalHandlers() {
   }
 }
 
+// attach handlers when DOM loaded or htmx swap
 document.addEventListener('DOMContentLoaded', attachModalHandlers);
 document.addEventListener('htmx:afterSwap', attachModalHandlers);
 
 let currentGameId = null;
 let currentPlayerId = null;
+
+// open point modal and set up fields
 function openPointsModal (gameId, playerId, playerName) {
   currentGameId = gameId;
   currentPlayerId = playerId;
