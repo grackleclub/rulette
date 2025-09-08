@@ -6,12 +6,12 @@
   <section id="player-{{ .PlayerID }}" class="player">
     <div>{{ .Name }}</div>
     <div>current points: {{ .Points.Value }}</div>
-    <!-- TODO: hide this behind isHost -->
+     {{ if and .Initiative.Valid (eq .Initiative.Int32 0) }}
     <button type="button" onclick="openPointsModal('{{ $.Game.ID }}','{{ .PlayerID }}', '{{ .Name }}')">
       change points
     </button>
-    <!--  -->
-    <div>{{ .Initiative }}</div>
+    {{ end }}
+    <div>{{ .Initiative.Int32 }}</div>
     <div>
       {{ range $cards }}
       {{ if eq .PlayerID.Value $playerID }}

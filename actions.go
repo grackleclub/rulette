@@ -131,15 +131,18 @@ func actionHandler(w http.ResponseWriter, r *http.Request) {
 			playerIdInt, err := strconv.Atoi(playerID)
 			if err != nil {
 				http.Error(w, "playerId must be an int", http.StatusBadRequest)
+				return
 			}
 
 			points := r.URL.Query().Get("points")
 			if points == "" {
 				http.Error(w, "required param missing: points", http.StatusBadRequest)
+				return
 			}
 			pointsInt, err := strconv.Atoi(points)
 			if err != nil {
 				http.Error(w, "points value must be an int", http.StatusBadRequest)
+				return
 			}
 			for _, player := range state.Players {
 				if player.PlayerID == int32(playerIdInt) {
