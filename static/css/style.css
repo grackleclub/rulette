@@ -23,3 +23,35 @@
     line-height: 1.6;
     gap: 1em;
   }
+
+.modal {
+  display: none;
+  position: fixed;
+  z-index: 1000;
+  left: 0; 
+  top: 0; 
+  width: 100vw; 
+  height: 100vh;
+  background: rgba(0,0,0,0.5);
+  align-items: center; 
+  justify-content: center;
+}
+
+.modal.show {
+  display: flex;
+}
+
+.modal-content {
+  background: #fff; 
+  padding: 2em; 
+  border-radius: 0.5em; 
+  min-width: 12em;
+  position: relative;
+}
+.close {
+  position: absolute; 
+  top: 0.5em; 
+  right: 1em; 
+  font-size: 2em; 
+  cursor: pointer;
+}

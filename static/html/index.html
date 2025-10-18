@@ -7,6 +7,7 @@
     <link rel="stylesheet" href="/static/css/style.css">
     <link rel="icon" type="image/png" sizes="192x192" href="/favicon.ico">
     <script src="/static/js/htmx.min.js"></script>
+    <script src="/static/js/numbers.js"></script>
   </head>
   <body>
 
@@ -16,7 +17,7 @@
       <form action="/create" method="POST" hx-post="/create" hx-swap="outerHTML">
 	<div>
 	  <label for="gamename">Game name:</label>
-	  <input type="text" id="gamename" name="gamename" required />
+	  <input type="text" id="gamename" name="gamename" required autofocus />
 	  <input type="submit" value="Create New Game" />
 	</div>
       </form>

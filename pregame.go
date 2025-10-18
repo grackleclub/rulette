@@ -105,18 +105,24 @@ func joinHandler(w http.ResponseWriter, r *http.Request) {
 	log.With("handler", "joinHandler", "game_id", gameID, "method", r.Method)
 
 	// fetch game state
-	game, err := queries.GameState(r.Context(), gameID)
+	state, err := stateFromCacheOrDB(r.Context(), &cache, gameID)
 	if err != nil {
 		log.Warn("game not found", "error", err)
 		http.Error(w, "game not found", http.StatusNotFound)
 		return
 	}
+	_, cookieKey, _ := cookie(r)
+	if state.isPlayerInGame(cookieKey) {
+		http.Error(w, "player already in game", http.StatusConflict)
+		return
+	}
+
 	switch r.Method {
 	case http.MethodGet:
 		w.Header().Set("Content-Type", "text/html")
 		templateFilepath := path.Join("static", "html", "tmpl.join.html")
 		tmpl, err := readParse(static, templateFilepath)
-		err = tmpl.Execute(w, game)
+		err = tmpl.Execute(w, state.Game)
 		if err != nil {
 			log.Error("execute template",
 				"error", err,
@@ -134,7 +140,7 @@ func joinHandler(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
-		switch game.StateID {
+		switch state.Game.StateID {
 		case 5:
 			log.Info("join attempt to closed game")
 			http.Error(w, "game over", http.StatusGone)
@@ -142,15 +148,15 @@ func joinHandler(w http.ResponseWriter, r *http.Request) {
 
 		case 4, 3, 2:
 			log.Info("join attempt to game in progress",
-				"state_id", game.StateID,
-				"state_name", game.StateName,
+				"state_id", state.Game.StateID,
+				"state_name", state.Game.StateName,
 			)
 			http.Error(w, "game in progress", http.StatusConflict)
 			return
 		case 1, 0:
 			// first join updates state from 'created' to 'inviting'
 			// NOTE: first to join is automatically set as host (initiative 0)
-			if game.StateID == 0 {
+			if state.Game.StateID == 0 {
 				log.Debug("created game has first join, updating state to inviting")
 				err := queries.GameUpdate(r.Context(), sqlc.GameUpdateParams{
 					StateID:           1,

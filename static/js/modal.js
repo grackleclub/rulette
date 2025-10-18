@@ -1,0 +1,75 @@
+function attachModalHandlers() {
+  const closeBtn = document.getElementById('close-modal');
+  const saveBtn = document.getElementById('modal-save-btn');
+  if (closeBtn) {
+    closeBtn.onclick = function() {
+      document.getElementById('points-modal').classList.remove('show');
+    };
+  }
+  if (saveBtn) {
+    saveBtn.onclick = function(e) {
+      e.preventDefault();
+      // get newPoints and playerId from modal inputs
+      const newPoints = document.getElementById('modal-points-input').value;
+      const playerId = document.getElementById('modal-player-id').value;
+      // prepare URL params for request
+      const params = new URLSearchParams({
+        playerId: playerId,
+        points: newPoints,
+      });
+      fetch(`/${currentGameId}/action/points?${params.toString()}`, {
+        method: 'POST',
+      })
+      // handle responses 
+      .then(response => {
+        const msg = document.getElementById('modal-msg');
+        if (response.ok) {
+          // success msg and close modal after 5s
+          msg.textContent = 'Points updated!';
+          msg.style.display = 'block';
+          msg.style.color = 'green';
+          setTimeout(() => {
+            msg.style.display = 'none';
+            document.getElementById('points-modal').classList.remove('show');
+          }, 5000);
+          } else if (response.status === 403) {
+            msg.textContent = 'Failed. Only the host can change points.';
+            msg.style.display = 'block';
+            msg.style.color = 'red';
+          } else if (response.status === 425) {
+            msg.textContent = 'Failed. The game has not started yet.';
+            msg.style.display = 'block';
+            msg.style.color = 'red';
+          } else {
+            msg.textContent = 'Failed. Try again.';
+            msg.style.display = 'block';
+            msg.style.color = 'red';
+          }
+      })
+      .catch(() => {
+        // msg for network or other fetch error
+        const msg = document.getElementById('modal-msg');
+        msg.textContent = 'Failed. Try again.';
+        msg.style.display = 'block';
+        msg.style.color = 'red';
+      });
+    };
+  }
+}
+
+// attach handlers when DOM loaded or htmx swap
+document.addEventListener('DOMContentLoaded', attachModalHandlers);
+document.addEventListener('htmx:afterSwap', attachModalHandlers);
+
+let currentGameId = null;
+let currentPlayerId = null;
+
+// open point modal and set up fields
+function openPointsModal (gameId, playerId, playerName) {
+  currentGameId = gameId;
+  currentPlayerId = playerId;
+  document.getElementById('modal-points-input').value = 0;
+  document.getElementById('player-name').textContent = playerName;
+  document.getElementById('modal-player-id').value = playerId;
+  document.getElementById('points-modal').classList.add('show');
+}
