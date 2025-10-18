@@ -4,6 +4,7 @@
 if ! cd app; then
 	echo "cannot move to app dir"
 fi
+trap "cd .." EXIT
 
 if ! flutter run --dart-define=FLUTTER_URL=http://localhost:7777; then
 	echo "failed to start flutter"
