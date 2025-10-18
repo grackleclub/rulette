@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:http/http.dart' as http;
 
 void main() {
   runApp(const MyApp());
@@ -55,6 +56,10 @@ class MyHomePage extends StatefulWidget {
 
 class _MyHomePageState extends State<MyHomePage> {
   int _counter = 0;
+  static const String baseUrl = String.fromEnvironment(
+    'RULETTE_URL',
+    defaultValue: 'https://rulette.grackle.club',
+  );
 
   void _incrementCounter() {
     setState(() {
@@ -65,6 +70,16 @@ class _MyHomePageState extends State<MyHomePage> {
       // called again, and so nothing would appear to happen.
       _counter++;
     });
+  }
+
+  Future<void> _makeHttpRequest() async {
+    try {
+      print("RULETTE_URL=$baseUrl");
+      final response = await http.get(Uri.parse(baseUrl));
+      print('Response status: ${response.statusCode}');
+    } catch (e) {
+      print('Error making HTTP request: $e');
+    }
   }
 
   @override
@@ -108,6 +123,11 @@ class _MyHomePageState extends State<MyHomePage> {
             Text(
               '$_counter',
               style: Theme.of(context).textTheme.headlineMedium,
+            ),
+            const SizedBox(height: 20),
+            ElevatedButton(
+              onPressed: _makeHttpRequest,
+              child: const Text('make HTTP Request'),
             ),
           ],
         ),

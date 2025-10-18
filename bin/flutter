@@ -1,0 +1,12 @@
+#!/usr/bin/env bash
+
+
+if ! cd app; then
+	echo "cannot move to app dir"
+fi
+
+if ! flutter run --dart-define=FLUTTER_URL=http://localhost:7777; then
+	echo "failed to start flutter"
+	exit 1
+fi
+
