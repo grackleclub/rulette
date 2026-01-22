@@ -13,8 +13,8 @@
       <h2>{{ .Name }}</h2>
       <form action="/{{ .ID }}/join" method="POST">
         <div id="join">
-          <label for="username">Enter a username to join '{{ .Name }}':</label>
-          <input type="text" id="username" name="username" required />
+          <!-- <label for="username">Enter a username to join '{{ .Name }}':</label> -->
+          <input type="text" id="username" name="username" placeholder="Enter Name" autofocus required />
           <input type="submit" value="Join" />
         </div>
       </form>
