@@ -15,8 +15,8 @@
   </section>
   {{ end }}
   {{ if eq .Game.StateName "inviting" }}
-  <section class="player">
-    <p>Invite players with a <a href="/{{ .Game.ID }}/join">Share Link</a></p>
+  <section class="invite">
+    <button><a href="/{{ .Game.ID }}/join">Invite Players</a></button>
   </section>
   {{ end }}
 </article>
