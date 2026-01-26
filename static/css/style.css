@@ -4,6 +4,7 @@
     box-sizing: border-box;
 	  color: rebeccapurple;
     border-radius: .5rem;
+    background: #9C9C9C;
 }
 
 /* reset */
@@ -43,6 +44,10 @@ footer {
   text-align: center;
 }
 
+/* div {
+  background: white;
+} */
+
 .players {
   position: relative;
   min-height: 20em;
@@ -51,26 +56,31 @@ footer {
 
 .invite {
   position: fixed;
-  top: 50%;
-  right: 50%;
-  transform: translate(-50%, -50%);
   z-index: 10;
-  margin: 0;
-  padding: 0;
 }
 
-.invite button {
+.invite .button {
   background: #FFC1C1;
   padding: 3em;
 }
 
+.card-float {
+  display: grid;
+  place-items: center;
+  flex: 1;
+}
+
+
 .card,
 .player {
+  background: white;
   display: flex;
-  text-align: left;
-  flex: 1 1 45%;
-  margin: 1em;
+  flex-direction: column;
+  justify-content: center;
   align-items: center;
+  width: 20em;
+  height: 35em;
+  margin: 1em;
   padding: .5em;
   line-height: 1.6;
   gap: 1em;
