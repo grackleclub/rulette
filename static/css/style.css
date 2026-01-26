@@ -56,12 +56,21 @@ footer {
 
 .invite {
   position: fixed;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
   z-index: 10;
+  pointer-events: none;
 }
 
-.invite .button {
+.invite a {
+  pointer-events: auto;
+}
+
+.button {
   background: #FFC1C1;
   padding: 3em;
+  box-shadow: 0 .5em .75em rgba(0, 0, 0, 0.4);
 }
 
 .card-float {
@@ -71,17 +80,31 @@ footer {
 }
 
 
-.card,
-.player {
+.card {
   background: white;
   display: flex;
   flex-direction: column;
   justify-content: center;
   align-items: center;
   width: 20em;
-  height: 35em;
+  min-height: 35em;
   margin: 1em;
   padding: .5em;
   line-height: 1.6;
   gap: 1em;
   }
+
+.players {
+  display: flex;
+  flex-direction: column;
+  gap: .75em;
+  padding: .75em;
+}
+
+.player {
+  background: white;
+}
+
+.player div {
+  background: white;
+}
