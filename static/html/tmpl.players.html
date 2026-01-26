@@ -1,22 +1,26 @@
 {{ $cards := .Cards }}
-<article id="players" class="players">
-  <!-- <h2>players</h2> -->
-  {{ range .Players }}
-  <section id="player-{{ .PlayerID }}" class="player">
-    <div>{{ .Name }}</div>
-    <div>points: {{ .Points.Value }}</div>
-    <div>{{ .Initiative }}</div>
-    <div>
-      {{ range $cards }}
-      <div>{{ .Front }}</div>
+<div class="card-float">
+  <div class="card">
+    <article id="players" class="players">
+      <!-- <h2>players</h2> -->
+      {{ range .Players }}
+      <section id="player-{{ .PlayerID }}" class="player">
+        <div>{{ .Name }}</div>
+        <div>points: {{ .Points.Value }}</div>
+        <div>{{ .Initiative }}</div>
+        <div>
+          {{ range $cards }}
+          <div>{{ .Front }}</div>
+          {{ end }}
+        </div>
+        <!-- TODO: handle cards -->
+      </section>
       {{ end }}
-    </div>
-    <!-- TODO: handle cards -->
-  </section>
-  {{ end }}
-  {{ if eq .Game.StateName "inviting" }}
-  <section class="invite">
-    <p><a href="/{{ .Game.ID }}/join" class="button">Invite Players</a></p>
-  </section>
-  {{ end }}
-</article>
+      {{ if eq .Game.StateName "inviting" }}
+      <section class="invite">
+        <a href="/{{ .Game.ID }}/join" class="button">Invite Players</a>
+      </section>
+      {{ end }}
+    </article>
+  </div>
+</div>
