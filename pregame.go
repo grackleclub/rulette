@@ -116,6 +116,16 @@ func joinHandler(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "text/html")
 		templateFilepath := path.Join("static", "html", "tmpl.join.html")
 		tmpl, err := readParse(static, templateFilepath)
+		if err != nil {
+			log.Error("read parse",
+				"error", err,
+				"template", templateFilepath,
+				"game_id", gameID,
+			)
+			http.Error(w, "internal server error", http.StatusInternalServerError)
+			return
+
+		}
 		err = tmpl.Execute(w, game)
 		if err != nil {
 			log.Error("execute template",

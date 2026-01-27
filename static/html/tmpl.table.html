@@ -1,4 +1,4 @@
-<!-- <article id="table">
+<article id="table" class="table">
   <h2>table</h2>
   {{ if eq .Game.StateName "inviting" }}
   <section class="action">
@@ -13,7 +13,9 @@
     <button 
       hx-post="/{{ .Game.ID }}/action/spin" 
       hx-swap="none">
+      <!-- TODO: make spin button disappear, replace with rolled card -->
       Spin
     </button>
+  </section>
   {{ end }}
-</article> -->
+</article>

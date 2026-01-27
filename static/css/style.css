@@ -44,14 +44,15 @@ footer {
   text-align: center;
 }
 
-/* div {
-  background: white;
-} */
 
 .players {
-  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: .75em;
+  padding: .75em;
+  /* position: relative;
   min-height: 20em;
-  width: 100%;
+  width: 100%; */
 }
 
 .invite {
@@ -79,7 +80,6 @@ footer {
   flex: 1;
 }
 
-
 .card {
   background: white;
   display: flex;
@@ -94,12 +94,6 @@ footer {
   gap: 1em;
   }
 
-.players {
-  display: flex;
-  flex-direction: column;
-  gap: .75em;
-  padding: .75em;
-}
 
 .player {
   background: white;
@@ -107,4 +101,8 @@ footer {
 
 .player div {
   background: white;
+}
+
+#table {
+  display: none;
 }
