@@ -61,9 +61,19 @@ FROM games WHERE games.id = $1;
 -- TODO: this needs a lot of work
 
 -- name: GameCardsInit :exec
-INSERT INTO game_cards (game_id, card_id, slot, stack, player_id)
-(
-    SELECT $1, cards.id, 0, 0, 0 -- FIXME: bullshit zeros
+INSERT INTO game_cards (
+    game_id, 
+    card_id, 
+    slot, 
+    stack, 
+    player_id
+) VALUES (
+    SELECT 
+        $1, 
+        cards.id,
+        ROW_NUMBER, 
+        0, -- TODO: actually stack instead of just a random
+        0 -- NOTE: player id 0 means it's unrevealed and in the deck
     FROM cards
     WHERE generic IS TRUE
 );

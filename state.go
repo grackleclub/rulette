@@ -46,6 +46,20 @@ func (s *state) isHost(cookieKey string) bool {
 	return false
 }
 
+func (s *state) isPlayerTurn(cookieKey string) bool {
+	var inGame bool
+	for _, player := range s.Players {
+		if player.SessionKey.String == cookieKey {
+			inGame = true
+			if player.Initiative.Int32 == s.Game.InitiativeCurrent.Int32 {
+				return true
+			}
+		}
+	}
+	log.Info("player not current turn", "in_game", inGame)
+	return false
+}
+
 // stateFromCacheOrDB returns the current state of the game specified by gameID,
 // drawing from cache if newer than maxCacheAge, otherwise fetching from the database.
 func stateFromCacheOrDB(ctx context.Context, cache *sync.Map, gameID string) (state, error) {

@@ -85,7 +85,20 @@ func actionHandler(w http.ResponseWriter, r *http.Request) {
 		}
 	case 4, 3, 2: // game in progress
 		switch action {
+		case "points":
+			if !state.isHost(cookieKey) {
+				log.Info("prohibiting non-host from updating points")
+				http.Error(w, "only host can update points", http.StatusForbidden)
+				return
+			}
+			// TODO: implement add points
+
 		case "spin":
+			if !state.isPlayerTurn(cookieKey) {
+				log.Info("prohibiting non-turn player from spinning")
+				http.Error(w, "not your turn", http.StatusConflict)
+				return
+			}
 			// TODO: implement
 			log.Error("not implmented")
 			http.Error(w, "not implemented", http.StatusNotImplemented)
