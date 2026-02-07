@@ -152,8 +152,8 @@ INSERT INTO game_cards (
     stack, 
     player_id
 ) SELECT
-    $1,
-    card.id 
+    $1::text,
+    id, 
     (ROW_NUMBER() OVER ()) % (SELECT wheel_slots FROM games WHERE games.id = $1),
     NULL, -- unshuffled
     NULL -- unrevealed
@@ -164,8 +164,8 @@ WHERE generic IS TRUE LIMIT (SELECT card_count FROM games WHERE games.id = $1)
 // ----------------------
 // ---- GAME CARDS ------
 // ----------------------
-func (q *Queries) GameCardsInitGeneric(ctx context.Context, gameID string) error {
-	_, err := q.db.Exec(ctx, gameCardsInitGeneric, gameID)
+func (q *Queries) GameCardsInitGeneric(ctx context.Context, dollar_1 string) error {
+	_, err := q.db.Exec(ctx, gameCardsInitGeneric, dollar_1)
 	return err
 }
 
@@ -255,9 +255,7 @@ func (q *Queries) GameCardsShuffle(ctx context.Context, gameID string) error {
 
 const gameCardsWheelSpin = `-- name: GameCardsWheelSpin :one
 WITH spin AS (
-    SELECT wheel_slots[
-        floor(random() * array_length(wheel_slots, 1))::int + 1
-    ] AS random_slot
+    SELECT floor(random() * wheel_slots)::int + 1 AS random_slot
     FROM games
     WHERE games.id = $1
 ),

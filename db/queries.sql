@@ -80,8 +80,8 @@ INSERT INTO game_cards (
     stack, 
     player_id
 ) SELECT
-    $1,
-    card.id 
+    $1::text,
+    id, 
     (ROW_NUMBER() OVER ()) % (SELECT wheel_slots FROM games WHERE games.id = $1),
     NULL, -- unshuffled
     NULL -- unrevealed
@@ -158,9 +158,7 @@ ORDER BY slot ASC;
 -- sql.ErrNoRows = end of game
 -- name: GameCardsWheelSpin :one
 WITH spin AS (
-    SELECT wheel_slots[
-        floor(random() * array_length(wheel_slots, 1))::int + 1
-    ] AS random_slot
+    SELECT floor(random() * wheel_slots)::int + 1 AS random_slot
     FROM games
     WHERE games.id = $1
 ),
