@@ -72,24 +72,26 @@ INSERT INTO game_cards (game_id, card_id, slot, stack, player_id)
 
 -- GameCardCreate
 
--- WITH slots AS (
--- 	SELECT MAX(slot) 
--- 	FROM game_cards 
--- 	WHERE game_id = :game_id
--- ),
--- spin AS (
--- 	SELECT card_id
--- 	FROM game_cards
--- 	WHERE game_id = :game_id
--- 		AND revealed = false
--- 		AND slot = RANDOM() % (SELECT * FROM slots)
--- 	ORDER BY stack DESC LIMIT 1
--- )
--- UPDATE game_cards
--- SET	
--- 	revealed = true, 
--- 	player_id = :player_id
--- WHERE id = (SELECT card_id FROM spin);
+
+-- name: Spin :exec
+WITH slots AS (
+	SELECT MAX(slot) 
+	FROM game_cards 
+	WHERE game_id = :game_id
+),
+spin AS (
+	SELECT card_id
+	FROM game_cards
+	WHERE game_id = :game_id
+		AND revealed = false
+		AND slot = RANDOM() % (SELECT * FROM slots)
+	ORDER BY stack DESC LIMIT 1
+)
+UPDATE game_cards
+SET	
+	revealed = true, 
+	player_id = :player_id
+WHERE id = (SELECT card_id FROM spin);
 
 -- Moves a single card of matching id to the new player_id provided.
 -- name: GameCardMove :exec
