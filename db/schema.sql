@@ -16,6 +16,8 @@ CREATE TABLE IF NOT EXISTS games (
 	created TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
 	owner_id INTEGER,
 	state_id INTEGER NOT NULL DEFAULT 0,
+	wheel_slots INTEGER NOT NULL DEFAULT 2, -- number of wheel possibilities -- TODO: fill out
+	card_count INTEGER NOT NULL DEFAULT 10, -- number of cards in the wheel deck -- TODO: fill out
 	initiative_current INTEGER DEFAULT 0, -- TODO: is this used?
 	FOREIGN KEY (owner_id) REFERENCES players(id) ON DELETE CASCADE,
 	FOREIGN KEY (state_id) REFERENCES game_states(id)
@@ -70,21 +72,27 @@ VALUES
 	('rule', 'wearing a giant hat', 'wearing a tiny hat', 0, CURRENT_TIMESTAMP, TRUE),
 	('rule', 'while doing your best Robert Dinero impersonation', 'wearing a tiny hat', 0, CURRENT_TIMESTAMP, TRUE);
 
--- no primary key because cloning a card is possible
+-- card_id lacks primary key to allow cloning within a game,
 CREATE TABLE IF NOT EXISTS game_cards (
 	id SERIAL PRIMARY KEY, -- to distinguish between clones
 	game_id VARCHAR(6) NOT NULL,
 	card_id INTEGER NOT NULL,
 	slot INTEGER NOT NULL, -- 1-indexed number of wheel slots
-	stack INTEGER NOT NULL, -- 0 bottom, 1 middle, 2 top; irrelevant if revealed
-	player_id INTEGER, -- only populated when revealed=true
-	revealed BOOLEAN DEFAULT FALSE, -- on the wheel
+	stack INTEGER, -- NULL=unshuffled, 0 bottom, 1 middle, 2 top; irrelevant if revealed
+	player_id INTEGER, -- NULL when on the wheel
 	flipped BOOLEAN DEFAULT FALSE,
 	shredded BOOLEAN DEFAULT FALSE,
 	from_clone BOOLEAN DEFAULT FALSE,
 	FOREIGN KEY (game_id) REFERENCES games(id) ON DELETE CASCADE,
-	FOREIGN KEY (card_id) REFERENCES cards(id) ON DELETE CASCADE
+	FOREIGN KEY (card_id) REFERENCES cards(id) ON DELETE CASCADE, -- allows global deletion, admin moderation
+	FOREIGN KEY (player_id) REFERENCES players(id) ON DELETE CASCADE -- a leaving player takes their game cards with them
 );
+
+-- CREATE TABLE IF NOT EXISTS game_wheel (
+-- 	game_id VARCHAR(6) PRIMARY KEY,
+-- 	slots INTEGER NOT NULL,
+-- 	FOREIGN KEY (game_id) REFERENCES games(id) ON DELETE CASCADE
+-- )
 
 CREATE TABLE IF NOT EXISTS infractions (
 	id SERIAL PRIMARY KEY,

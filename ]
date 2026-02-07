@@ -70,29 +70,8 @@ INSERT INTO game_cards (
 ) SELECT
     $1,
     card.id 
-    (ROW_NUMBER() OVER ()) % (SELECT wheel_slots FROM games WHERE games.id = $1),
-    NULL, -- unshuffled
-    NULL -- unrevealed
-FROM cards 
-WHERE generic IS TRUE LIMIT (SELECT card_count FROM games WHERE games.id = $1);
-
--- shuffles stacks within a slot, leaving slot assignments unchanged
--- name: GameCardsShuffle :exec
-WITH ordered AS (
-    SELECT
-        card_id,
-        slot,
-        ROW_NUMBER() OVER (PARTITION BY slot ORDER BY RANDOM()) AS stack 
-    FROM game_cards
-    WHERE game_id = $1
-)
-UPDATE game_cards
-SET stack = ordered.stack
-FROM ordered
-WHERE game_cards.game_id = $1
-    AND game_cards.card_id = ordered.card_id
-    AND game_cards.slot = ordered.slot;
-
+    FROM cards 
+    WHERE generic IS TRUE;
 
 
 
