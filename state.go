@@ -13,11 +13,12 @@ import (
 
 // state is a struct to populate the global game cache.
 type state struct {
-	Updated time.Time
-	Game    sqlc.GameStateRow
-	Players []sqlc.GamePlayerPointsRow
-	Cards   []sqlc.GameCardsRow
-	Config  map[string]string // generic baggage (e.g. frontend refresh rate)
+	Updated      time.Time
+	Game         sqlc.GameStateRow
+	Players      []sqlc.GamePlayerPointsRow
+	CardsWheel   []sqlc.GameCardsWheelViewRow  // hidden cards on the wheel
+	CardsPlayers []sqlc.GameCardsPlayerViewRow // revealed cards held by players
+	Config       map[string]string             // generic baggage (e.g. frontend refresh rate)
 }
 
 // isPlayerInGame returns true when cookieKey exists in game_players.
@@ -107,11 +108,17 @@ func fetchStateFromDB(ctx context.Context, gameID string) (state, error) {
 	if err != nil {
 		return state{}, ErrFetchPlayers
 	}
-	// get game cards
-	cards, err := queries.GameCards(ctx, game.ID)
+	// get revealed player cardsPlayers and wheel cardsPlayers
+	cardsPlayers, err := queries.GameCardsPlayerView(ctx, gameID)
 	if err != nil {
 		return state{}, fmt.Errorf("fetch cards for game: %w", err)
 	}
+	// get wheel cards
+	cardsWheel, err := queries.GameCardsWheelView(ctx, gameID)
+	if err != nil {
+		return state{}, fmt.Errorf("fetch wheel cards for game: %w", err)
+	}
+
 	log.Info("fetched game state and players",
 		"player_count", len(players),
 		"game_id", gameID,
@@ -119,10 +126,11 @@ func fetchStateFromDB(ctx context.Context, gameID string) (state, error) {
 		"game_state", game.StateName,
 	)
 	return state{
-		Game:    game,
-		Players: players,
-		Updated: time.Now().UTC(),
-		Cards:   cards,
+		Game:         game,
+		Players:      players,
+		Updated:      time.Now().UTC(),
+		CardsWheel:   cardsWheel,
+		CardsPlayers: cardsPlayers,
 	}, nil
 }
 

@@ -79,10 +79,8 @@ func createHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// TODO: this is a temporary measure to set some default card
-	// immediately upon game creation.
-	// Future intention is that players will set this together during pregame.
-	err = queries.GameCardsInit(r.Context(), gamecode)
+	// TODO: implement custom game card creation and selection
+	err = queries.GameCardsInitGeneric(r.Context(), gamecode)
 	if err != nil {
 		log.Error("initialize game cards", "error", err)
 		http.Error(w, "internal server error", http.StatusInternalServerError)
