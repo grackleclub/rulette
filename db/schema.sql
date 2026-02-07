@@ -18,6 +18,7 @@ CREATE TABLE IF NOT EXISTS games (
 	state_id INTEGER NOT NULL DEFAULT 0,
 	wheel_slots INTEGER NOT NULL DEFAULT 2, -- number of wheel possibilities -- TODO: fill out
 	card_count INTEGER NOT NULL DEFAULT 10, -- number of cards in the wheel deck -- TODO: fill out
+	initiative_timer INTEGER NOT NULL DEFAULT 30, -- seconds per turn before auto-advance
 	initiative_current INTEGER DEFAULT 0, -- TODO: is this used?
 	FOREIGN KEY (owner_id) REFERENCES players(id) ON DELETE CASCADE,
 	FOREIGN KEY (state_id) REFERENCES game_states(id)
@@ -77,12 +78,13 @@ CREATE TABLE IF NOT EXISTS game_cards (
 	id SERIAL PRIMARY KEY, -- to distinguish between clones
 	game_id VARCHAR(6) NOT NULL,
 	card_id INTEGER NOT NULL,
-	slot INTEGER NOT NULL, -- 1-indexed number of wheel slots
-	stack INTEGER, -- NULL=unshuffled, 0 bottom, 1 middle, 2 top; irrelevant if revealed
-	player_id INTEGER, -- NULL when on the wheel
+	slot INTEGER, -- 1-indexed number of wheel slots (MAX=game.wheel_size, NULL=revealed)
+	stack INTEGER, -- 1-indexed ascending up the stack (NULL=unshuffled)
+	player_id INTEGER, -- (NULL=on the wheel)
 	flipped BOOLEAN DEFAULT FALSE,
 	shredded BOOLEAN DEFAULT FALSE,
-	from_clone BOOLEAN DEFAULT FALSE,
+	from_clone BOOLEAN DEFAULT FALSE, -- TODO: this can be inferred, why put it here?
+	updated TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
 	FOREIGN KEY (game_id) REFERENCES games(id) ON DELETE CASCADE,
 	FOREIGN KEY (card_id) REFERENCES cards(id) ON DELETE CASCADE, -- allows global deletion, admin moderation
 	FOREIGN KEY (player_id) REFERENCES players(id) ON DELETE CASCADE -- a leaving player takes their game cards with them

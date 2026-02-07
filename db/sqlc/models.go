@@ -23,15 +23,16 @@ type Cards struct {
 }
 
 type GameCards struct {
-	ID        int32       `json:"id"`
-	GameID    string      `json:"game_id"`
-	CardID    int32       `json:"card_id"`
-	Slot      int32       `json:"slot"`
-	Stack     pgtype.Int4 `json:"stack"`
-	PlayerID  pgtype.Int4 `json:"player_id"`
-	Flipped   pgtype.Bool `json:"flipped"`
-	Shredded  pgtype.Bool `json:"shredded"`
-	FromClone pgtype.Bool `json:"from_clone"`
+	ID        int32            `json:"id"`
+	GameID    string           `json:"game_id"`
+	CardID    int32            `json:"card_id"`
+	Slot      pgtype.Int4      `json:"slot"`
+	Stack     pgtype.Int4      `json:"stack"`
+	PlayerID  pgtype.Int4      `json:"player_id"`
+	Flipped   pgtype.Bool      `json:"flipped"`
+	Shredded  pgtype.Bool      `json:"shredded"`
+	FromClone pgtype.Bool      `json:"from_clone"`
+	Updated   pgtype.Timestamp `json:"updated"`
 }
 
 type GamePlayers struct {
@@ -57,6 +58,7 @@ type Games struct {
 	StateID           int32            `json:"state_id"`
 	WheelSlots        int32            `json:"wheel_slots"`
 	CardCount         int32            `json:"card_count"`
+	InitiativeTimer   int32            `json:"initiative_timer"`
 	InitiativeCurrent pgtype.Int4      `json:"initiative_current"`
 }
 

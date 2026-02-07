@@ -1,3 +1,7 @@
+------------------------
+-------- PLAYER --------
+------------------------
+
 -- name: PlayerCreate :one
 INSERT INTO players (name) VALUES ($1) RETURNING id;
 
@@ -7,6 +11,9 @@ SELECT * FROM players WHERE id = $1;
 -- name: PlayerDelete :exec
 DELETE FROM players WHERE id = $1;
 
+------------------------
+--------- CARD ---------
+------------------------
 
 -- name: CardCreate :exec
 INSERT INTO cards (type, front, back, creator)
@@ -18,6 +25,9 @@ SELECT * FROM cards WHERE id = $1;
 -- name: CardDelete :exec
 DELETE FROM cards WHERE id = $1;
 
+------------------------
+--------- GAME ---------
+------------------------
 
 -- name: GameCreate :exec
 INSERT INTO games (name, id, owner_id)
@@ -58,7 +68,9 @@ SELECT
     ) AS player_count
 FROM games WHERE games.id = $1;
 
--- TODO: game cards must be init'ed before spin can happen
+------------------------
+------ GAME CARDS ------
+------------------------
 
 -- name: GameCardsInitGeneric :exec
 INSERT INTO game_cards (
@@ -79,7 +91,7 @@ WHERE generic IS TRUE LIMIT (SELECT card_count FROM games WHERE games.id = $1);
 -- shuffles stacks within a slot, leaving slot assignments unchanged
 -- name: GameCardsShuffle :exec
 WITH ordered AS (
-    SELECT
+ SELECT
         card_id,
         slot,
         ROW_NUMBER() OVER (PARTITION BY slot ORDER BY RANDOM()) AS stack 
@@ -93,31 +105,82 @@ WHERE game_cards.game_id = $1
     AND game_cards.card_id = ordered.card_id
     AND game_cards.slot = ordered.slot;
 
+-- name: GameCardsPlayerView :many
+SELECT
+    id,
+    (
+        SELECT
+            CASE
+                WHEN flipped THEN back
+                ELSE front
+            END
+        FROM cards 
+        WHERE cards.id = game_cards.card_id
+    ) AS content,
+    (
+        SELECT type FROM cards 
+        WHERE cards.id = game_cards.card_id
+    ) AS type,
+    (
+        SELECT generic FROM cards 
+        WHERE cards.id = game_cards.card_id
+    ) AS generic,
+    flipped
+FROM game_cards
+WHERE game_id = $1
+    AND shredded IS FALSE
+    AND player_id IS NOT NULL;
 
+-- name: GameCardsWheelView :many
+SELECT
+    slot,
+    (
+        SELECT COUNT(id) 
+        FROM game_cards 
+        WHERE game_cards.game_id = $1 AND slot = game_cards.slot AND shredded IS FALSE
+    ) AS stack_size,
+    (
+        SELECT type
+        FROM cards 
+        WHERE cards.id = (
+            SELECT card_id 
+            FROM game_cards 
+            WHERE game_cards.game_id = $1 
+                AND game_cards.slot = game_cards.slot 
+                AND game_cards.shredded IS FALSE
+            ORDER BY stack DESC LIMIT 1
+        )
+    ) AS top_card_type
+FROM game_cards
+WHERE game_id = $1 AND player_id IS NULL
+ORDER BY slot ASC;
 
+-- sql.ErrNoRows = end of game
+-- name: GameCardsWheelSpin :one
+WITH spin AS (
+    SELECT wheel_slots[
+        floor(random() * array_length(wheel_slots, 1))::int + 1
+    ] AS random_slot
+    FROM games
+    WHERE games.id = $1
+),
+resultant_card AS (
+    SELECT (
+        SELECT game_cards.id
+        FROM game_cards
+        WHERE game_id = $1 
+            AND slot = (SELECT random_slot FROM spin)
+        ORDER BY stack DESC
+        LIMIT 1
+    ) AS id
+)
+UPDATE game_cards
+SET player_id = $2, slot = NULL, stack = NULL, updated = CURRENT_TIMESTAMP
+WHERE game_cards.id = (SELECT id FROM resultant_card)
+RETURNING id;
 
--- GameCardCreate
-
-
--- name: Spin :exec
--- WITH slots AS (
--- 	SELECT MAX(slot) 
--- 	FROM game_cards 
--- 	WHERE game_id = :game_id
--- ),
--- spin AS (
--- 	SELECT card_id
--- 	FROM game_cards
--- 	WHERE game_id = :game_id
--- 		AND revealed = false
--- 		AND slot = RANDOM() % (SELECT * FROM slots)
--- 	ORDER BY stack DESC LIMIT 1
--- )
--- UPDATE game_cards
--- SET	
--- 	revealed = true, 
--- 	player_id = :player_id
--- WHERE id = (SELECT card_id FROM spin);
+-- GameCardCreate :exec
+-- TODO: after MVP, implement card creation phase
 
 -- Moves a single card of matching id to the new player_id provided.
 -- name: GameCardMove :exec
@@ -130,8 +193,8 @@ WHERE game_cards.game_id = $2
         FROM game_cards
         WHERE game_cards.game_id = $2 AND game_cards.card_id = $3
         LIMIT 1
-    )
-;
+    );
+
 -- name: GameCardFlip :exec
 UPDATE game_cards
 SET flipped = NOT flipped
@@ -142,10 +205,10 @@ WHERE game_cards.game_id = $1
         FROM game_cards
         WHERE game_cards.game_id = $1 AND game_cards.card_id = $2
         LIMIT 1
-    )
-;
+    );
 
 -- GameCardClone
+-- TODO: how to impelement?
 
 -- name: GameCardShred :exec
 WITH cte AS (
@@ -159,6 +222,9 @@ UPDATE game_cards
 SET shredded = true
 WHERE id IN (SELECT id FROM cte);
 
+------------------------
+----- GAME PLAYER ------
+------------------------
 
 -- session_key is expected to be valid for the duration of the game
 -- name: GamePlayerCreate :exec
@@ -182,21 +248,26 @@ FROM game_players
 WHERE game_id = $1
 ORDER BY initiative ASC;
 
--- name: GameCards :many
-SELECT
-    game_cards.id, 
-    cards.type, 
-    cards.front, 
-    cards.back,
-    game_cards.stack, 
-    game_cards.slot, 
-    game_cards.player_id, 
-    game_cards.flipped, 
-    game_cards.shredded, 
-    game_cards.from_clone
-FROM game_cards
-JOIN cards ON cards.id = game_cards.card_id
-WHERE game_cards.game_id = $1;
+-- -- NOTE: this may not be needed
+-- -- name: GameCards :many
+-- SELECT
+--     game_cards.id, 
+--     cards.type, 
+--     cards.front, 
+--     cards.back,
+--     game_cards.stack, 
+--     game_cards.slot, 
+--     game_cards.player_id, 
+--     game_cards.flipped, 
+--     game_cards.shredded, 
+--     game_cards.from_clone
+-- FROM game_cards
+-- JOIN cards ON cards.id = game_cards.card_id
+-- WHERE game_cards.game_id = $1;
+
+------------------------
+------ INITATIVE -------
+------------------------
 
 -- name: InitiativeSet :exec
 UPDATE game_players
@@ -218,6 +289,10 @@ SET initiative_current = (
     END
 )
 WHERE games.id = $1;
+
+------------------------
+----- INFRACTIONS ------
+------------------------
 
 -- InfractionAccuse
 -- InfractionConvict

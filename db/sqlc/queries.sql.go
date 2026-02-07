@@ -31,6 +31,7 @@ func (q *Queries) Card(ctx context.Context, id int32) (Cards, error) {
 }
 
 const cardCreate = `-- name: CardCreate :exec
+
 INSERT INTO cards (type, front, back, creator)
 VALUES ($1, $2, $3, $4)
 RETURNING id
@@ -43,6 +44,9 @@ type CardCreateParams struct {
 	Creator pgtype.Int4 `json:"creator"`
 }
 
+// ----------------------
+// ------- CARD ---------
+// ----------------------
 func (q *Queries) CardCreate(ctx context.Context, arg CardCreateParams) error {
 	_, err := q.db.Exec(ctx, cardCreate,
 		arg.Type,
@@ -85,6 +89,34 @@ func (q *Queries) GameCardFlip(ctx context.Context, arg GameCardFlipParams) erro
 	return err
 }
 
+const gameCardMove = `-- name: GameCardMove :exec
+
+UPDATE game_cards
+SET player_id = $1
+WHERE game_cards.game_id = $2
+    AND game_cards.card_id = $3
+    AND game_cards.id = (
+        SELECT game_cards.id
+        FROM game_cards
+        WHERE game_cards.game_id = $2 AND game_cards.card_id = $3
+        LIMIT 1
+    )
+`
+
+type GameCardMoveParams struct {
+	PlayerID pgtype.Int4 `json:"player_id"`
+	GameID   string      `json:"game_id"`
+	CardID   int32       `json:"card_id"`
+}
+
+// GameCardCreate :exec
+// TODO: after MVP, implement card creation phase
+// Moves a single card of matching id to the new player_id provided.
+func (q *Queries) GameCardMove(ctx context.Context, arg GameCardMoveParams) error {
+	_, err := q.db.Exec(ctx, gameCardMove, arg.PlayerID, arg.GameID, arg.CardID)
+	return err
+}
+
 const gameCardShred = `-- name: GameCardShred :exec
 
 WITH cte AS (
@@ -105,70 +137,10 @@ type GameCardShredParams struct {
 }
 
 // GameCardClone
+// TODO: how to impelement?
 func (q *Queries) GameCardShred(ctx context.Context, arg GameCardShredParams) error {
 	_, err := q.db.Exec(ctx, gameCardShred, arg.GameID, arg.CardID)
 	return err
-}
-
-const gameCards = `-- name: GameCards :many
-SELECT
-    game_cards.id, 
-    cards.type, 
-    cards.front, 
-    cards.back,
-    game_cards.stack, 
-    game_cards.slot, 
-    game_cards.player_id, 
-    game_cards.flipped, 
-    game_cards.shredded, 
-    game_cards.from_clone
-FROM game_cards
-JOIN cards ON cards.id = game_cards.card_id
-WHERE game_cards.game_id = $1
-`
-
-type GameCardsRow struct {
-	ID        int32       `json:"id"`
-	Type      string      `json:"type"`
-	Front     string      `json:"front"`
-	Back      pgtype.Text `json:"back"`
-	Stack     pgtype.Int4 `json:"stack"`
-	Slot      int32       `json:"slot"`
-	PlayerID  pgtype.Int4 `json:"player_id"`
-	Flipped   pgtype.Bool `json:"flipped"`
-	Shredded  pgtype.Bool `json:"shredded"`
-	FromClone pgtype.Bool `json:"from_clone"`
-}
-
-func (q *Queries) GameCards(ctx context.Context, gameID string) ([]GameCardsRow, error) {
-	rows, err := q.db.Query(ctx, gameCards, gameID)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-	var items []GameCardsRow
-	for rows.Next() {
-		var i GameCardsRow
-		if err := rows.Scan(
-			&i.ID,
-			&i.Type,
-			&i.Front,
-			&i.Back,
-			&i.Stack,
-			&i.Slot,
-			&i.PlayerID,
-			&i.Flipped,
-			&i.Shredded,
-			&i.FromClone,
-		); err != nil {
-			return nil, err
-		}
-		items = append(items, i)
-	}
-	if err := rows.Err(); err != nil {
-		return nil, err
-	}
-	return items, nil
 }
 
 const gameCardsInitGeneric = `-- name: GameCardsInitGeneric :exec
@@ -189,15 +161,78 @@ FROM cards
 WHERE generic IS TRUE LIMIT (SELECT card_count FROM games WHERE games.id = $1)
 `
 
-// TODO: game cards must be init'ed before spin can happen
+// ----------------------
+// ---- GAME CARDS ------
+// ----------------------
 func (q *Queries) GameCardsInitGeneric(ctx context.Context, gameID string) error {
 	_, err := q.db.Exec(ctx, gameCardsInitGeneric, gameID)
 	return err
 }
 
+const gameCardsPlayerView = `-- name: GameCardsPlayerView :many
+SELECT
+    id,
+    (
+        SELECT
+            CASE
+                WHEN flipped THEN back
+                ELSE front
+            END
+        FROM cards 
+        WHERE cards.id = game_cards.card_id
+    ) AS content,
+    (
+        SELECT type FROM cards 
+        WHERE cards.id = game_cards.card_id
+    ) AS type,
+    (
+        SELECT generic FROM cards 
+        WHERE cards.id = game_cards.card_id
+    ) AS generic,
+    flipped
+FROM game_cards
+WHERE game_id = $1
+    AND shredded IS FALSE
+    AND player_id IS NOT NULL
+`
+
+type GameCardsPlayerViewRow struct {
+	ID      int32       `json:"id"`
+	Content interface{} `json:"content"`
+	Type    string      `json:"type"`
+	Generic pgtype.Bool `json:"generic"`
+	Flipped pgtype.Bool `json:"flipped"`
+}
+
+func (q *Queries) GameCardsPlayerView(ctx context.Context, gameID string) ([]GameCardsPlayerViewRow, error) {
+	rows, err := q.db.Query(ctx, gameCardsPlayerView, gameID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []GameCardsPlayerViewRow
+	for rows.Next() {
+		var i GameCardsPlayerViewRow
+		if err := rows.Scan(
+			&i.ID,
+			&i.Content,
+			&i.Type,
+			&i.Generic,
+			&i.Flipped,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const gameCardsShuffle = `-- name: GameCardsShuffle :exec
 WITH ordered AS (
-    SELECT
+ SELECT
         card_id,
         slot,
         ROW_NUMBER() OVER (PARTITION BY slot ORDER BY RANDOM()) AS stack 
@@ -218,7 +253,96 @@ func (q *Queries) GameCardsShuffle(ctx context.Context, gameID string) error {
 	return err
 }
 
+const gameCardsWheelSpin = `-- name: GameCardsWheelSpin :one
+WITH spin AS (
+    SELECT wheel_slots[
+        floor(random() * array_length(wheel_slots, 1))::int + 1
+    ] AS random_slot
+    FROM games
+    WHERE games.id = $1
+),
+resultant_card AS (
+    SELECT (
+        SELECT game_cards.id
+        FROM game_cards
+        WHERE game_id = $1 
+            AND slot = (SELECT random_slot FROM spin)
+        ORDER BY stack DESC
+        LIMIT 1
+    ) AS id
+)
+UPDATE game_cards
+SET player_id = $2, slot = NULL, stack = NULL, updated = CURRENT_TIMESTAMP
+WHERE game_cards.id = (SELECT id FROM resultant_card)
+RETURNING id
+`
+
+type GameCardsWheelSpinParams struct {
+	ID       string      `json:"id"`
+	PlayerID pgtype.Int4 `json:"player_id"`
+}
+
+// sql.ErrNoRows = end of game
+func (q *Queries) GameCardsWheelSpin(ctx context.Context, arg GameCardsWheelSpinParams) (int32, error) {
+	row := q.db.QueryRow(ctx, gameCardsWheelSpin, arg.ID, arg.PlayerID)
+	var id int32
+	err := row.Scan(&id)
+	return id, err
+}
+
+const gameCardsWheelView = `-- name: GameCardsWheelView :many
+SELECT
+    slot,
+    (
+        SELECT COUNT(id) 
+        FROM game_cards 
+        WHERE game_cards.game_id = $1 AND slot = game_cards.slot AND shredded IS FALSE
+    ) AS stack_size,
+    (
+        SELECT type
+        FROM cards 
+        WHERE cards.id = (
+            SELECT card_id 
+            FROM game_cards 
+            WHERE game_cards.game_id = $1 
+                AND game_cards.slot = game_cards.slot 
+                AND game_cards.shredded IS FALSE
+            ORDER BY stack DESC LIMIT 1
+        )
+    ) AS top_card_type
+FROM game_cards
+WHERE game_id = $1 AND player_id IS NULL
+ORDER BY slot ASC
+`
+
+type GameCardsWheelViewRow struct {
+	Slot        pgtype.Int4 `json:"slot"`
+	StackSize   int64       `json:"stack_size"`
+	TopCardType string      `json:"top_card_type"`
+}
+
+func (q *Queries) GameCardsWheelView(ctx context.Context, gameID string) ([]GameCardsWheelViewRow, error) {
+	rows, err := q.db.Query(ctx, gameCardsWheelView, gameID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []GameCardsWheelViewRow
+	for rows.Next() {
+		var i GameCardsWheelViewRow
+		if err := rows.Scan(&i.Slot, &i.StackSize, &i.TopCardType); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const gameCreate = `-- name: GameCreate :exec
+
 INSERT INTO games (name, id, owner_id)
 VALUES ($1, $2, $3)
 RETURNING id
@@ -230,6 +354,9 @@ type GameCreateParams struct {
 	OwnerID pgtype.Int4 `json:"owner_id"`
 }
 
+// ----------------------
+// ------- GAME ---------
+// ----------------------
 func (q *Queries) GameCreate(ctx context.Context, arg GameCreateParams) error {
 	_, err := q.db.Exec(ctx, gameCreate, arg.Name, arg.ID, arg.OwnerID)
 	return err
@@ -245,6 +372,7 @@ func (q *Queries) GameDelete(ctx context.Context, id string) error {
 }
 
 const gamePlayerCreate = `-- name: GamePlayerCreate :exec
+
 INSERT INTO game_players (game_id, player_id, session_key, initiative)
 VALUES ($1, $2, $3, $4)
 `
@@ -256,6 +384,9 @@ type GamePlayerCreateParams struct {
 	Initiative pgtype.Int4 `json:"initiative"`
 }
 
+// ----------------------
+// --- GAME PLAYER ------
+// ----------------------
 // session_key is expected to be valid for the duration of the game
 func (q *Queries) GamePlayerCreate(ctx context.Context, arg GamePlayerCreateParams) error {
 	_, err := q.db.Exec(ctx, gamePlayerCreate,
@@ -393,7 +524,7 @@ func (q *Queries) GameUpdate(ctx context.Context, arg GameUpdateParams) error {
 }
 
 const games = `-- name: Games :many
-SELECT id, name, created, owner_id, state_id, wheel_slots, card_count, initiative_current FROM games WHERE id = (
+SELECT id, name, created, owner_id, state_id, wheel_slots, card_count, initiative_timer, initiative_current FROM games WHERE id = (
 	SELECT game_id 
 	FROM game_players
 	WHERE player_id = $1
@@ -417,6 +548,7 @@ func (q *Queries) Games(ctx context.Context, playerID int32) ([]Games, error) {
 			&i.StateID,
 			&i.WheelSlots,
 			&i.CardCount,
+			&i.InitiativeTimer,
 			&i.InitiativeCurrent,
 		); err != nil {
 			return nil, err
@@ -450,6 +582,8 @@ func (q *Queries) InitiativeAdvance(ctx context.Context, gameID string) error {
 }
 
 const initiativeSet = `-- name: InitiativeSet :exec
+
+
 UPDATE game_players
 SET initiative = $1
 WHERE game_id = $2
@@ -462,6 +596,27 @@ type InitiativeSetParams struct {
 	PlayerID   int32       `json:"player_id"`
 }
 
+// -- NOTE: this may not be needed
+// -- name: GameCards :many
+// SELECT
+//
+//	game_cards.id,
+//	cards.type,
+//	cards.front,
+//	cards.back,
+//	game_cards.stack,
+//	game_cards.slot,
+//	game_cards.player_id,
+//	game_cards.flipped,
+//	game_cards.shredded,
+//	game_cards.from_clone
+//
+// FROM game_cards
+// JOIN cards ON cards.id = game_cards.card_id
+// WHERE game_cards.game_id = $1;
+// ----------------------
+// ---- INITATIVE -------
+// ----------------------
 func (q *Queries) InitiativeSet(ctx context.Context, arg InitiativeSetParams) error {
 	_, err := q.db.Exec(ctx, initiativeSet, arg.Initiative, arg.GameID, arg.PlayerID)
 	return err
@@ -479,9 +634,13 @@ func (q *Queries) Player(ctx context.Context, id int32) (Players, error) {
 }
 
 const playerCreate = `-- name: PlayerCreate :one
+
 INSERT INTO players (name) VALUES ($1) RETURNING id
 `
 
+// ----------------------
+// ------ PLAYER --------
+// ----------------------
 func (q *Queries) PlayerCreate(ctx context.Context, name string) (int32, error) {
 	row := q.db.QueryRow(ctx, playerCreate, name)
 	var id int32
@@ -495,58 +654,5 @@ DELETE FROM players WHERE id = $1
 
 func (q *Queries) PlayerDelete(ctx context.Context, id int32) error {
 	_, err := q.db.Exec(ctx, playerDelete, id)
-	return err
-}
-
-const spin = `-- name: Spin :exec
-
-
-
-UPDATE game_cards
-SET player_id = $1
-WHERE game_cards.game_id = $2
-    AND game_cards.card_id = $3
-    AND game_cards.id = (
-        SELECT game_cards.id
-        FROM game_cards
-        WHERE game_cards.game_id = $2 AND game_cards.card_id = $3
-        LIMIT 1
-    )
-`
-
-type SpinParams struct {
-	PlayerID pgtype.Int4 `json:"player_id"`
-	GameID   string      `json:"game_id"`
-	CardID   int32       `json:"card_id"`
-}
-
-// GameCardCreate
-// WITH slots AS (
-//
-//	SELECT MAX(slot)
-//	FROM game_cards
-//	WHERE game_id = :game_id
-//
-// ),
-// spin AS (
-//
-//	SELECT card_id
-//	FROM game_cards
-//	WHERE game_id = :game_id
-//		AND revealed = false
-//		AND slot = RANDOM() % (SELECT * FROM slots)
-//	ORDER BY stack DESC LIMIT 1
-//
-// )
-// UPDATE game_cards
-// SET
-//
-//	revealed = true,
-//	player_id = :player_id
-//
-// WHERE id = (SELECT card_id FROM spin);
-// Moves a single card of matching id to the new player_id provided.
-func (q *Queries) Spin(ctx context.Context, arg SpinParams) error {
-	_, err := q.db.Exec(ctx, spin, arg.PlayerID, arg.GameID, arg.CardID)
 	return err
 }
