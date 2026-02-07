@@ -1,0 +1,100 @@
+#!/usr/bin/env bash
+
+GAME_NAME="mock-game"
+PLAYER_NAME_BASE="mock-player"
+PORT=7777
+DELAY=.5
+DEBUG=${DEBUG:-"true"}
+
+debug() {
+	if [[ -n "$DEBUG" ]]; then
+		echo "$@"
+	fi
+}
+
+# COOKIE_FILE=$(mktemp)
+COOKIE_FILE="../cookies.txt"
+rm "$COOKIE_FILE"
+
+# cookie_string() {
+# 	if [[ -f "$COOKIE_FILE" ]]; then
+# 		echo "-b ${COOKIE_FILE}"
+# 	else
+# 		echo "-c ${COOKIE_FILE}"
+# 	fi
+# }
+
+request() {
+	sleep $DELAY
+	local method="$1"
+	local endpoint="$2"
+	local opts="$3"
+	# Use eval to allow opts to expand properly
+	debug "${method} ${endpoint} ${opts}"
+	output=$(eval curl -siL -X "${method}" "http://localhost:${PORT}${endpoint}" ${opts} -w "%{http_code}")
+	status=$?
+	if [ $status -ne 0 ]; then
+		echo "  error: ${status}"
+		exit $status
+	fi
+	
+	http_status="${output: -3}"
+	content="${output::-3}"
+
+	echo "  HTTP ${http_status}"
+	if [ "$http_status" -ne 200 ]; then
+		if [ "$http_status" -eq 303 ]; then
+			location=$(echo "$content" | grep -i '^Location:' | awk '{print $2}' | tr -d '\r\n')
+
+		fi 
+		echo "  ${content}"
+
+	fi
+	echo
+}
+
+declare follow_location
+request() {
+	local method="$1"
+	local url="http://localhost:${PORT}${2}"
+	local opts="$3"
+	
+	echo
+	echo "${method} ${url} ${opts}"
+	response=$(eval curl -si -X "${method}" "${url}" ${opts} -w "%{http_code}")
+	
+	http_code="${response: -3}"
+	content="${response::-3}"
+	location=$(echo "$content" | grep -i '^Location:' | awk '{print $2}' | tr -d '\r\n')
+
+	printf "  $http_code"
+	if [ "$http_code" -eq 303	 ]; then
+		follow_location="$location"
+		printf " --> ${follow_location}\n"
+		return
+	fi
+	printf "\n"
+	if [ "$http_code" -ne 200 ]; then
+		echo "  error"
+		echo "${content}"
+		exit 1
+	fi
+}
+
+request "GET" "/"
+request "POST" "/create" "-F gamename=${GAME_NAME}"
+request "POST" "$follow_location" "-c $COOKIE_FILE -F username=${USERNAME}"
+
+if [[ -n "$follow_location" ]]; then
+	echo "Following redirect to ${follow_location}"
+	unset follow_location
+else
+	echo "No redirect to follow"
+	exit 1
+fi
+
+# request "GET" "/"
+# request "POST" "/create" "--post303 -c $COOKIE_FILE -b $COOKIE_FILE -F gamename=${GAME_NAME}"
+# request "GET" "/state" 
+
+
