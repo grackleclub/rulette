@@ -151,7 +151,7 @@ func dataHandler(w http.ResponseWriter, r *http.Request) {
 				http.Error(w, "internal server error", http.StatusInternalServerError)
 			}
 			return
-		case "status": // TODO: this and state should be the same thing
+		case "status":
 			w.Header().Set("Content-Type", "text/plain")
 			w.WriteHeader(http.StatusOK)
 			_, err := w.Write([]byte(state.Game.StateName))
