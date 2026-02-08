@@ -1,5 +1,7 @@
 #!/usr/bin/env bash
 
+set -e
+
 declare FOLLOW_LOCATION # HTTP redirect follow location
 declare GAME_ID
 declare GAME_DIR # directory for game data
@@ -7,12 +9,14 @@ PLAYERS=("aang" "katara" "toph" "zuko" "iroh")
 GAME_NAME="mock-game"
 PORT=7777
 BASE_URL="http://localhost:$PORT"
+WATCH_DELAY=1
 
 # echos a cookie location given a player name
 mkdir_game() {
 	local game_id="$1"
-	GAME_DIR="/tmp/rulette/$game_id"
+	GAME_DIR="$HOME/.cache/rulette/$game_id"
 	mkdir -p "$GAME_DIR" || return 1
+	chmod -R 775 "$GAME_DIR"
 }
 
 cookie_file() {
@@ -26,7 +30,7 @@ request() {
 	local opts="$3"
 	
 	echo "  ${method} ${url} ${opts}"
-	response=$(eval curl -si -X "${method}" "${url}" ${opts} -w "%{http_code}")
+	response=$(eval curl -si -X "${method}" "${url}" "${opts}" -w "%{http_code}")
 	
 	http_code="${response: -3}"
 	content="${response::-3}"
@@ -48,7 +52,7 @@ request() {
 }
 
 request_with_retry () {
-	local retries=5
+	local retries=30
 	local delay=1
 	local count=0
 	while ! request "$@"; do
@@ -87,29 +91,33 @@ request "GET" "/$GAME_ID" "-b $P1_COOKIE"
 # fetches the debug endpoint on behalf of some player, and saves to state.json
 fetch_state() {
 	local player="$1"
-	local dir="$GAME_DIR/state.json"
-	chmod 766 "$dir" 2>/dev/null || true
-	echo "  watch -n 1 ${dir}"
+	local filepath="$GAME_DIR/state.json"
+	echo "  watch -n 1 cat ${filepath}"
 	while true; do
-		curl -s "$BASE_URL/$GAME_ID/data/state" -b "$(cookie_file "$player")" -o "$dir.tmp"
-		if ! jq < "$dir.tmp" > /dev/null 2>&1; then
+		sleep "$WATCH_DELAY"
+		# if [ -f "$filepath" ]; then
+		# 	sleep "$WATCH_DELAY"
+		# fi
+		curl -s "$BASE_URL/$GAME_ID/data/state" -b "$(cookie_file "$player")" > "$filepath.tmp"
+		if ! jq < "$filepath.tmp" > /dev/null 2>&1; then
 			printf "\r  error: invalid json %s" "$(date +%T)"
 			continue
 		else
-			mv "$dir.tmp" "$dir"
+			jq < "$filepath.tmp" > "$filepath"
+			chmod -R 664 "$filepath"
 		fi
-		printf "\r  ${dir} (updated %s)" "$(date +%T)"
-		sleep 1
+		printf "\r  ${filepath} (updated %s)" "$(date +%T)"
 	done
 }
 
 echo "fetch game state"
 fetch_state "$P1_NAME" &
 pid=$!
-trap "echo 'cleaning up' && kill $pid" EXIT
+# shellcheck disable=SC2064
+trap "echo 'cleaning up' && kill ${pid}" EXIT
 
-# for player in "${PLAYERS[@]:1}"; do
-# 	echo "join game $FOLLOW_LOCATION as $player"
-# 	request "GET" "$FOLLOW_LOCATION" "-F username=$player -c $(cookie_file $player)"
-# done
+for player in "${PLAYERS[@]:1}"; do
+	echo "join game $GAME_ID as $player"
+	request "POST" "/$GAME_ID/join" "-F username=$player -c $(cookie_file $player)"
+done
 sleep 120
