@@ -65,29 +65,6 @@ request_with_retry () {
 	done
 }
 
-
-# START UP NEW GAME
-echo "first visit"
-request_with_retry "GET" "/"
-
-echo "create game"
-request "POST" "/create" "-F gamename=${GAME_NAME}"
-GAME_ID="$(echo "$FOLLOW_LOCATION" | sed -n 's|.*/\([^/]*\)/.*|\1|p')"
-if [ -z "$GAME_ID" ]; then
-	echo "error: not a game id: $GAME_ID"
-	exit 1
-fi
-mkdir_game "$GAME_ID"
-
-
-P1_NAME=${PLAYERS[0]}
-P1_COOKIE="$(cookie_file "$P1_NAME")"
-echo "create user $P1_NAME from $FOLLOW_LOCATION"
-request "POST" "$FOLLOW_LOCATION" "-c $P1_COOKIE -F username=$P1_NAME"
-
-echo "join game $GAME_ID as $P1_NAME"
-request "GET" "/$GAME_ID" "-b $P1_COOKIE"
-
 # fetches the debug endpoint on behalf of some player, and saves to state.json
 fetch_state() {
 	local player="$1"
@@ -110,6 +87,28 @@ fetch_state() {
 	done
 }
 
+# START UP NEW GAME
+echo "first visit"
+request_with_retry "GET" "/"
+
+echo "create game"
+request "POST" "/create" "-F gamename=${GAME_NAME}"
+GAME_ID="$(echo "$FOLLOW_LOCATION" | sed -n 's|.*/\([^/]*\)/.*|\1|p')"
+if [ -z "$GAME_ID" ]; then
+	echo "error: not a game id: $GAME_ID"
+	exit 1
+fi
+mkdir_game "$GAME_ID"
+
+P1_NAME=${PLAYERS[0]}
+P1_COOKIE="$(cookie_file "$P1_NAME")"
+echo "create user $P1_NAME from $FOLLOW_LOCATION"
+request "POST" "$FOLLOW_LOCATION" "-c $P1_COOKIE -F username=$P1_NAME"
+
+echo "join game $GAME_ID as $P1_NAME"
+request "GET" "/$GAME_ID" "-b $P1_COOKIE"
+
+
 echo "fetch game state"
 fetch_state "$P1_NAME" &
 pid=$!
@@ -120,4 +119,3 @@ for player in "${PLAYERS[@]:1}"; do
 	echo "join game $GAME_ID as $player"
 	request "POST" "/$GAME_ID/join" "-F username=$player -c $(cookie_file $player)"
 done
-sleep 120
