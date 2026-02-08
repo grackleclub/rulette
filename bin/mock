@@ -1,100 +1,115 @@
 #!/usr/bin/env bash
 
+declare FOLLOW_LOCATION # HTTP redirect follow location
+declare GAME_ID
+declare GAME_DIR # directory for game data
+PLAYERS=("aang" "katara" "toph" "zuko" "iroh")
 GAME_NAME="mock-game"
-PLAYER_NAME_BASE="mock-player"
 PORT=7777
-DELAY=.5
-DEBUG=${DEBUG:-"true"}
+BASE_URL="http://localhost:$PORT"
 
-debug() {
-	if [[ -n "$DEBUG" ]]; then
-		echo "$@"
-	fi
+# echos a cookie location given a player name
+mkdir_game() {
+	local game_id="$1"
+	GAME_DIR="/tmp/rulette/$game_id"
+	mkdir -p "$GAME_DIR" || return 1
 }
 
-# COOKIE_FILE=$(mktemp)
-COOKIE_FILE="../cookies.txt"
-rm "$COOKIE_FILE"
-
-# cookie_string() {
-# 	if [[ -f "$COOKIE_FILE" ]]; then
-# 		echo "-b ${COOKIE_FILE}"
-# 	else
-# 		echo "-c ${COOKIE_FILE}"
-# 	fi
-# }
-
-request() {
-	sleep $DELAY
-	local method="$1"
-	local endpoint="$2"
-	local opts="$3"
-	# Use eval to allow opts to expand properly
-	debug "${method} ${endpoint} ${opts}"
-	output=$(eval curl -siL -X "${method}" "http://localhost:${PORT}${endpoint}" ${opts} -w "%{http_code}")
-	status=$?
-	if [ $status -ne 0 ]; then
-		echo "  error: ${status}"
-		exit $status
-	fi
-	
-	http_status="${output: -3}"
-	content="${output::-3}"
-
-	echo "  HTTP ${http_status}"
-	if [ "$http_status" -ne 200 ]; then
-		if [ "$http_status" -eq 303 ]; then
-			location=$(echo "$content" | grep -i '^Location:' | awk '{print $2}' | tr -d '\r\n')
-
-		fi 
-		echo "  ${content}"
-
-	fi
-	echo
+cookie_file() {
+	local player="$1"
+	echo "$GAME_DIR/${player}.cookie"
 }
 
-declare follow_location
 request() {
 	local method="$1"
-	local url="http://localhost:${PORT}${2}"
+	local url="${BASE_URL}${2}"
 	local opts="$3"
 	
-	echo
-	echo "${method} ${url} ${opts}"
+	echo "  ${method} ${url} ${opts}"
 	response=$(eval curl -si -X "${method}" "${url}" ${opts} -w "%{http_code}")
 	
 	http_code="${response: -3}"
 	content="${response::-3}"
 	location=$(echo "$content" | grep -i '^Location:' | awk '{print $2}' | tr -d '\r\n')
 
-	printf "  $http_code"
+	printf "  %s" "$http_code"
 	if [ "$http_code" -eq 303	 ]; then
-		follow_location="$location"
-		printf " --> ${follow_location}\n"
-		return
+		FOLLOW_LOCATION="$location"
+		printf " --> %s\n" "${FOLLOW_LOCATION}"
+		return 0
 	fi
 	printf "\n"
 	if [ "$http_code" -ne 200 ]; then
 		echo "  error"
 		echo "${content}"
-		exit 1
+		return 1
 	fi
+	return 0
 }
 
-request "GET" "/"
-request "POST" "/create" "-F gamename=${GAME_NAME}"
-request "POST" "$follow_location" "-c $COOKIE_FILE -F username=${USERNAME}"
+request_with_retry () {
+	local retries=5
+	local delay=1
+	local count=0
+	while ! request "$@"; do
+		count=$((count + 1))
+		if [ $count -ge $retries ]; then
+			return 1
+		fi
+		echo "  retrying in ${delay}s ..."
+		sleep $delay
+	done
+}
 
-if [[ -n "$follow_location" ]]; then
-	echo "Following redirect to ${follow_location}"
-	unset follow_location
-else
-	echo "No redirect to follow"
+
+# START UP NEW GAME
+echo "first visit"
+request_with_retry "GET" "/"
+
+echo "create game"
+request "POST" "/create" "-F gamename=${GAME_NAME}"
+GAME_ID="$(echo "$FOLLOW_LOCATION" | sed -n 's|.*/\([^/]*\)/.*|\1|p')"
+if [ -z "$GAME_ID" ]; then
+	echo "error: not a game id: $GAME_ID"
 	exit 1
 fi
-
-# request "GET" "/"
-# request "POST" "/create" "--post303 -c $COOKIE_FILE -b $COOKIE_FILE -F gamename=${GAME_NAME}"
-# request "GET" "/state" 
+mkdir_game "$GAME_ID"
 
 
+P1_NAME=${PLAYERS[0]}
+P1_COOKIE="$(cookie_file "$P1_NAME")"
+echo "create user $P1_NAME from $FOLLOW_LOCATION"
+request "POST" "$FOLLOW_LOCATION" "-c $P1_COOKIE -F username=$P1_NAME"
+
+echo "join game $GAME_ID as $P1_NAME"
+request "GET" "/$GAME_ID" "-b $P1_COOKIE"
+
+# fetches the debug endpoint on behalf of some player, and saves to state.json
+fetch_state() {
+	local player="$1"
+	local dir="$GAME_DIR/state.json"
+	chmod 766 "$dir" 2>/dev/null || true
+	echo "  watch -n 1 ${dir}"
+	while true; do
+		curl -s "$BASE_URL/$GAME_ID/data/state" -b "$(cookie_file "$player")" -o "$dir.tmp"
+		if ! jq < "$dir.tmp" > /dev/null 2>&1; then
+			printf "\r  error: invalid json %s" "$(date +%T)"
+			continue
+		else
+			mv "$dir.tmp" "$dir"
+		fi
+		printf "\r  ${dir} (updated %s)" "$(date +%T)"
+		sleep 1
+	done
+}
+
+echo "fetch game state"
+fetch_state "$P1_NAME" &
+pid=$!
+trap "echo 'cleaning up' && kill $pid" EXIT
+
+# for player in "${PLAYERS[@]:1}"; do
+# 	echo "join game $FOLLOW_LOCATION as $player"
+# 	request "GET" "$FOLLOW_LOCATION" "-F username=$player -c $(cookie_file $player)"
+# done
+sleep 120
