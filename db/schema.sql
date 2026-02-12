@@ -90,6 +90,7 @@ CREATE TABLE IF NOT EXISTS game_cards (
 	FOREIGN KEY (player_id) REFERENCES players(id) ON DELETE CASCADE -- a leaving player takes their game cards with them
 );
 
+-- TODO: make log viewer route?
 CREATE TABLE IF NOT EXISTS spin_log (
 	id SERIAL PRIMARY KEY,
 	game_id VARCHAR(6) NOT NULL,

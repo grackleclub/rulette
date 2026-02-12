@@ -1,7 +1,12 @@
 version: "2"
 sql:
   - engine: "postgresql"
-    queries: "queries.sql"
+    queries: 
+      - "queries/game.sql"
+      - "queries/cards.sql"
+      - "queries/player.sql"
+      - "queries/initiative.sql"
+      - "queries/infractions.sql"
     schema: "schema.sql"
     gen:
       go:
