@@ -77,3 +77,12 @@ type Players struct {
 	Name    string           `json:"name"`
 	Created pgtype.Timestamp `json:"created"`
 }
+
+type SpinLog struct {
+	ID       int32            `json:"id"`
+	GameID   string           `json:"game_id"`
+	PlayerID pgtype.Int4      `json:"player_id"`
+	Slot     int32            `json:"slot"`
+	CardID   pgtype.Int4      `json:"card_id"`
+	Ts       pgtype.Timestamp `json:"ts"`
+}

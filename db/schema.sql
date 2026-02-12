@@ -90,11 +90,17 @@ CREATE TABLE IF NOT EXISTS game_cards (
 	FOREIGN KEY (player_id) REFERENCES players(id) ON DELETE CASCADE -- a leaving player takes their game cards with them
 );
 
--- CREATE TABLE IF NOT EXISTS game_wheel (
--- 	game_id VARCHAR(6) PRIMARY KEY,
--- 	slots INTEGER NOT NULL,
--- 	FOREIGN KEY (game_id) REFERENCES games(id) ON DELETE CASCADE
--- )
+CREATE TABLE IF NOT EXISTS spin_log (
+	id SERIAL PRIMARY KEY,
+	game_id VARCHAR(6) NOT NULL,
+	player_id INTEGER, -- (NULL=system,deleted)
+	slot INTEGER NOT NULL, -- not referentially enforced, oh well
+	card_id INTEGER, -- (NULL=miss,?)
+	ts TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+	FOREIGN KEY (game_id) REFERENCES games(id) ON DELETE CASCADE,
+	FOREIGN KEY (player_id) REFERENCES players(id) ON DELETE SET NULL,
+	FOREIGN KEY (card_id) REFERENCES cards(id) ON DELETE SET NULL
+);
 
 CREATE TABLE IF NOT EXISTS infractions (
 	id SERIAL PRIMARY KEY,

@@ -2,6 +2,7 @@ package main
 
 import (
 	"net/http"
+	"strconv"
 	"strings"
 
 	sqlc "github.com/grackleclub/rulette/db/sqlc"
@@ -72,7 +73,7 @@ func actionHandler(w http.ResponseWriter, r *http.Request) {
 				log.Error("update initiative", "error", err)
 				http.Error(w, "server error", http.StatusInternalServerError)
 			}
-			log.Info("game started", "state", "ready", "initiative", 1)
+			log.Info("initiative initiated", "state", "ready", "initiative", 1)
 
 			// invalidate cache for this game
 			cache.Delete(gameID)
@@ -99,9 +100,32 @@ func actionHandler(w http.ResponseWriter, r *http.Request) {
 				http.Error(w, "not your turn", http.StatusConflict)
 				return
 			}
-			// TODO: implement
-			log.Error("not implmented")
-			http.Error(w, "not implemented", http.StatusNotImplemented)
+			id, err := strconv.Atoi(cookieID)
+			if err != nil {
+				log.Error("invalid game id",
+					"game_id", gameID,
+					"error", err,
+				)
+				http.Error(w, "invalid game id", http.StatusBadRequest)
+				return
+			}
+			args := sqlc.GameCardsWheelSpinParams{
+				ID:       gameID,
+				PlayerID: pgtype.Int4{Int32: int32(id), Valid: true},
+			}
+			cardID, err := queries.GameCardsWheelSpin(r.Context(), args)
+			if err != nil {
+				log.Error("spin wheel", "error", err)
+				http.Error(w, "server error", http.StatusInternalServerError)
+				return
+			}
+			log.Info("wheel spun",
+				"game_id", gameID,
+				"card_id", cardID,
+				"player_id", id,
+			)
+			w.WriteHeader(http.StatusOK)
+
 		case "flip":
 			// TODO: implement
 			log.Error("not implmented")

@@ -268,6 +268,17 @@ resultant_card AS (
         ORDER BY stack DESC
         LIMIT 1
     ) AS id
+),
+spin_log AS (
+    INSERT INTO spin_log (game_id, player_id, slot, card_id)
+    VALUES (
+        $1,
+        $2,
+        (SELECT random_slot FROM spin),
+        (SELECT card_id FROM game_cards WHERE id = (
+                SELECT id FROM resultant_card)
+        )
+    )
 )
 UPDATE game_cards
 SET player_id = $2, slot = NULL, stack = NULL, updated = CURRENT_TIMESTAMP
@@ -319,6 +330,7 @@ type GameCardsWheelViewRow struct {
 	TopCardType string      `json:"top_card_type"`
 }
 
+// Public view of the unrevealed wheel.
 func (q *Queries) GameCardsWheelView(ctx context.Context, gameID string) ([]GameCardsWheelViewRow, error) {
 	rows, err := q.db.Query(ctx, gameCardsWheelView, gameID)
 	if err != nil {
@@ -639,6 +651,7 @@ INSERT INTO players (name) VALUES ($1) RETURNING id
 // ----------------------
 // ------ PLAYER --------
 // ----------------------
+// Create a new player and return their unique id.
 func (q *Queries) PlayerCreate(ctx context.Context, name string) (int32, error) {
 	row := q.db.QueryRow(ctx, playerCreate, name)
 	var id int32

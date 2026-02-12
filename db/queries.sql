@@ -2,6 +2,7 @@
 -------- PLAYER --------
 ------------------------
 
+-- Create a new player and return their unique id.
 -- name: PlayerCreate :one
 INSERT INTO players (name) VALUES ($1) RETURNING id;
 
@@ -131,6 +132,7 @@ WHERE game_id = $1
     AND shredded IS FALSE
     AND player_id IS NOT NULL;
 
+-- Public view of the unrevealed wheel.
 -- name: GameCardsWheelView :many
 SELECT
     slot,
@@ -171,6 +173,17 @@ resultant_card AS (
         ORDER BY stack DESC
         LIMIT 1
     ) AS id
+),
+spin_log AS (
+    INSERT INTO spin_log (game_id, player_id, slot, card_id)
+    VALUES (
+        $1,
+        $2,
+        (SELECT random_slot FROM spin),
+        (SELECT card_id FROM game_cards WHERE id = (
+                SELECT id FROM resultant_card)
+        )
+    )
 )
 UPDATE game_cards
 SET player_id = $2, slot = NULL, stack = NULL, updated = CURRENT_TIMESTAMP

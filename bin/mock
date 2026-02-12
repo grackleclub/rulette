@@ -9,12 +9,18 @@ PLAYERS=("aang" "katara" "toph" "zuko" "iroh")
 GAME_NAME="mock-game"
 PORT=7777
 BASE_URL="http://localhost:$PORT"
-WATCH_DELAY=1
+WATCH_DELAY=5
+BASE_DIR="$HOME/.cache/rulette"
+
+set_active_game() {
+	local game_id="$1"
+	echo "$game_id" > "$BASE_DIR/active"
+}
 
 # echos a cookie location given a player name
 mkdir_game() {
 	local game_id="$1"
-	GAME_DIR="$HOME/.cache/rulette/$game_id"
+	GAME_DIR="$BASE_DIR/$game_id"
 	mkdir -p "$GAME_DIR" || return 1
 	chmod -R 775 "$GAME_DIR"
 }
@@ -99,6 +105,7 @@ if [ -z "$GAME_ID" ]; then
 	exit 1
 fi
 mkdir_game "$GAME_ID"
+set_active_game "$GAME_ID"
 
 P1_NAME=${PLAYERS[0]}
 P1_COOKIE="$(cookie_file "$P1_NAME")"
@@ -119,3 +126,19 @@ for player in "${PLAYERS[@]:1}"; do
 	echo "join game $GAME_ID as $player"
 	request "POST" "/$GAME_ID/join" "-F username=$player -c $(cookie_file $player)"
 done
+
+# Start the game
+echo "starting game $GAME_ID"
+request "POST" "/$GAME_ID/action/start" "-b $P1_COOKIE"
+
+
+echo "first spin"
+request "POST" "/$GAME_ID/action/spin" "-b $P1_COOKIE"
+
+
+
+
+duration=600
+echo "holding game open for ${duration}s for testing/debugging"
+echo "view state with 'bin/state'"
+sleep "$duration"
