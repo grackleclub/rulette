@@ -5,5 +5,7 @@ RETURNING id;
 
 -- name: Card :one
 SELECT * FROM cards WHERE id = $1;
+
 -- name: CardDelete :exec
 DELETE FROM cards WHERE id = $1;
+

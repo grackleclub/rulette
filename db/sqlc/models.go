@@ -8,12 +8,6 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 )
 
-type Cache struct {
-	Key   string           `json:"key"`
-	Value []byte           `json:"value"`
-	Ttl   pgtype.Timestamp `json:"ttl"`
-}
-
 type CardTypes struct {
 	Name string `json:"name"`
 }
@@ -26,6 +20,12 @@ type Cards struct {
 	Creator pgtype.Int4      `json:"creator"`
 	Created pgtype.Timestamp `json:"created"`
 	Generic pgtype.Bool      `json:"generic"`
+}
+
+type GameCache struct {
+	GameID  string           `json:"game_id"`
+	Value   []byte           `json:"value"`
+	Expires pgtype.Timestamp `json:"expires"`
 }
 
 type GameCards struct {
