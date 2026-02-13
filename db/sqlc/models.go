@@ -8,6 +8,12 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 )
 
+type Cache struct {
+	Key   string           `json:"key"`
+	Value []byte           `json:"value"`
+	Ttl   pgtype.Timestamp `json:"ttl"`
+}
+
 type CardTypes struct {
 	Name string `json:"name"`
 }

@@ -9,4 +9,4 @@ if [[ -z "$game_id" ]]; then
 	exit 1
 fi
 
-watch -n 1 "cat \"$base_dir/$game_id/state.json\""
+cat "$base_dir/$game_id/state.json"
