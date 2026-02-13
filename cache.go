@@ -44,7 +44,7 @@ func stateFromCacheOrDB(ctx context.Context, cache *sync.Map, gameID string) (st
 
 	// Update the cache
 	cache.Store(gameID, &stateFresh)
-	log.Info("cache updated", "game_id", gameID)
+	log.Debug("cache updated", "game_id", gameID)
 
 	return stateFresh, nil
 }
@@ -72,7 +72,7 @@ func fetchStateFromDB(ctx context.Context, gameID string) (state, error) {
 		return state{}, fmt.Errorf("fetch wheel cards for game: %w", err)
 	}
 
-	log.Info("fetched game state and players",
+	log.Debug("fetched game state and players",
 		"player_count", len(players),
 		"game_id", gameID,
 		"game_name", game.Name,

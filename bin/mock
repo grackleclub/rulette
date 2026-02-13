@@ -5,7 +5,7 @@ set -e
 declare FOLLOW_LOCATION # HTTP redirect follow location
 declare GAME_ID
 declare GAME_DIR # directory for game data
-PLAYERS=("aang" "katara" "toph" "zuko" "iroh")
+PLAYERS=("Sam" "Oscar" "Anna" "Jeremy")
 GAME_NAME="mock-game"
 PORT=7777
 BASE_URL="http://localhost:$PORT"
@@ -43,6 +43,7 @@ request() {
 	location=$(echo "$content" | grep -i '^Location:' | awk '{print $2}' | tr -d '\r\n')
 
 	printf "  %s" "$http_code"
+	sleep 0.2
 	if [ "$http_code" -eq 303	 ]; then
 		FOLLOW_LOCATION="$location"
 		printf " --> %s\n" "${FOLLOW_LOCATION}"
@@ -107,36 +108,39 @@ fi
 mkdir_game "$GAME_ID"
 set_active_game "$GAME_ID"
 
-P1_NAME=${PLAYERS[0]}
-P1_COOKIE="$(cookie_file "$P1_NAME")"
-echo "create user $P1_NAME from $FOLLOW_LOCATION"
-request "POST" "$FOLLOW_LOCATION" "-c $P1_COOKIE -F username=$P1_NAME"
+HOST_NAME=${PLAYERS[0]}
+HOST_COOKIE="$(cookie_file "$HOST_NAME")"
+echo "create user $HOST_NAME from $FOLLOW_LOCATION"
+request "POST" "$FOLLOW_LOCATION" "-c $HOST_COOKIE -F username=$HOST_NAME"
 
-echo "join game $GAME_ID as $P1_NAME"
-request "GET" "/$GAME_ID" "-b $P1_COOKIE"
+echo "join game $GAME_ID as $HOST_NAME"
+request "GET" "/$GAME_ID" "-b $HOST_COOKIE"
 
 
 echo "fetch game state"
-fetch_state "$P1_NAME" &
+fetch_state "$HOST_NAME" &
 pid=$!
 # shellcheck disable=SC2064
 trap "echo 'cleaning up' && kill ${pid}" EXIT
 
 for player in "${PLAYERS[@]:1}"; do
 	echo "join game $GAME_ID as $player"
-	request "POST" "/$GAME_ID/join" "-F username=$player -c $(cookie_file $player)"
+	request "POST" "/$GAME_ID/join" "-F username=$player -c $(cookie_file "$player")"
 done
 
 # Start the game
 echo "starting game $GAME_ID"
-request "POST" "/$GAME_ID/action/start" "-b $P1_COOKIE"
+request "POST" "/$GAME_ID/action/start" "-b $HOST_COOKIE"
 
 
 echo "first spin"
-request "POST" "/$GAME_ID/action/spin" "-b $P1_COOKIE"
+request "POST" "/$GAME_ID/action/spin" "-b $(cookie_file "${PLAYERS[1]}")"
+#
+echo "advance initiative"
+request "POST" "/$GAME_ID/action/next" "-b $HOST_COOKIE"
 
-
-
+# echo "second spin"
+# request "POST" "/$GAME_ID/action/spin" "-b $(cookie_file "${PLAYERS[2]}")"
 
 duration=600
 echo "holding game open for ${duration}s for testing/debugging"

@@ -12,7 +12,7 @@ import (
 // logMW logs every incoming request.
 func logMW(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		log.Info("request received",
+		log.Debug("request received",
 			"path", r.URL.Path,
 			"method", r.Method,
 			"query", r.URL.RawQuery,

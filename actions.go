@@ -126,6 +126,19 @@ func actionHandler(w http.ResponseWriter, r *http.Request) {
 			)
 			w.WriteHeader(http.StatusOK)
 
+		case "next":
+			if !state.isHost(cookieKey) {
+				log.Info("prohibiting non-host from advancing initiative")
+				http.Error(w, "only host can advance initiative", http.StatusForbidden)
+				return
+			}
+			err := queries.InitiativeAdvance(r.Context(), gameID)
+			if err != nil {
+				log.Error("fail to advance initiative", "error", err)
+				http.Error(w, "server error", http.StatusInternalServerError)
+				return
+			}
+
 		case "flip":
 			// TODO: implement
 			log.Error("not implmented")
