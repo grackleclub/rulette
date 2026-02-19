@@ -2,6 +2,7 @@ package main
 
 import (
 	"net/http"
+	"strconv"
 	"strings"
 
 	sqlc "github.com/grackleclub/rulette/db/sqlc"
@@ -72,7 +73,7 @@ func actionHandler(w http.ResponseWriter, r *http.Request) {
 				log.Error("update initiative", "error", err)
 				http.Error(w, "server error", http.StatusInternalServerError)
 			}
-			log.Info("game started", "state", "ready", "initiative", 1)
+			log.Info("initiative initiated", "state", "ready", "initiative", 1)
 
 			// invalidate cache for this game
 			cache.Delete(gameID)
@@ -85,10 +86,59 @@ func actionHandler(w http.ResponseWriter, r *http.Request) {
 		}
 	case 4, 3, 2: // game in progress
 		switch action {
+		case "points":
+			if !state.isHost(cookieKey) {
+				log.Info("prohibiting non-host from updating points")
+				http.Error(w, "only host can update points", http.StatusForbidden)
+				return
+			}
+			// TODO: implement add points
+
 		case "spin":
-			// TODO: implement
-			log.Error("not implmented")
-			http.Error(w, "not implemented", http.StatusNotImplemented)
+			if !state.isPlayerTurn(cookieKey) {
+				log.Info("prohibiting non-turn player from spinning")
+				http.Error(w, "not your turn", http.StatusConflict)
+				return
+			}
+			id, err := strconv.Atoi(cookieID)
+			if err != nil {
+				log.Error("invalid game id",
+					"game_id", gameID,
+					"error", err,
+				)
+				http.Error(w, "invalid game id", http.StatusBadRequest)
+				return
+			}
+			args := sqlc.GameCardsWheelSpinParams{
+				ID:       gameID,
+				PlayerID: pgtype.Int4{Int32: int32(id), Valid: true},
+			}
+			cardID, err := queries.GameCardsWheelSpin(r.Context(), args)
+			if err != nil {
+				log.Error("spin wheel", "error", err)
+				http.Error(w, "server error", http.StatusInternalServerError)
+				return
+			}
+			log.Info("wheel spun",
+				"game_id", gameID,
+				"card_id", cardID,
+				"player_id", id,
+			)
+			w.WriteHeader(http.StatusOK)
+
+		case "next":
+			if !state.isHost(cookieKey) {
+				log.Info("prohibiting non-host from advancing initiative")
+				http.Error(w, "only host can advance initiative", http.StatusForbidden)
+				return
+			}
+			err := queries.InitiativeAdvance(r.Context(), gameID)
+			if err != nil {
+				log.Error("fail to advance initiative", "error", err)
+				http.Error(w, "server error", http.StatusInternalServerError)
+				return
+			}
+
 		case "flip":
 			// TODO: implement
 			log.Error("not implmented")
