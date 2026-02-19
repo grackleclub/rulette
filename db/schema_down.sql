@@ -1,4 +1,3 @@
--- FIXME: make sure all tables are dropped, none omitted
 DROP TABLE IF EXISTS players CASCADE;
 DROP TABLE IF EXISTS games CASCADE;
 DROP TABLE IF EXISTS game_states CASCADE;

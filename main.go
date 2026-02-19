@@ -53,17 +53,17 @@ func init() {
 func main() {
 	mux := http.NewServeMux()
 	// static embed.FS
-	mux.Handle("/static/html/", logMW(rateMW(http.FileServer(http.FS(static)))))
-	mux.Handle("/static/css/", logMW(rateMW(http.FileServer(http.FS(static)))))
-	mux.Handle("/static/js/", logMW(rateMW(http.FileServer(http.FS(static)))))
+	mux.Handle("/static/html/", logMW(http.FileServer(http.FS(static))))
+	mux.Handle("/static/css/", logMW(http.FileServer(http.FS(static))))
+	mux.Handle("/static/js/", logMW(http.FileServer(http.FS(static))))
 	// pregame.go
-	mux.Handle("/", logMW(rateMW(http.HandlerFunc(rootHandler))))
-	mux.Handle("/create", logMW(rateMW(http.HandlerFunc(createHandler))))
-	mux.Handle("/{game_id}/join", logMW(rateMW(http.HandlerFunc(joinHandler))))
+	mux.Handle("/", logMW(http.HandlerFunc(rootHandler)))
+	mux.Handle("/create", logMW(http.HandlerFunc(createHandler)))
+	mux.Handle("/{game_id}/join", logMW(http.HandlerFunc(joinHandler)))
 	// game.go
-	mux.Handle("/{game_id}", logMW(rateMW(http.HandlerFunc(gameHandler))))
-	mux.Handle("/{game_id}/data/{topic}", logMW(rateMW(http.HandlerFunc(dataHandler))))
-	mux.Handle("/{game_id}/action/{action}", logMW(rateMW(http.HandlerFunc(actionHandler))))
+	mux.Handle("/{game_id}", logMW(http.HandlerFunc(gameHandler)))
+	mux.Handle("/{game_id}/data/{topic}", logMW(http.HandlerFunc(dataHandler)))
+	mux.Handle("/{game_id}/action/{action}", logMW(http.HandlerFunc(actionHandler)))
 
 	// actions.go
 	// mux.HandleFunc("/{game_id}/spin/{card_id}", spinHandler)
