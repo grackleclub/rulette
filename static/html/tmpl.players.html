@@ -1,4 +1,4 @@
-{{ $cards := .Cards }}
+{{ $cards := .CardsPlayers }}
 <div class="card-float">
   <div class="card">
     <article id="players" class="players">
@@ -9,6 +9,7 @@
         <div>points: {{ .Points.Value }}</div>
         <div>{{ .Initiative }}</div>
         <div>
+          <!-- TODO: only show that player's cards? -->
           {{ range $cards }}
           <div>{{ .Front }}</div>
           {{ end }}
