@@ -3,16 +3,48 @@ package main
 import (
 	"context"
 	"fmt"
+	"net/http"
+	"strings"
 	"sync"
 	"time"
+
+	sqlc "github.com/grackleclub/rulette/db/sqlc"
 )
 
-// TODO: interface?
-// type cacher interface {
-// 	set() error
-// 	get() (state, error)
-// 	clean() error
-// }
+// state is a struct to populate the global game cache.
+type state struct {
+	Updated time.Time
+	Game    sqlc.GameStateRow
+	Players []sqlc.GamePlayerPointsRow
+	Cards   []sqlc.GameCardsRow
+	Config  map[string]string // generic baggage (e.g. frontend refresh rate)
+}
+
+// isPlayerInGame returns true when cookieKey exists in game_players.
+func (s *state) isPlayerInGame(cookieKey string) bool {
+	for _, player := range s.Players {
+		if player.SessionKey.String == cookieKey {
+			return true
+		}
+	}
+	return false
+}
+
+// isHost verifies that the player is host
+// by checking that they are initiative 0 for the game.
+func (s *state) isHost(cookieKey string) bool {
+	var inGame bool
+	for _, player := range s.Players {
+		if player.SessionKey.String == cookieKey {
+			inGame = true
+			if player.Initiative.Int32 == int32(0) {
+				return true
+			}
+		}
+	}
+	log.Info("player not host", "in_game", inGame)
+	return false
+}
 
 // stateFromCacheOrDB returns the current state of the game specified by gameID,
 // drawing from cache if newer than maxCacheAge, otherwise fetching from the database.
@@ -44,7 +76,7 @@ func stateFromCacheOrDB(ctx context.Context, cache *sync.Map, gameID string) (st
 
 	// Update the cache
 	cache.Store(gameID, &stateFresh)
-	log.Debug("cache updated", "game_id", gameID)
+	log.Info("cache updated", "game_id", gameID)
 
 	return stateFresh, nil
 }
@@ -61,28 +93,44 @@ func fetchStateFromDB(ctx context.Context, gameID string) (state, error) {
 	if err != nil {
 		return state{}, ErrFetchPlayers
 	}
-	// get revealed player cardsPlayers and wheel cardsPlayers
-	cardsPlayers, err := queries.GameCardsPlayerView(ctx, gameID)
+	// get game cards
+	cards, err := queries.GameCards(ctx, game.ID)
 	if err != nil {
 		return state{}, fmt.Errorf("fetch cards for game: %w", err)
 	}
-	// get wheel cards
-	cardsWheel, err := queries.GameCardsWheelView(ctx, gameID)
-	if err != nil {
-		return state{}, fmt.Errorf("fetch wheel cards for game: %w", err)
-	}
-
-	log.Debug("fetched game state and players",
+	log.Info("fetched game state and players",
 		"player_count", len(players),
 		"game_id", gameID,
 		"game_name", game.Name,
 		"game_state", game.StateName,
 	)
 	return state{
-		Game:         game,
-		Players:      players,
-		Updated:      time.Now().UTC(),
-		CardsWheel:   cardsWheel,
-		CardsPlayers: cardsPlayers,
+		Game:    game,
+		Players: players,
+		Updated: time.Now().UTC(),
+		Cards:   cards,
 	}, nil
+}
+
+// cookie inspects the request for cookie and returns
+// the player ID and session key, or any error.
+//
+// Cookie format is: {player_id}:{session_key}
+func cookie(r *http.Request) (string, string, error) {
+	var cookieID string
+	var cookieKey string
+	cookie, err := r.Cookie("session")
+	if err != nil {
+		return "", "", ErrCookieMissing
+	}
+	parts := strings.Split(cookie.Value, ":")
+	if len(parts) != 2 {
+		log.Info("invalid session cookie format",
+			"cookie_value", cookie.Value,
+		)
+		return "", "", ErrCookieInvalid
+	}
+	cookieID = parts[0]
+	cookieKey = parts[1]
+	return cookieID, cookieKey, nil
 }
