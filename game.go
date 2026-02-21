@@ -1,6 +1,7 @@
 package main
 
 import (
+	"encoding/json"
 	"net/http"
 	"path"
 	"strings"
@@ -156,6 +157,15 @@ func dataHandler(w http.ResponseWriter, r *http.Request) {
 			_, err := w.Write([]byte(state.Game.StateName))
 			if err != nil {
 				log.Error("write status response", "error", err)
+				http.Error(w, "server error", http.StatusInternalServerError)
+				return
+			}
+		case "state": // NOTE: debug endpoint
+			w.Header().Set("Content-Type", "application/json")
+			w.WriteHeader(http.StatusOK)
+			err := json.NewEncoder(w).Encode(state)
+			if err != nil {
+				log.Error("encode state response", "error", err)
 				http.Error(w, "server error", http.StatusInternalServerError)
 				return
 			}
