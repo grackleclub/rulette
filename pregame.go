@@ -79,10 +79,8 @@ func createHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// TODO: this is a temporary measure to set some default card
-	// immediately upon game creation.
-	// Future intention is that players will set this together during pregame.
-	err = queries.GameCardsInit(r.Context(), gamecode)
+	// TODO: implement custom game card creation and selection
+	err = queries.GameCardsInitGeneric(r.Context(), gamecode)
 	if err != nil {
 		log.Error("initialize game cards", "error", err)
 		http.Error(w, "internal server error", http.StatusInternalServerError)
@@ -160,7 +158,9 @@ func joinHandler(w http.ResponseWriter, r *http.Request) {
 		case 1, 0:
 			// first join updates state from 'created' to 'inviting'
 			// NOTE: first to join is automatically set as host (initiative 0)
+			var firstJoin bool
 			if game.StateID == 0 {
+				firstJoin = true
 				log.Debug("created game has first join, updating state to inviting")
 				err := queries.GameUpdate(r.Context(), sqlc.GameUpdateParams{
 					StateID:           1,
@@ -183,7 +183,6 @@ func joinHandler(w http.ResponseWriter, r *http.Request) {
 				http.Error(w, "internal server error", http.StatusInternalServerError)
 				return
 			}
-			// enforce no duplicate player names
 			var initiativeMax int
 			for _, player := range players {
 				if player.Initiative.Int32 > int32(initiativeMax) {
@@ -193,6 +192,7 @@ func joinHandler(w http.ResponseWriter, r *http.Request) {
 					)
 					initiativeMax = int(player.Initiative.Int32)
 				}
+				// enforce no duplicate player names
 				if player.Name == username {
 					log.Debug("player already exists in game",
 						"game_id", gameID,
@@ -217,11 +217,17 @@ func joinHandler(w http.ResponseWriter, r *http.Request) {
 				return
 			}
 			secretStr := hex.EncodeToString(secret)
+
+			// first join is host
+			initiative := pgtype.Int4{Int32: 0, Valid: true}
+			if !firstJoin {
+				initiative = pgtype.Int4{Int32: int32(initiativeMax + 1), Valid: true}
+			}
 			err = queries.GamePlayerCreate(r.Context(), sqlc.GamePlayerCreateParams{
 				PlayerID:   id,
 				GameID:     gameID,
 				SessionKey: pgtype.Text{String: secretStr, Valid: true},
-				Initiative: pgtype.Int4{Int32: int32(initiativeMax + 1), Valid: true},
+				Initiative: initiative,
 			})
 
 			// give the player their session cookie
@@ -235,7 +241,7 @@ func joinHandler(w http.ResponseWriter, r *http.Request) {
 				"player_id", id,
 				"username", username,
 			)
-			// NOTE: it's necessary to invalidate the caache for this game
+			// NOTE: it's necessary to invalidate the cache for this game
 			// to prevent a new joiner from being declined due to a stale cache
 			// that doesn't yet know about their join.
 			cache.Delete(gameID)

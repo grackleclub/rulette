@@ -1,0 +1,12 @@
+#!/usr/bin/env bash
+
+base_dir="$HOME/.cache/rulette/"
+active_game_file="$base_dir/active"
+
+game_id="$(cat "$active_game_file")"
+if [[ -z "$game_id" ]]; then
+	echo "No active game found."
+	exit 1
+fi
+
+cat "$base_dir/$game_id/state.json"

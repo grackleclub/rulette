@@ -1,0 +1,148 @@
+#!/usr/bin/env bash
+
+set -e
+
+declare FOLLOW_LOCATION # HTTP redirect follow location
+declare GAME_ID
+declare GAME_DIR # directory for game data
+PLAYERS=("Sam" "Oscar" "Anna" "Jeremy")
+GAME_NAME="mock-game"
+PORT=7777
+BASE_URL="http://localhost:$PORT"
+WATCH_DELAY=5
+BASE_DIR="$HOME/.cache/rulette"
+
+set_active_game() {
+	local game_id="$1"
+	echo "$game_id" > "$BASE_DIR/active"
+}
+
+# echos a cookie location given a player name
+mkdir_game() {
+	local game_id="$1"
+	GAME_DIR="$BASE_DIR/$game_id"
+	mkdir -p "$GAME_DIR" || return 1
+	chmod -R 775 "$GAME_DIR"
+}
+
+cookie_file() {
+	local player="$1"
+	echo "$GAME_DIR/${player}.cookie"
+}
+
+request() {
+	local method="$1"
+	local url="${BASE_URL}${2}"
+	local opts="$3"
+	
+	echo "  ${method} ${url} ${opts}"
+	response=$(eval curl -si -X "${method}" "${url}" "${opts}" -w "%{http_code}")
+	
+	http_code="${response: -3}"
+	content="${response::-3}"
+	location=$(echo "$content" | grep -i '^Location:' | awk '{print $2}' | tr -d '\r\n')
+
+	printf "  %s" "$http_code"
+	sleep 0.2
+	if [ "$http_code" -eq 303	 ]; then
+		FOLLOW_LOCATION="$location"
+		printf " --> %s\n" "${FOLLOW_LOCATION}"
+		return 0
+	fi
+	printf "\n"
+	if [ "$http_code" -ne 200 ]; then
+		echo "  error"
+		echo "${content}"
+		return 1
+	fi
+	return 0
+}
+
+request_with_retry () {
+	local retries=30
+	local delay=1
+	local count=0
+	while ! request "$@"; do
+		count=$((count + 1))
+		if [ $count -ge $retries ]; then
+			return 1
+		fi
+		echo "  retrying in ${delay}s ..."
+		sleep $delay
+	done
+}
+
+# fetches the debug endpoint on behalf of some player, and saves to state.json
+fetch_state() {
+	local player="$1"
+	local filepath="$GAME_DIR/state.json"
+	echo "  watch -n 1 cat ${filepath}"
+	while true; do
+		sleep "$WATCH_DELAY"
+		# if [ -f "$filepath" ]; then
+		# 	sleep "$WATCH_DELAY"
+		# fi
+		curl -s "$BASE_URL/$GAME_ID/data/state" -b "$(cookie_file "$player")" > "$filepath.tmp"
+		if ! jq < "$filepath.tmp" > /dev/null 2>&1; then
+			printf "\r  error: invalid json %s" "$(date +%T)"
+			continue
+		else
+			jq < "$filepath.tmp" > "$filepath"
+			chmod -R 664 "$filepath"
+		fi
+		printf "\r  ${filepath} (updated %s)" "$(date +%T)"
+	done
+}
+
+# START UP NEW GAME
+echo "first visit"
+request_with_retry "GET" "/"
+
+echo "create game"
+request "POST" "/create" "-F gamename=${GAME_NAME}"
+GAME_ID="$(echo "$FOLLOW_LOCATION" | sed -n 's|.*/\([^/]*\)/.*|\1|p')"
+if [ -z "$GAME_ID" ]; then
+	echo "error: not a game id: $GAME_ID"
+	exit 1
+fi
+mkdir_game "$GAME_ID"
+set_active_game "$GAME_ID"
+
+HOST_NAME=${PLAYERS[0]}
+HOST_COOKIE="$(cookie_file "$HOST_NAME")"
+echo "create user $HOST_NAME from $FOLLOW_LOCATION"
+request "POST" "$FOLLOW_LOCATION" "-c $HOST_COOKIE -F username=$HOST_NAME"
+
+echo "join game $GAME_ID as $HOST_NAME"
+request "GET" "/$GAME_ID" "-b $HOST_COOKIE"
+
+
+echo "fetch game state"
+fetch_state "$HOST_NAME" &
+pid=$!
+# shellcheck disable=SC2064
+trap "echo 'cleaning up' && kill ${pid}" EXIT
+
+for player in "${PLAYERS[@]:1}"; do
+	echo "join game $GAME_ID as $player"
+	request "POST" "/$GAME_ID/join" "-F username=$player -c $(cookie_file "$player")"
+done
+
+# Start the game
+echo "starting game $GAME_ID"
+request "POST" "/$GAME_ID/action/start" "-b $HOST_COOKIE"
+
+
+echo "first spin"
+request "POST" "/$GAME_ID/action/spin" "-b $(cookie_file "${PLAYERS[1]}")"
+#
+echo "advance initiative"
+request "POST" "/$GAME_ID/action/next" "-b $HOST_COOKIE"
+
+# echo "second spin"
+# request "POST" "/$GAME_ID/action/spin" "-b $(cookie_file "${PLAYERS[2]}")"
+
+duration=600
+echo "holding game open for ${duration}s for testing/debugging"
+echo "view state with 'bin/state'"
+sleep "$duration"
