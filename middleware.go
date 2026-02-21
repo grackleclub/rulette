@@ -29,8 +29,8 @@ func logMW(next http.Handler) http.Handler {
 var (
 	ipLimiters = make(map[string]*rate.Limiter)
 	mu         sync.Mutex
-	rateLimit  = rate.Every(time.Second)
-	burst      = 10
+	rateLimit  = rate.Every(50 * time.Millisecond)
+	burst      = 50
 )
 
 func getLimiter(ip string) *rate.Limiter {
