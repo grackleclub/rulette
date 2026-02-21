@@ -12,22 +12,27 @@ import (
 )
 
 const initiativeAdvance = `-- name: InitiativeAdvance :exec
+WITH initiative_current AS (
+    SELECT initiative_current
+    FROM games
+    WHERE id = $1
+),
+initiative_max AS (
+    SELECT MAX(game_players.initiative) AS highest
+    FROM game_players
+    WHERE game_players.game_id = $1
+)
 UPDATE games
 SET initiative_current = (
-    CASE 
-        WHEN initiative_current = (
-            SELECT MAX(game_players.initiative)
-            FROM game_players
-            WHERE game_players.game_id = $1
-        ) THEN 1
-        ELSE initiative_current + 1
-    END
-)
+    initiative_current.initiative_current %
+    initiative_max.highest
+) + 1
 WHERE games.id = $1
 `
 
-func (q *Queries) InitiativeAdvance(ctx context.Context, gameID string) error {
-	_, err := q.db.Exec(ctx, initiativeAdvance, gameID)
+// TODO: % MAX()
+func (q *Queries) InitiativeAdvance(ctx context.Context, id string) error {
+	_, err := q.db.Exec(ctx, initiativeAdvance, id)
 	return err
 }
 
@@ -44,6 +49,7 @@ type InitiativeSetParams struct {
 	PlayerID   int32       `json:"player_id"`
 }
 
+// TODO: unused?
 func (q *Queries) InitiativeSet(ctx context.Context, arg InitiativeSetParams) error {
 	_, err := q.db.Exec(ctx, initiativeSet, arg.Initiative, arg.GameID, arg.PlayerID)
 	return err
