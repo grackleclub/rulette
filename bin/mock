@@ -94,6 +94,35 @@ fetch_state() {
 	done
 }
 
+open_in_firefox() {
+	local url="$1"
+	local cookie_file="$2"
+
+	if ! command -v firefox > /dev/null; then
+		echo "error: firefox not found"
+		return 1
+	fi
+
+	profile_dir=$(mktemp -d)
+	firefox --no-remote --profile "$profile_dir" --headless "$url"
+	sleep 3
+
+	while read -r line; do
+		[ "${line:0:1}" = "#" ] && continue
+		set -- $line
+		domain="$1"
+		flag="$2"
+		path="$3"
+		secure="$4"
+		expiry="$5"
+		name="$6"
+		value="$7"
+		sqlite3 "$profile_dir/cookies.sqlite" "INSERT INTO moz_cookies (baseDomain, originAttributes, name, value, host, path, expiry, lastAccessed, creationTime, isSecure, isHttpOnly, inBrowserElement, sameSite, rawSameSite, schemeMap) VALUES ('${domain#*.}', '', '$name', '$value', '$domain', '$path', $expiry, strftime('%s','now'), strftime('%s','now'), $secure, 0, 0, 0, 0, 0);"
+	done < "$cookie_file"
+
+	firefox --no-remote --profile "$profile_dir" "$url" &
+}
+
 # START UP NEW GAME
 echo "first visit"
 request_with_retry "GET" "/"
@@ -135,9 +164,11 @@ request "POST" "/$GAME_ID/action/start" "-b $HOST_COOKIE"
 
 echo "first spin"
 request "POST" "/$GAME_ID/action/spin" "-b $(cookie_file "${PLAYERS[1]}")"
-#
-echo "advance initiative"
-request "POST" "/$GAME_ID/action/next" "-b $HOST_COOKIE"
+
+open_in_firefox "http://localhost:7777/$GAME_ID" "$(cookie_file "${PLAYERS[1]}")"
+
+# echo "advance initiative"
+# request "POST" "/$GAME_ID/action/next" "-b $HOST_COOKIE"
 
 # echo "second spin"
 # request "POST" "/$GAME_ID/action/spin" "-b $(cookie_file "${PLAYERS[2]}")"
