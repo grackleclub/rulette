@@ -175,6 +175,7 @@ done
 echo "starting game $GAME_ID"
 request "POST" "/$GAME_ID/action/start" "-b $HOST_COOKIE"
 
+# opens the game in a new private firefox window with the cookie of the provided player
 open_in_firefox "http://localhost:7777/$GAME_ID" "$(cookie_file "${PLAYERS[1]}")"
 
 # echo "first spin"

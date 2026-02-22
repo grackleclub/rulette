@@ -19,12 +19,13 @@ jobs:
     - name: Set up Go
       uses: actions/setup-go@v4
       with:
-        go-version: '1.23.x'
+        go-version: 'stable'
 
     - name: Test
       run: bin/test -v
 
     # all updated sqlc definitions should be committed
+    - uses: actions/checkout@v4
     - uses: stefanzweifel/git-auto-commit-action@v6
       with:
         commit_message: "automated sqlc updates"
