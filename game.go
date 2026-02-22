@@ -79,7 +79,7 @@ func dataHandler(w http.ResponseWriter, r *http.Request) {
 	gameID := parts[0]
 	topic := parts[2]
 	log := log.With("handler", "dataHandler", "game_id", gameID, "topic", topic)
-	log.Info("dataHandler called")
+	log.Debug("dataHandler called")
 	if r.Method != http.MethodGet {
 		log.Debug("unsupported method", "method", r.Method)
 		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)

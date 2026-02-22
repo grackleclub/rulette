@@ -24,14 +24,14 @@ func stateFromCacheOrDB(ctx context.Context, cache *sync.Map, gameID string) (st
 		cachedState := value.(*state)
 		cacheAge := time.Since(cachedState.Updated)
 		if cacheAge < maxCacheAge {
-			log.Info("cache hit", "cache_age", cacheAge)
+			log.Debug("cache hit", "cache_age", cacheAge)
 			return *cachedState, nil
 		}
-		log.Info("cache stale", "cache_age", cacheAge)
+		log.Debug("cache stale", "cache_age", cacheAge)
 	}
 
 	// cache miss
-	log.Info("cache miss")
+	log.Debug("cache miss")
 	stateFresh, err := fetchStateFromDB(ctx, gameID)
 	if err != nil {
 		return state{}, err
