@@ -31,6 +31,11 @@ SELECT
         WHERE game_states.id = state_id
     ) AS state_name,
     (
+        SELECT description
+        FROM game_states
+        WHERE game_states.id = state_id
+    ) AS state_description,
+    (
         SELECT COUNT(player_id)
         FROM game_players
         WHERE game_players.game_id = games.id

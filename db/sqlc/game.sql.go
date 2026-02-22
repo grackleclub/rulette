@@ -50,6 +50,11 @@ SELECT
         WHERE game_states.id = state_id
     ) AS state_name,
     (
+        SELECT description
+        FROM game_states
+        WHERE game_states.id = state_id
+    ) AS state_description,
+    (
         SELECT COUNT(player_id)
         FROM game_players
         WHERE game_players.game_id = games.id
@@ -64,6 +69,7 @@ type GameStateRow struct {
 	StateID           int32       `json:"state_id"`
 	InitiativeCurrent pgtype.Int4 `json:"initiative_current"`
 	StateName         string      `json:"state_name"`
+	StateDescription  pgtype.Text `json:"state_description"`
 	PlayerCount       int64       `json:"player_count"`
 }
 
@@ -77,6 +83,7 @@ func (q *Queries) GameState(ctx context.Context, id string) (GameStateRow, error
 		&i.StateID,
 		&i.InitiativeCurrent,
 		&i.StateName,
+		&i.StateDescription,
 		&i.PlayerCount,
 	)
 	return i, err
