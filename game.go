@@ -28,7 +28,7 @@ func gameHandler(w http.ResponseWriter, r *http.Request) {
 	state, err := stateFromCacheOrDB(r.Context(), &cache, gameID)
 	if err != nil {
 		if err == ErrStateNoGame {
-			log.Info("game not found", "game_id", gameID)
+			log.Warn("game not found", "game_id", gameID)
 			http.Error(w, "game not found", http.StatusNotFound)
 			return
 		}
@@ -93,7 +93,7 @@ func dataHandler(w http.ResponseWriter, r *http.Request) {
 	state, err := stateFromCacheOrDB(r.Context(), &cache, gameID)
 	if err != nil {
 		if err == ErrStateNoGame {
-			log.Info("game not found", "game_id", gameID)
+			log.Warn("game not found", "game_id", gameID)
 			http.Error(w, "game not found", http.StatusNotFound)
 			return
 		}
