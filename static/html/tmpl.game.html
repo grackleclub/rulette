@@ -10,32 +10,37 @@
   <body>
     <!-- <script src="index.js"></script> -->
     
-  <article id="title">
-    <h1>{{ .Game.Name }}</h1>
-    <section id="status-fetch" hx-get="/{{ .Game.ID }}/data/status" 
-      hx-target="#status" hx-trigger="load, every {{ .Config.refresh }}" hx-swap="innerHTML">
-      <footer id="status">{{ .Game.StateName }}</footer>
-      <footer>{{ .Game.StateDescription }}</footer>
-    </section>
-  </article>
-  
-  <div class="card-float">
+    <article id="title">
+      <h1>{{ .Game.Name }}</h1>
+      <section id="status-fetch" hx-get="/{{ .Game.ID }}/data/status" 
+        hx-target="#status" hx-trigger="load, every {{ .Config.refresh }}" hx-swap="innerHTML">
+        <footer id="status">{{ .Game.StateName }}</footer>
+        <footer>{{ .Game.StateDescription }}</footer>
+      </section>
+    </article>
+    
     <section id="players" hx-get="/{{ .Game.ID }}/data/players" 
     hx-target="#players" hx-trigger="load, every {{ .Config.refresh }}" hx-swap="innerHTML">
       <article id="loading-players">
-      <p>loading players...</p>
+        <p>loading players...</p>
       </article>
     </section>
 
     <section id="table" hx-get="/{{ .Game.ID }}/data/table" 
-  hx-target="#table" hx-trigger="load, every {{ .Config.refresh }}" hx-swap="innerHTML">
+    hx-target="#table" hx-trigger="load, every {{ .Config.refresh }}" hx-swap="innerHTML">
       <article id="loading-table">
         <p>loading table...</p>
       </article>
     </section>
-  </div>
 
-    <br>
+    <section id="points" hx-get="/{{ .Game.ID }}/data/points"
+    hx-target="#points" hx-trigger="load, every {{ .Config.refresh }}" hx-swap="innerHTML">
+    <article id="loading-points">
+      <p>loading points...</p>
+    </article>
+  </section>
+
+
 
     <footer>
       <small>

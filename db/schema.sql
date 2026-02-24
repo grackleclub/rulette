@@ -70,7 +70,7 @@ CREATE TABLE IF NOT EXISTS cards (
 INSERT INTO cards (type, front, back, creator, created, generic)
 VALUES
 	('rule', 'wearing a giant hat', 'wearing a tiny hat', 0, CURRENT_TIMESTAMP, TRUE),
-	('rule', 'while doing your best Robert Dinero impersonation', 'wearing a tiny hat', 0, CURRENT_TIMESTAMP, TRUE),
+	('rule', 'while doing your best Robert De Nero impersonation', 'wearing a tiny hat', 0, CURRENT_TIMESTAMP, TRUE),
   ('rule', 'a', '1', 0, CURRENT_TIMESTAMP, TRUE),
   ('rule', 'b', '2', 0, CURRENT_TIMESTAMP, TRUE),
   ('rule', 'c', '3', 0, CURRENT_TIMESTAMP, TRUE),

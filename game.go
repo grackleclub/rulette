@@ -169,6 +169,23 @@ func dataHandler(w http.ResponseWriter, r *http.Request) {
 				http.Error(w, "server error", http.StatusInternalServerError)
 				return
 			}
+		case "points":
+			filepath := path.Join("static", "html", "tmpl.points.html")
+			tmpl, err := readParse(static, filepath)
+			if err != nil {
+				log.Error(ErrReadParseTemplate.Error(), "filepath", filepath, "error", err)
+				http.Error(w, "internal server error", http.StatusInternalServerError)
+				return
+			}
+			err = tmpl.Execute(w, state)
+			if err != nil {
+				log.Error("execute template",
+					"error", err,
+					"template", filepath,
+				)
+				http.Error(w, "internal server error", http.StatusInternalServerError)
+			}
+			return
 		default:
 			log.Info(ErrTopicInvalid.Error())
 			http.Error(w, ErrTopicInvalid.Error(), http.StatusBadRequest)

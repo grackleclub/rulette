@@ -1,28 +1,40 @@
-<!-- TODO: add head to this page -->
-{{ $cards := .CardsPlayers }}
-<div class="card-float">
-  <div class="card">
-    <article id="players" class="players">
-      <!-- <h2>players</h2> -->
-      {{ range .Players }}
-      <section id="player-{{ .PlayerID }}" class="player">
-        <div>{{ .Name }}</div>
-        <div>points: {{ .Points.Value }}</div>
-        <div>{{ .Initiative }}</div>
-        <div>
-          <!-- TODO: only show that player's cards? -->
-          {{ range $cards }}
-          <div>{{ .Front }}</div>
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Rulette</title>
+    <link rel="stylesheet" href="/static/css/style.css">
+    <link rel="icon" type="image/png" sizes="192x192" href="/favicon.ico">
+    <script src="/static/js/htmx.min.js"></script>
+  </head>
+  <!-- TODO: add head to this page -->
+  <body>
+    {{ $cards := .CardsPlayers }}
+    <div class="card-float">
+      <div class="card">
+        <article id="players" class="players">
+          <!-- <h2>players</h2> -->
+          {{ range .Players }}
+          <section id="player-{{ .PlayerID }}" class="player">
+            <div>{{ .Name }}</div>
+            <div>points: {{ .Points.Value }}</div>
+            <div>{{ .Initiative }}</div>
+            <div>
+              <!-- TODO: only show that player's cards? -->
+              {{ range $cards }}
+              <div>{{ .Front }}</div>
+              {{ end }}
+            </div>
+            <!-- TODO: handle cards -->
+          </section>
           {{ end }}
-        </div>
-        <!-- TODO: handle cards -->
-      </section>
-      {{ end }}
-      {{ if eq .Game.StateName "inviting" }}
-      <section class="invite">
-        <a href="/{{ .Game.ID }}/join" class="button">Invite Players</a>
-      </section>
-      {{ end }}
-    </article>
-  </div>
-</div>
+          {{ if eq .Game.StateName "inviting" }}
+          <section class="invite">
+            <a href="/{{ .Game.ID }}/join" class="button">Invite Players</a>
+          </section>
+          {{ end }}
+        </article>
+      </div>
+    </div>
+  </body>
