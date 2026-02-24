@@ -2,7 +2,7 @@
   <h2>table</h2>
   {{ if eq .Game.StateName "inviting" }}
   <section class="action">
-    <button 
+    <button class="button"
       hx-post="/{{ .Game.ID }}/action/start" 
       hx-swap="none">
       Start Game
