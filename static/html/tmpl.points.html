@@ -1,5 +1,8 @@
-<article>
-  <buttton>
-    change points
-  </buttton>
+<h2>Change Points</h2>
+<article class="action">
+  <button class="button"
+    hx-post="/{{ .Game.ID }}/action/points"
+    hx-swap="none">
+    Change Points
+  </button>
 </article>
