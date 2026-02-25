@@ -26,7 +26,11 @@
               <div>{{ .Content }}</div>
               {{ end }}
             </div>
-            <button class="button">hey</button>
+            <button class="button" id="hey" 
+              hx-get="{{ $.Game.ID }}/data/players"
+              hx-target="#hey"
+              hx-swap="innerHTML"
+              hx-trigger="click">hey</button>
             <!-- TODO: handle cards -->
           </section>
           {{ end }}
