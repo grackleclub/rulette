@@ -27,11 +27,22 @@
     </section>
 
     <section id="table" hx-get="/{{ .Game.ID }}/data/table" 
-    hx-target="#table" hx-trigger="load, every {{ .Config.refresh }}" hx-swap="innerHTML">
+    hx-target="#table" hx-trigger="load, refreshTable from:body, every 30s" hx-swap="innerHTML">
       <article id="loading-table">
         <p>loading table...</p>
       </article>
     </section>
+
+    <dialog id="hey-dialog">
+      <p>Who are you accusing?</p>
+      {{ range .Players }}
+      <form method="POST" action="/{{ $.Game.ID }}/action/accuse">
+        <input type="hidden" name="defendant_id" value="{{ .PlayerID }}">
+        <button type="submit" class="button">{{ .Name }}</button>
+      </form>
+      {{ end }}
+      <button class="button" onclick="document.getElementById('hey-dialog').close()">close</button>
+    </dialog>
 
     <section id="points" hx-get="/{{ .Game.ID }}/data/points"
     hx-target="#points" hx-trigger="load, every {{ .Config.refresh }}" hx-swap="innerHTML">

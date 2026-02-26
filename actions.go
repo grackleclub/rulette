@@ -77,6 +77,7 @@ func actionHandler(w http.ResponseWriter, r *http.Request) {
 
 			// invalidate cache for this game
 			cache.Delete(gameID)
+			w.Header().Set("HX-Trigger", "refreshTable")
 			w.WriteHeader(http.StatusOK)
 			return
 		default:
@@ -126,6 +127,8 @@ func actionHandler(w http.ResponseWriter, r *http.Request) {
 				"card_id", cardID,
 				"player_id", id,
 			)
+			cache.Delete(gameID)
+			w.Header().Set("HX-Trigger", "refreshTable")
 			w.WriteHeader(http.StatusOK)
 
 		case "next":
@@ -140,6 +143,10 @@ func actionHandler(w http.ResponseWriter, r *http.Request) {
 				http.Error(w, "server error", http.StatusInternalServerError)
 				return
 			}
+			cache.Delete(gameID)
+			w.Header().Set("HX-Trigger", "refreshTable")
+			w.WriteHeader(http.StatusOK)
+			return
 
 		case "flip":
 			// TODO: implement
