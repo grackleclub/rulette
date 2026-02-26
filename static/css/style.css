@@ -103,6 +103,35 @@ footer {
   background: white;
 }
 
+/* accuse panel */
+.accuse-panel {
+  background: white;
+  padding: 1.5em;
+  box-shadow: 0 .5em 1em rgba(0, 0, 0, 0.4);
+  margin-top: 1em;
+}
+
+.accuse-panel fieldset {
+  border: none;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.75em;
+  margin-bottom: 1em;
+}
+
+.accuse-option {
+  display: flex;
+  align-items: center;
+  gap: 0.5em;
+  cursor: pointer;
+  padding: 0.5em;
+}
+
+.accuse-option:hover {
+  background: #FFC1C1;
+}
+
 /* #table {
   display: none;
 } */

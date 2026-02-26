@@ -1,14 +1,5 @@
-<!DOCTYPE html>
-<html lang="en">
-  <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Rulette</title>
-    <link rel="stylesheet" href="/static/css/style.css">
-    <link rel="icon" type="image/png" sizes="192x192" href="/favicon.ico">
-    <script src="/static/js/htmx.min.js"></script>
-  </head>
-  <!-- TODO: add head to this page -->
+
+  <!-- TODO: add head to this page or not -->
   <body>
     {{ $cards := .CardsPlayers }}
     <div class="card-float">
@@ -26,11 +17,6 @@
               <div>{{ .Content }}</div>
               {{ end }}
             </div>
-            <button class="button" id="hey" 
-              hx-get="{{ $.Game.ID }}/data/players"
-              hx-target="#hey"
-              hx-swap="innerHTML"
-              hx-trigger="click">hey</button>
             <!-- TODO: handle cards -->
           </section>
           {{ end }}
