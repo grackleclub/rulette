@@ -96,7 +96,9 @@ func actionHandler(w http.ResponseWriter, r *http.Request) {
 
 		case "spin":
 			if !state.isPlayerTurn(cookieKey) {
-				log.Info("prohibiting non-turn player from spinning")
+				log.Info("prohibiting non-turn player from spinning",
+					"cookie_id", cookieID,
+				)
 				http.Error(w, "not your turn", http.StatusConflict)
 				return
 			}
