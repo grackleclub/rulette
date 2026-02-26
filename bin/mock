@@ -94,6 +94,49 @@ fetch_state() {
 	done
 }
 
+open_in_firefox() {
+	local url="$1"
+	local cookie_file="$2"
+	if ! command -v firefox > /dev/null; then
+		echo "error: firefox not found"
+		return 1
+	fi
+
+	local port=17777
+
+	# Start a one-shot redirect server that sets the cookie via Set-Cookie header,
+	# then redirects to the real URL. No profile manipulation needed.
+	python3 -c "
+import http.server, socketserver, sys
+
+url, cookie_file = sys.argv[1], sys.argv[2]
+cookies = []
+with open(cookie_file) as f:
+    for line in f:
+        line = line.strip()
+        if not line or line.startswith('#'):
+            continue
+        parts = line.split('\t')
+        if len(parts) >= 7:
+            cookies.append((parts[5], parts[6]))
+
+class H(http.server.BaseHTTPRequestHandler):
+    def do_GET(self):
+        self.send_response(302)
+        for name, value in cookies:
+            self.send_header('Set-Cookie', f'{name}={value}; Path=/')
+        self.send_header('Location', url)
+        self.end_headers()
+    def log_message(self, *a): pass
+
+with socketserver.TCPServer(('', $port), H) as s:
+    s.handle_request()
+" "$url" "$cookie_file" &
+
+	sleep 0.3
+	firefox --private-window "http://localhost:${port}" &
+}
+
 # START UP NEW GAME
 echo "first visit"
 request_with_retry "GET" "/"
@@ -132,12 +175,15 @@ done
 echo "starting game $GAME_ID"
 request "POST" "/$GAME_ID/action/start" "-b $HOST_COOKIE"
 
+# opens the game in a new private firefox window with the cookie of the provided player
+open_in_firefox "http://localhost:7777/$GAME_ID" "$(cookie_file "${PLAYERS[1]}")"
 
-echo "first spin"
-request "POST" "/$GAME_ID/action/spin" "-b $(cookie_file "${PLAYERS[1]}")"
-#
-echo "advance initiative"
-request "POST" "/$GAME_ID/action/next" "-b $HOST_COOKIE"
+# echo "first spin"
+# request "POST" "/$GAME_ID/action/spin" "-b $(cookie_file "${PLAYERS[1]}")"
+
+
+# echo "advance initiative"
+# request "POST" "/$GAME_ID/action/next" "-b $HOST_COOKIE"
 
 # echo "second spin"
 # request "POST" "/$GAME_ID/action/spin" "-b $(cookie_file "${PLAYERS[2]}")"
