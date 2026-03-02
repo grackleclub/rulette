@@ -1,36 +1,41 @@
 #!/usr/bin/env bash
 
-# require sqlc
-if ! command -v sqlc >/dev/null 2>&1; then
-  echo "error: sqlc required"
-  exit 1
-fi
-
-# update sqlc definitions
-echo "sqlc: updating..."
-if ! ./bin/sqlc; then
-  echo "error: sqlc generation failed"
-  exit 1
-else
-  echo "sqlc: done"
-fi
-
 declare verbose
 case "$1" in
   -v) verbose="-v" ;;
   --verbose) verbose="-v" ;;
   *) verbose="" ;;
 esac
-if [ -n "$verbose" ]; then
-  echo "verbose mode enabled"
+
+info () {
+  if [ -n "$verbose" ]; then
+    echo "info: $1"
+  fi
+}
+
+error() {
+  echo "error: $1" >&2
+  exit 1
+}
+
+# require sqlc
+if ! command -v sqlc >/dev/null 2>&1; then
+  error "sqlc required"
 fi
 
-# run go tests
-echo "go: testing..."
-if ! go test "$verbose" ./...; then
-  echo "error: go test failed"
-  exit 1
+# update sqlc definitions
+info "sqlc: updating..."
+if ! ./bin/sqlc; then
+  error "sqlc generation failed"
 else
-  echo "go: done"
+  info "sqlc: done"
+fi
+#
+# run go tests
+info "go: testing..."
+if ! go test "$verbose" ./...; then
+  error "go test failed"
+else
+  info "go: tests passed!"
 fi
 

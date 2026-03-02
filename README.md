@@ -17,9 +17,9 @@ Players spin that wheel _(wheel)_ to acquire and trade behavioral rules to incre
 
 ### development
 #### update and test
-Updates `sqlc` definitions and runs all tests.
+Updates `sqlc` definitions and runs all tests (with optional 'verbose' output):
 ```sh
-bin/test
+bin/test -v
 ```
 
 
