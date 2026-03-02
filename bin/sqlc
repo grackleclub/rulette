@@ -1,6 +1,14 @@
 #!/usr/bin/env bash
 
 printf "Updating sqlc definitions..."
+
+if ! command -v sqlc &> /dev/null; then
+	printf "failed.\n"
+	echo "Error: sqlc is not installed."
+	echo "  https://sqlc.dev"
+	exit 1
+fi
+
 if ! sqlc generate -f ./db/sqlc.yaml; then
 	printf "failed.\n"
 	echo "Error: sqlc generation"
