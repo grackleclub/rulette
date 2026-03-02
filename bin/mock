@@ -2,6 +2,29 @@
 
 set -e
 
+usage() {
+	echo "Usage: $0 [-j <player_num>]"
+	echo "  -j <join_value> the player to join as (optional)"
+	exit 1
+}
+
+while getopts "j:" opt; do
+case $opt in
+	j)
+		if ! [[ $OPTARG =~ ^[0-9]+$ ]]; then
+		  echo "Error: -j requires a numeric value"
+		  exit 1
+		fi
+		join_as_player_num="$OPTARG"
+		;;
+	*)
+		echo "Invalid option: -$OPTARG"
+		exit 1
+		;;
+esac
+done
+
+
 declare FOLLOW_LOCATION # HTTP redirect follow location
 declare GAME_ID
 declare GAME_DIR # directory for game data
@@ -137,6 +160,8 @@ with socketserver.TCPServer(('', $port), H) as s:
 	firefox --private-window "http://localhost:${port}" &
 }
 
+
+
 # START UP NEW GAME
 echo "first visit"
 request_with_retry "GET" "/"
@@ -175,8 +200,16 @@ done
 echo "starting game $GAME_ID"
 request "POST" "/$GAME_ID/action/start" "-b $HOST_COOKIE"
 
-# opens the game in a new private firefox window with the cookie of the provided player
-open_in_firefox "http://localhost:7777/$GAME_ID" "$(cookie_file "${PLAYERS[1]}")"
+# opens the game in a new private firefox window with the cookie of the provided player number
+open(){
+	player="$2"
+	echo "joining as ${PLAYERS[$player]} in firefox"
+	open_in_firefox "http://localhost:7777/${GAME_ID}" "$(cookie_file "${PLAYERS[$player]}")"
+}
+
+if [[ -n "$join_as_player_num" ]]; then
+	open "$join_as_player_num" # NOTE: move this to wherever it's helpful for development
+fi
 
 # echo "first spin"
 # request "POST" "/$GAME_ID/action/spin" "-b $(cookie_file "${PLAYERS[1]}")"
