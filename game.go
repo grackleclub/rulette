@@ -152,14 +152,19 @@ func dataHandler(w http.ResponseWriter, r *http.Request) {
 			}
 			return
 		case "status":
-			w.Header().Set("Content-Type", "text/plain")
-			w.WriteHeader(http.StatusOK)
-			_, err := w.Write([]byte(state.Game.StateName))
+			filepath := path.Join("static", "html", "tmpl.status.html")
+			tmpl, err := readParse(static, filepath)
 			if err != nil {
-				log.Error("write status response", "error", err)
-				http.Error(w, "server error", http.StatusInternalServerError)
+				log.Error(ErrReadParseTemplate.Error(), "filepath", filepath, "error", err)
+				http.Error(w, "internal server error", http.StatusInternalServerError)
 				return
 			}
+			err = tmpl.Execute(w, state)
+			if err != nil {
+				log.Error("execute template", "error", err, "template", filepath)
+				http.Error(w, "internal server error", http.StatusInternalServerError)
+			}
+			return
 		case "state": // NOTE: debug endpoint
 			w.Header().Set("Content-Type", "application/json")
 			w.WriteHeader(http.StatusOK)
