@@ -17,6 +17,11 @@
       Spin
     </button>
     <button class="button" onclick="document.getElementById('hey-dialog').showModal()">hey!</button>
+    <button class="button"
+      hx-post="/{{ .Game.ID }}/action/next"
+      hx-swap="none">
+      Next Turn
+    </button>
   </section>
   {{ end }}
 </article>
