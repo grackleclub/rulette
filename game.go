@@ -2,6 +2,7 @@ package main
 
 import (
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"path"
 	"strings"
@@ -190,6 +191,17 @@ func dataHandler(w http.ResponseWriter, r *http.Request) {
 				)
 				http.Error(w, "internal server error", http.StatusInternalServerError)
 			}
+			return
+		case "self":
+			for _, p := range state.Players {
+				if p.SessionKey.String == cookieKey {
+					w.Header().Set("Content-Type", "text/plain")
+					fmt.Fprint(w, p.Name)
+					return
+				}
+			}
+			log.Warn("player not found in game", "cookie_key", cookieKey)
+			http.Error(w, "player not found", http.StatusNotFound)
 			return
 		default:
 			log.Info(ErrTopicInvalid.Error())
