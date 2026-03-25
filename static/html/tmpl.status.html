@@ -1,5 +1,12 @@
 <footer id="status">{{ .Game.StateName }}</footer>
 <footer>{{ .Game.StateDescription }}</footer>
 {{ if .Game.InitiativeCurrent.Valid }}
-<footer id="initiative">Turn {{ .Game.InitiativeCurrent.Int32 }} of {{ .Game.PlayerCount }}</footer>
+<footer id="initiative">
+  Turn {{ .Game.InitiativeCurrent.Int32 }} of {{ .Game.PlayerCount }}
+  {{ range .Players }}
+    {{ if eq .Initiative.Int32 $.Game.InitiativeCurrent.Int32 }}
+      — {{ .Name }}'s turn
+    {{ end }}
+  {{ end }}
+</footer>
 {{ end }}
