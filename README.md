@@ -5,58 +5,64 @@ rule stacking game based on [dropout.tv](https://dropout.tv)'s [_Rulette_ (S7E7)
 
 ---
 
-## game states
-```mermaid
-flowchart TD
-  subgraph pregame
-    create --> invite
-    invite --> player1
-    invite --> player2
-    invite --> player3
-    player1 --> join
-    player2 --> join
-    player3 --> join
-    join --> cards --> host --> start
-  end
-  start --> initiative
-  subgraph game
-    subgraph decider
-      points<-->|or|rejection
-    end
-    spin --> prompt --> decider
-    subgraph turn
-      prompt
-      spin --> rule
-      spin --> modifier
-    end
-    accuse --> decider
-    decider --> initiative -->spin
-  end
+## gameplay
+
+Players spin that wheel _(wheel)_ to acquire and trade behavioral rules to increasingly silly ends. A host (game creator) moderates the madness.
+
+## development
+
+### requirements
+- go
+- [sqlc](https://sqlc.dev/)
+
+### development
+#### update and test
+Updates `sqlc` definitions and runs all tests (with optional 'verbose' output):
+```sh
+bin/test -v
 ```
 
 
-## routes
-```mermaid
-flowchart LR
-
-  subgraph pregame
-    root --> create
-    create --> join
-    join --> frontend
-  end
-
-  subgraph data
-    status
-    player
-    table
-  end
-
-  subgraph actions
-    start
-    spin
-    ending
-  end
-
-  frontend -->|htmx| data
-  frontend -->|post| actions
+#### run
+Start the backend (with optional 'debug' level logging):
 ```
+DEBUG=1 go run .
+```
+
+#### debug
+Fetch the json from the terminal:
+```
+bin/state
+```
+
+Or just visit https://localhost:7777/{game_id}/data/state.
+
+#### mock
+Sets up a game, then opens Firefox as specified player.
+```sh
+bin/mock
+```
+
+### database
+
+Setup the data access layer:
+```sh
+bin/sqlc
+```
+- SQL schema hand-written [`db/schema`](./db/schema)
+- SQL queries hand-written in [`db/queries`](./db/queries)
+- [sqlc](https://sqlc.dev/)  reads [db/sqlc.yml](./db/sqlc.yaml) to autogenerate type-safe code in [`db/sqlc`](./db/sqlc)
+- callable from Go: 
+  ```go
+  data, err := queries.DataAccessLayerQueryHere(ctx, args)```
+
+### htmx
+
+[htmx](https://htmx.org) is a JavaScript library for lightweight frontends using HTML as the engine of application state[^HATEOAS].
+
+[^HATEOAS]: https://en.wikipedia.org/wiki/HATEOAS
+
+```sh
+bin/htmx
+```
+Vendors the most recent htmx release in `static/htmx` and updates the version in `go.mod`.

@@ -34,6 +34,13 @@ WHERE game_cards.game_id = $1
 -- name: GameCardsPlayerView :many
 SELECT
     id,
+    player_id,
+    from_clone,
+    flipped,
+    shredded,
+    updated,
+    slot,
+    stack,
     (
         SELECT
             CASE
@@ -50,8 +57,7 @@ SELECT
     (
         SELECT generic FROM cards 
         WHERE cards.id = game_cards.card_id
-    ) AS generic,
-    flipped
+    ) AS generic
 FROM game_cards
 WHERE game_id = $1
     AND shredded IS FALSE

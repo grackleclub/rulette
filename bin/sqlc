@@ -1,11 +1,33 @@
 #!/usr/bin/env bash
 
-printf "Updating sqlc definitions..."
+declare verbose
+case "$1" in
+  -v) verbose="-v" ;;
+  --verbose) verbose="-v" ;;
+  *) verbose="" ;;
+esac
+
+info() {
+  if [ -n "$verbose" ]; then
+	printf "%s" "$1"
+  fi
+}
+error() {
+  echo "error: $1" >&2
+  exit 1
+}
+
+info "Updating sqlc definitions..."
+
+if ! command -v sqlc &> /dev/null; then
+	info "failed.\n"
+	error "sqlc is not installed."
+fi
+
 if ! sqlc generate -f ./db/sqlc.yaml; then
-	printf "failed.\n"
-	echo "Error: sqlc generation"
-	exit 1
+	info "failed.\n"
+	error "sqlc generation"
 else
-	printf "done.\n"
+	info "done.\n"
 fi
 
