@@ -2,6 +2,29 @@
 
 set -e
 
+usage() {
+	echo "Usage: $0 [-j <player_num>]"
+	echo "  -j <join_value> the player to join as (optional)"
+	exit 1
+}
+
+while getopts "j:" opt; do
+case $opt in
+	j)
+		if ! [[ $OPTARG =~ ^[0-9]+$ ]]; then
+		  echo "Error: -j requires a numeric value"
+		  exit 1
+		fi
+		join_as_player_num="$OPTARG"
+		;;
+	*)
+		echo "Invalid option: -$OPTARG"
+		exit 1
+		;;
+esac
+done
+
+
 declare FOLLOW_LOCATION # HTTP redirect follow location
 declare GAME_ID
 declare GAME_DIR # directory for game data
@@ -106,35 +129,23 @@ open_in_firefox() {
 
 	# Start a one-shot redirect server that sets the cookie via Set-Cookie header,
 	# then redirects to the real URL. No profile manipulation needed.
-	python3 -c "
-import http.server, socketserver, sys
-
-url, cookie_file = sys.argv[1], sys.argv[2]
-cookies = []
-with open(cookie_file) as f:
-    for line in f:
-        line = line.strip()
-        if not line or line.startswith('#'):
-            continue
-        parts = line.split('\t')
-        if len(parts) >= 7:
-            cookies.append((parts[5], parts[6]))
-
-class H(http.server.BaseHTTPRequestHandler):
-    def do_GET(self):
-        self.send_response(302)
-        for name, value in cookies:
-            self.send_header('Set-Cookie', f'{name}={value}; Path=/')
-        self.send_header('Location', url)
-        self.end_headers()
-    def log_message(self, *a): pass
-
-with socketserver.TCPServer(('', $port), H) as s:
-    s.handle_request()
-" "$url" "$cookie_file" &
+	"$(dirname "$0")/serve.py" "$url" "$cookie_file" "$port" &
+	pidPy=$!
+	#shellcheck disable=SC2064
+	trap "echo; echo 'killing python...'; kill ${pidPy} 2>/dev/null; wait ${pidPy} 2>/dev/null" EXIT
 
 	sleep 0.3
 	firefox --private-window "http://localhost:${port}" &
+}
+
+# opens the game in a new private firefox window with the cookie of the provided player number
+open(){
+	if [[ -z "$join_as_player_num" ]]; then
+		return
+	fi
+	player="$2"
+	echo "joining as ${PLAYERS[$player]} (player $player) in firefox"
+	open_in_firefox "http://localhost:7777/${GAME_ID}" "$(cookie_file "${PLAYERS[$player]}")"
 }
 
 # START UP NEW GAME
@@ -175,8 +186,8 @@ done
 echo "starting game $GAME_ID"
 request "POST" "/$GAME_ID/action/start" "-b $HOST_COOKIE"
 
-# opens the game in a new private firefox window with the cookie of the provided player
-open_in_firefox "http://localhost:7777/$GAME_ID" "$(cookie_file "${PLAYERS[1]}")"
+
+open "$join_as_player_num" # NOTE: move this to wherever it's helpful for development
 
 # echo "first spin"
 # request "POST" "/$GAME_ID/action/spin" "-b $(cookie_file "${PLAYERS[1]}")"
