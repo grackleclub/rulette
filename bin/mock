@@ -141,7 +141,8 @@ open_in_firefox() {
 # opens the game in a new private firefox window with the cookie of the provided player number
 open(){
 	if [[ -z "$join_as_player_num" ]]; then
-		return
+		echo "No player number was provided, will not be opening firefox. -j <player_num>"
+    return
 	fi
 	player="$2"
 	echo "joining as ${PLAYERS[$player]} (player $player) in firefox"
