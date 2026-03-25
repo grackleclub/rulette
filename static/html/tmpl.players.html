@@ -7,18 +7,21 @@
         <article id="players" class="players">
           <!-- <h2>players</h2> -->
           {{ range .Players }}
-          <section id="player-{{ .PlayerID }}" class="player">
-            <div>{{ .Name }}</div>
-            <div>points: {{ .Points.Value }}</div>
-            <div>{{ .Initiative }}</div>
-            <div>
-              <!-- TODO: only show that player's cards? -->
-              {{ range $cards }}
-              <div>{{ .Content }}</div>
-              {{ end }}
-            </div>
-            <!-- TODO: handle cards -->
-          </section>
+            {{ $pid := .PlayerID }}
+            <section id="player-{{ .PlayerID }}" class="player">
+              <div>{{ .Name }}</div>
+              <div>points: {{ .Points.Value }}</div>
+              <div>{{ .Initiative }}</div>
+              <div>
+                <!-- TODO: only show that player's cards? -->
+                {{ range $cards }}
+                  {{ if eq .PlayerID.Int32 $pid }}
+                  <div>{{ .Content }}</div>
+                  {{ end }}
+                {{ end }}
+              </div>
+              <!-- TODO: handle cards -->
+            </section>
           {{ end }}
           {{ if eq .Game.StateName "inviting" }}
           <section class="invite">
