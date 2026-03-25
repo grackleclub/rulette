@@ -150,30 +150,30 @@ func actionHandler(w http.ResponseWriter, r *http.Request) {
 
 		case "flip":
 			// TODO: implement
-			log.Error("not implmented")
+			log.Error("not implemented")
 			http.Error(w, "not implemented", http.StatusNotImplemented)
 		case "shred":
 			// TODO: implement
-			log.Error("not implmented")
+			log.Error("not implemented")
 			http.Error(w, "not implemented", http.StatusNotImplemented)
 		case "clone":
 			// TODO: implement
-			log.Error("not implmented")
+			log.Error("not implemented")
 			http.Error(w, "not implemented", http.StatusNotImplemented)
 		case "transfer":
 			// TODO: implement
-			log.Error("not implmented")
+			log.Error("not implemented")
 			http.Error(w, "not implemented", http.StatusNotImplemented)
 		case "accuse":
 			// {game_id}/accuse?accuser_id={accuser_id}&defendant_id={defendant_id}&rule_id={rule_id}
 			// TODO: implement
-			log.Error("not implmented")
+			log.Error("not implemented")
 			http.Error(w, "not implemented", http.StatusNotImplemented)
 		case "decide":
 			// - POST:
 			// {game_id}/decide?infraction_id={infraction_id}&verdict={verdict}
 			// TODO: implement
-			log.Error("not implmented")
+			log.Error("not implemented")
 			http.Error(w, "not implemented", http.StatusNotImplemented)
 		case "end":
 			if !state.isHost(cookieKey) {
