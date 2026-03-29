@@ -20,19 +20,12 @@ type testuser struct {
 	cookie   *http.Cookie
 }
 
-var users = map[string]testuser{
-	"bob": {
-		username: "Bobson Dugnut",
-		cookie:   nil,
-	},
-	"mike": {
-		username: "Mike Truk",
-		cookie:   nil,
-	},
-	"todd": {
-		username: "Todd Bonzales",
-		cookie:   nil,
-	},
+// ordered to match bin/mock: first player is host (initiative 0)
+var users = []testuser{
+	{username: "Sam"},
+	{username: "Oscar"},
+	{username: "Anna"},
+	{username: "Jeremy"},
 }
 
 func TestGame(t *testing.T) {
@@ -102,7 +95,7 @@ func TestGame(t *testing.T) {
 	})
 	// join game
 	t.Run("POST /{game_id}/join", func(t *testing.T) {
-		for k, user := range users {
+		for i, user := range users {
 			values := url.Values{}
 			values.Set("username", user.username)
 			u := &url.URL{
@@ -119,8 +112,7 @@ func TestGame(t *testing.T) {
 			var found bool
 			for _, cookie := range cookies {
 				if cookie.Name == "session" {
-					user.cookie = cookie
-					users[k] = user
+					users[i].cookie = cookie
 					found = true
 				}
 			}
@@ -131,7 +123,7 @@ func TestGame(t *testing.T) {
 		}
 		// duplicate should fail
 		values := url.Values{}
-		values.Set("username", users["bob"].username)
+		values.Set("username", users[0].username)
 		u := &url.URL{
 			Path:     fmt.Sprintf("/%s/join", gameID),
 			RawQuery: values.Encode(),
@@ -140,14 +132,14 @@ func TestGame(t *testing.T) {
 		w := httptest.NewRecorder()
 		joinHandler(w, req)
 		require.Equal(t, http.StatusConflict, w.Result().StatusCode,
-			"should not be able to join game with duplicate username: %s", users["bob"].username,
+			"should not be able to join game with duplicate username: %s", users[0].username,
 		)
 	})
 
 	t.Run("GET /{game_id}/data/status (expect inviting)", func(t *testing.T) {
 		path := fmt.Sprintf("/%s/data/status", gameID)
 		req := httptest.NewRequest(http.MethodGet, path, nil)
-		req.AddCookie(users["bob"].cookie)
+		req.AddCookie(users[0].cookie)
 		w := httptest.NewRecorder()
 		dataHandler(w, req)
 		require.Equal(t, http.StatusOK, w.Result().StatusCode)
@@ -157,7 +149,7 @@ func TestGame(t *testing.T) {
 	t.Run("GET /{game_id}/data/players", func(t *testing.T) {
 		path := fmt.Sprintf("/%s/data/players", gameID)
 		req := httptest.NewRequest(http.MethodGet, path, nil)
-		req.AddCookie(users["bob"].cookie)
+		req.AddCookie(users[0].cookie)
 		w := httptest.NewRecorder()
 		dataHandler(w, req)
 		require.Equal(t, http.StatusOK, w.Result().StatusCode)
@@ -165,7 +157,7 @@ func TestGame(t *testing.T) {
 	t.Run("GET /{game_id}/data/table", func(t *testing.T) {
 		path := fmt.Sprintf("/%s/data/table", gameID)
 		req := httptest.NewRequest(http.MethodGet, path, nil)
-		req.AddCookie(users["bob"].cookie)
+		req.AddCookie(users[0].cookie)
 		w := httptest.NewRecorder()
 		dataHandler(w, req)
 		require.Equal(t, http.StatusOK, w.Result().StatusCode)
@@ -173,7 +165,7 @@ func TestGame(t *testing.T) {
 	t.Run("POST /{game_id}/action/start", func(t *testing.T) {
 		path := fmt.Sprintf("/%s/action/start", gameID)
 		req := httptest.NewRequest(http.MethodPost, path, nil)
-		req.AddCookie(users["bob"].cookie)
+		req.AddCookie(users[0].cookie)
 		w := httptest.NewRecorder()
 		actionHandler(w, req)
 		require.Equal(t, http.StatusOK, w.Result().StatusCode)
@@ -181,7 +173,7 @@ func TestGame(t *testing.T) {
 	t.Run("GET /{game_id}/data/status (expect=ready)", func(t *testing.T) {
 		path := fmt.Sprintf("/%s/data/status", gameID)
 		req := httptest.NewRequest(http.MethodGet, path, nil)
-		req.AddCookie(users["bob"].cookie)
+		req.AddCookie(users[0].cookie)
 		w := httptest.NewRecorder()
 		dataHandler(w, req)
 		require.Equal(t, http.StatusOK, w.Result().StatusCode)
@@ -253,9 +245,16 @@ func TestGame(t *testing.T) {
 				require.NoError(t, err)
 			}
 
-			// host advances initiative
-			err = queries.InitiativeAdvance(ctx, gameID)
-			require.NoError(t, err)
+			// host advances initiative via action handler
+			cache.Delete(gameID)
+			nextPath := fmt.Sprintf("/%s/action/next", gameID)
+			nextReq := httptest.NewRequest(http.MethodPost, nextPath, nil)
+			nextReq.AddCookie(cookieByInitiative[0]) // host
+			nextW := httptest.NewRecorder()
+			actionHandler(nextW, nextReq)
+			require.Equal(t, http.StatusOK, nextW.Result().StatusCode,
+				"next failed on spin %d", i,
+			)
 			current = (current % maxInit) + 1
 		}
 	})
