@@ -1,11 +1,13 @@
 package main
 
 import (
+	"errors"
 	"net/http"
 	"strconv"
 	"strings"
 
 	sqlc "github.com/grackleclub/rulette/db/sqlc"
+	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgtype"
 )
 
@@ -64,6 +66,30 @@ func actionHandler(w http.ResponseWriter, r *http.Request) {
 				return
 			}
 			log.Info("game started")
+
+			// populate and shuffle the deck
+			err = queries.GameCardsInitGeneric(r.Context(), gameID)
+			if err != nil {
+				log.Error("init deck",
+					"error", err,
+					"game_id", gameID,
+				)
+				http.Error(w, "server error", http.StatusInternalServerError)
+				return
+			}
+			err = queries.GameCardsShuffle(r.Context(), gameID)
+			if err != nil {
+				log.Error("shuffle deck",
+					"error", err,
+					"game_id", gameID,
+				)
+				http.Error(w, "server error", http.StatusInternalServerError)
+				return
+			}
+			log.Info("deck initialized and shuffled",
+				"game_id", gameID,
+			)
+
 			err = queries.GameUpdate(r.Context(), sqlc.GameUpdateParams{
 				ID:                gameID,
 				StateID:           3,
@@ -118,6 +144,13 @@ func actionHandler(w http.ResponseWriter, r *http.Request) {
 			}
 			gcID, err := queries.GameCardsWheelSpin(r.Context(), args)
 			if err != nil {
+				if errors.Is(err, pgx.ErrNoRows) {
+					log.Info("game over, deck exhausted",
+						"game_id", gameID,
+					)
+					http.Error(w, "game over, deck exhausted", http.StatusGone)
+					return
+				}
 				log.Error("spin wheel",
 					"error", err,
 					"game_id", gameID,

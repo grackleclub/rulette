@@ -11,6 +11,7 @@ import (
 
 	"github.com/grackleclub/postgres"
 	sqlc "github.com/grackleclub/rulette/db/sqlc"
+	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/stretchr/testify/require"
 )
 
@@ -187,21 +188,99 @@ func TestGame(t *testing.T) {
 		status := w.Body.String()
 		require.Contains(t, status, "turn")
 	})
-	// spin
-	// TODO: implement the rest
-	t.Run("POST /{game_id}/action/spin", func(t *testing.T) {})
+	// build initiative-ordered player list
+	players, err := queries.GamePlayerPoints(ctx, gameID)
+	require.NoError(t, err)
+	cookieByInitiative := make(map[int32]*http.Cookie)
+	for _, p := range players {
+		for _, u := range users {
+			if u.cookie != nil && u.cookie.Value != "" {
+				parts := strings.Split(u.cookie.Value, ":")
+				if len(parts) == 2 && parts[0] == fmt.Sprintf("%d", p.PlayerID) {
+					cookieByInitiative[p.Initiative.Int32] = u.cookie
+				}
+			}
+		}
+	}
+
+	// spin through the entire deck, advancing initiative each turn
+	t.Run("POST /{game_id}/action/spin (exhaust deck)", func(t *testing.T) {
+		state, err := queries.GameState(ctx, gameID)
+		require.NoError(t, err)
+		current := state.InitiativeCurrent.Int32
+		maxInit := int32(0)
+		for _, p := range players {
+			if p.Initiative.Int32 > maxInit {
+				maxInit = p.Initiative.Int32
+			}
+		}
+
+		for i := 0; ; i++ {
+			c := cookieByInitiative[current]
+			require.NotNil(t, c, "no cookie for initiative %d", current)
+
+			path := fmt.Sprintf("/%s/action/spin", gameID)
+			req := httptest.NewRequest(http.MethodPost, path, nil)
+			req.AddCookie(c)
+			w := httptest.NewRecorder()
+			cache.Delete(gameID)
+			actionHandler(w, req)
+
+			if w.Result().StatusCode == http.StatusGone {
+				t.Logf("deck exhausted after %d spins", i)
+				break
+			}
+			require.Equal(t, http.StatusOK, w.Result().StatusCode,
+				"spin %d failed", i,
+			)
+
+			// check if we entered pending state (modifier drawn)
+			cache.Delete(gameID)
+			gs, err := queries.GameState(ctx, gameID)
+			require.NoError(t, err)
+			if gs.StateID == 4 {
+				t.Logf("spin %d: modifier drawn, state=pending", i)
+				// TODO: resolve modifier (flip/shred/etc)
+				// for now, just transition back to turn
+				err = queries.GameUpdate(ctx, sqlc.GameUpdateParams{
+					ID:      gameID,
+					StateID: 3,
+					InitiativeCurrent: pgtype.Int4{
+						Int32: gs.InitiativeCurrent.Int32,
+						Valid: true,
+					},
+				})
+				require.NoError(t, err)
+			}
+
+			// host advances initiative
+			err = queries.InitiativeAdvance(ctx, gameID)
+			require.NoError(t, err)
+			current = (current % maxInit) + 1
+		}
+	})
+
 	// - accuse, decide
 	//   - absolve
 	//   - convict
 	// - consequences
 	// - end game
-	// TODO: this requires host to make the request, and tests don't capture that
-	// t.Run("POST /{game_id}/action/end", func(t *testing.T) {
-	// 	path := fmt.Sprintf("/%s/action/end", gameID)
-	// 	req := httptest.NewRequest(http.MethodPost, path, nil)
-	// 	req.AddCookie(users["bob"].cookie)
-	// 	w := httptest.NewRecorder()
-	// 	actionHandler(w, req)
-	// 	require.Equal(t, http.StatusGone, w.Result().StatusCode)
-	// })
+	t.Run("POST /{game_id}/action/end", func(t *testing.T) {
+		// ensure game is in a playable state first
+		err := queries.GameUpdate(ctx, sqlc.GameUpdateParams{
+			ID:      gameID,
+			StateID: 3,
+			InitiativeCurrent: pgtype.Int4{
+				Int32: 1, Valid: true,
+			},
+		})
+		require.NoError(t, err)
+		path := fmt.Sprintf("/%s/action/end", gameID)
+		req := httptest.NewRequest(http.MethodPost, path, nil)
+		req.AddCookie(cookieByInitiative[0]) // host
+		w := httptest.NewRecorder()
+		cache.Delete(gameID)
+		actionHandler(w, req)
+		require.Equal(t, http.StatusGone, w.Result().StatusCode)
+	})
 }

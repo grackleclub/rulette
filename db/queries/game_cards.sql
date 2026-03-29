@@ -8,7 +8,7 @@ INSERT INTO game_cards (
 ) SELECT
     $1::text,
     id, 
-    (ROW_NUMBER() OVER ()) % (SELECT wheel_slots FROM games WHERE games.id = $1),
+    ((ROW_NUMBER() OVER ()) % (SELECT wheel_slots FROM games WHERE games.id = $1)) + 1,
     NULL, -- unshuffled
     NULL -- unrevealed
 FROM cards 
