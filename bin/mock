@@ -145,7 +145,7 @@ open(){
     echo "Usage: $0 [-j <player_num>]"
     return
 	fi
-	player="$2"
+	player="$join_as_player_num"
 	echo "joining as ${PLAYERS[$player]} (player $player) in firefox"
 	open_in_firefox "http://localhost:7777/${GAME_ID}" "$(cookie_file "${PLAYERS[$player]}")"
 }
@@ -188,7 +188,7 @@ done
 echo "starting game $GAME_ID"
 request "POST" "/$GAME_ID/action/start" "-b $HOST_COOKIE"
 
-
+echo "$join_as_player_num"
 open "$join_as_player_num" # NOTE: move this to wherever it's helpful for development
 
 # echo "first spin"
