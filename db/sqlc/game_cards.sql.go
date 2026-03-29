@@ -11,6 +11,28 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 )
 
+const gameCardClone = `-- name: GameCardClone :exec
+INSERT INTO game_cards (game_id, card_id, player_id, from_clone)
+SELECT game_id, card_id, $3, TRUE
+FROM game_cards
+WHERE game_cards.game_id = $1
+    AND game_cards.card_id = $2
+    AND game_cards.player_id IS NOT NULL
+    AND game_cards.shredded = FALSE
+LIMIT 1
+`
+
+type GameCardCloneParams struct {
+	GameID   string      `json:"game_id"`
+	CardID   int32       `json:"card_id"`
+	PlayerID pgtype.Int4 `json:"player_id"`
+}
+
+func (q *Queries) GameCardClone(ctx context.Context, arg GameCardCloneParams) error {
+	_, err := q.db.Exec(ctx, gameCardClone, arg.GameID, arg.CardID, arg.PlayerID)
+	return err
+}
+
 const gameCardFlip = `-- name: GameCardFlip :exec
 UPDATE game_cards
 SET flipped = NOT flipped
@@ -63,7 +85,6 @@ func (q *Queries) GameCardMove(ctx context.Context, arg GameCardMoveParams) erro
 }
 
 const gameCardShred = `-- name: GameCardShred :exec
-
 WITH cte AS (
     SELECT id
     FROM game_cards
@@ -81,8 +102,6 @@ type GameCardShredParams struct {
 	CardID int32  `json:"card_id"`
 }
 
-// GameCardClone
-// TODO: how to impelement?
 func (q *Queries) GameCardShred(ctx context.Context, arg GameCardShredParams) error {
 	_, err := q.db.Exec(ctx, gameCardShred, arg.GameID, arg.CardID)
 	return err

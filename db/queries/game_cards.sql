@@ -153,8 +153,15 @@ WHERE game_cards.game_id = $1
         LIMIT 1
     );
 
--- GameCardClone
--- TODO: how to impelement?
+-- name: GameCardClone :exec
+INSERT INTO game_cards (game_id, card_id, player_id, from_clone)
+SELECT game_id, card_id, $3, TRUE
+FROM game_cards
+WHERE game_cards.game_id = $1
+    AND game_cards.card_id = $2
+    AND game_cards.player_id IS NOT NULL
+    AND game_cards.shredded = FALSE
+LIMIT 1;
 
 -- name: GameCardShred :exec
 WITH cte AS (
