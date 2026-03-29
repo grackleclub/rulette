@@ -1,8 +1,37 @@
 <h2>Change Points</h2>
 <article class="action">
-  <button class="button"
-    hx-post="/{{ .Game.ID }}/action/points"
-    hx-swap="none">
-    Change Points
-  </button>
+  <button class="button" onclick="
+    var pts = document.getElementById('points');
+    pts.removeAttribute('hx-trigger');
+    htmx.process(pts);
+    document.getElementById('points-dialog').showModal();
+  ">Change Points</button>
 </article>
+
+<dialog id="points-dialog">
+  <p>Award or deduct points</p>
+  {{ range .Players }}
+  <div>
+    <label>{{ .Name }} ({{ .Points.Value }})</label>
+    <form>
+      <input type="hidden" name="player_id" value="{{ .PlayerID }}">
+      <input type="number" name="amount" value="0" min="-99" max="99">
+      <button type="submit" class="button"
+        hx-post="/{{ $.Game.ID }}/action/points"
+        hx-swap="none"
+        hx-on::after-request="
+          var pts = document.getElementById('points');
+          pts.setAttribute('hx-trigger', 'every {{ $.Config.refresh }}');
+          htmx.process(pts);
+          document.getElementById('points-dialog').close();
+        ">Submit</button>
+    </form>
+  </div>
+  {{ end }}
+  <button class="button" onclick="
+    var pts = document.getElementById('points');
+    pts.setAttribute('hx-trigger', 'every {{ .Config.refresh }}');
+    htmx.process(pts);
+    document.getElementById('points-dialog').close();
+  ">close</button>
+</dialog>
