@@ -73,6 +73,10 @@ INSERT INTO cards (type, front, back, creator, created, generic)
 VALUES
 	('rule', 'wearing a giant hat', 'wearing a tiny hat', 0, CURRENT_TIMESTAMP, TRUE),
 	('rule', 'while doing your best Robert De Nero impersonation', 'wearing a tiny hat', 0, CURRENT_TIMESTAMP, TRUE),
+	('modifier', 'flip any of your own cards', '', 0, CURRENT_TIMESTAMP, TRUE),
+	('modifier', 'shred any of your own cards', '', 0, CURRENT_TIMESTAMP, TRUE),
+	('modifier', 'clone any of your own cards, and give to someone else', '', 0, CURRENT_TIMESTAMP, TRUE),
+	('modifier', 'swap any two of your own cards', '', 0, CURRENT_TIMESTAMP, TRUE),
   ('rule', 'a', '1', 0, CURRENT_TIMESTAMP, TRUE),
   ('rule', 'b', '2', 0, CURRENT_TIMESTAMP, TRUE),
   ('rule', 'c', '3', 0, CURRENT_TIMESTAMP, TRUE),
