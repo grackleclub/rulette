@@ -20,7 +20,11 @@ func actionHandler(w http.ResponseWriter, r *http.Request) {
 	}
 	gameID := parts[0]
 	action := parts[2]
-	log := log.With("handler", "actionHandler", "game_id", gameID, "action", action)
+	log := log.With(
+		"handler", "actionHandler",
+		"game_id", gameID,
+		"action", action,
+	)
 	log.Info("actionHandler called")
 	cookieID, cookieKey, err := cookie(r)
 	if err != nil {
@@ -126,7 +130,7 @@ func actionHandler(w http.ResponseWriter, r *http.Request) {
 				log.Info("prohibiting non-turn player from spinning",
 					"cookie_id", cookieID,
 				)
-				http.Error(w, "not your turn", http.StatusConflict)
+				http.Error(w, "not your turn", http.StatusForbidden)
 				return
 			}
 			id, err := strconv.Atoi(cookieID)
@@ -228,7 +232,7 @@ func actionHandler(w http.ResponseWriter, r *http.Request) {
 					"game_id", gameID,
 					"cookie_id", cookieID,
 				)
-				http.Error(w, "not your turn", http.StatusConflict)
+				http.Error(w, "not your turn", http.StatusForbidden)
 				return
 			}
 			if state.Game.StateID != 4 {
@@ -257,7 +261,7 @@ func actionHandler(w http.ResponseWriter, r *http.Request) {
 				http.Error(w, "no pending modifier", http.StatusConflict)
 				return
 			}
-			if lastSpin.ModifierEffect.String != "flip" {
+			if lastSpin.ModifierEffect.String != modFlip {
 				log.Info("no pending flip modifier",
 					"game_id", gameID,
 				)
@@ -327,9 +331,95 @@ func actionHandler(w http.ResponseWriter, r *http.Request) {
 			w.Header().Set("HX-Trigger", "refreshTable")
 			w.WriteHeader(http.StatusOK)
 		case "shred":
-			// TODO: implement
-			log.Error("not implemented")
-			http.Error(w, "not implemented", http.StatusNotImplemented)
+			if !state.isPlayerTurn(cookieKey) {
+				log.Info("prohibiting non-turn player from shredding",
+					"game_id", gameID,
+					"cookie_id", cookieID,
+				)
+				http.Error(w, "not your turn", http.StatusForbidden)
+				return
+			}
+			if state.Game.StateID != 4 {
+				log.Info("shred requires pending state",
+					"game_id", gameID,
+					"state_id", state.Game.StateID,
+				)
+				http.Error(w, "no pending modifier", http.StatusConflict)
+				return
+			}
+			lastSpin, err := queries.SpinLogPendingModifier(
+				r.Context(), gameID,
+			)
+			if err != nil || !lastSpin.ModifierEffect.Valid ||
+				lastSpin.ModifierEffect.String != modShred {
+				log.Info("no pending shred modifier",
+					"game_id", gameID,
+				)
+				http.Error(w, "no pending shred", http.StatusConflict)
+				return
+			}
+			cardStr := r.URL.Query().Get("card_id")
+			if cardStr == "" {
+				log.Info("missing card_id", "game_id", gameID)
+				http.Error(w, "missing card_id", http.StatusBadRequest)
+				return
+			}
+			cardID, err := strconv.Atoi(cardStr)
+			if err != nil {
+				log.Error("invalid card_id",
+					"error", err,
+					"game_id", gameID,
+				)
+				http.Error(w, "invalid card_id", http.StatusBadRequest)
+				return
+			}
+			err = queries.GameCardShred(r.Context(), sqlc.GameCardShredParams{
+				GameID: gameID,
+				CardID: int32(cardID),
+			})
+			if err != nil {
+				log.Error("shred card",
+					"error", err,
+					"game_id", gameID,
+					"card_id", cardID,
+				)
+				http.Error(w, "server error", http.StatusInternalServerError)
+				return
+			}
+
+			// resolve: back to turn state and advance initiative
+			err = queries.GameUpdate(r.Context(), sqlc.GameUpdateParams{
+				ID:      gameID,
+				StateID: 3, // turn
+				InitiativeCurrent: pgtype.Int4{
+					Int32: state.Game.InitiativeCurrent.Int32,
+					Valid: true,
+				},
+			})
+			if err != nil {
+				log.Error("transition to turn",
+					"error", err,
+					"game_id", gameID,
+				)
+				http.Error(w, "server error", http.StatusInternalServerError)
+				return
+			}
+			err = queries.InitiativeAdvance(r.Context(), gameID)
+			if err != nil {
+				log.Error("advance initiative after shred",
+					"error", err,
+					"game_id", gameID,
+				)
+				http.Error(w, "server error", http.StatusInternalServerError)
+				return
+			}
+			log.Info("card shredded, modifier resolved",
+				"game_id", gameID,
+				"card_id", cardID,
+			)
+			cache.Delete(gameID)
+			w.Header().Set("HX-Trigger", "refreshTable")
+			w.WriteHeader(http.StatusOK)
 		case "clone":
 			// TODO: implement
 			log.Error("not implemented")

@@ -36,6 +36,15 @@ var (
 	ErrReadParseTemplate = fmt.Errorf("cannot read and parse template")
 )
 
+// Cards of type "motifier" have specific consequences,
+// defined below and in the schema.
+const (
+	modFlip     = "flip"
+	modShred    = "shred"
+	modClone    = "clone"
+	modTransfer = "transfer"
+)
+
 //go:embed db/schema.sql
 var dbSchema string
 
