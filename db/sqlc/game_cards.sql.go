@@ -134,9 +134,13 @@ SELECT
         WHERE cards.id = game_cards.card_id
     ) AS type,
     (
-        SELECT generic FROM cards 
+        SELECT generic FROM cards
         WHERE cards.id = game_cards.card_id
-    ) AS generic
+    ) AS generic,
+    (
+        SELECT modifier_effect FROM cards
+        WHERE cards.id = game_cards.card_id
+    ) AS modifier_effect
 FROM game_cards
 WHERE game_id = $1
     AND shredded IS FALSE
@@ -144,17 +148,18 @@ WHERE game_id = $1
 `
 
 type GameCardsPlayerViewRow struct {
-	ID        int32            `json:"id"`
-	PlayerID  pgtype.Int4      `json:"player_id"`
-	FromClone pgtype.Bool      `json:"from_clone"`
-	Flipped   pgtype.Bool      `json:"flipped"`
-	Shredded  pgtype.Bool      `json:"shredded"`
-	Updated   pgtype.Timestamp `json:"updated"`
-	Slot      pgtype.Int4      `json:"slot"`
-	Stack     pgtype.Int4      `json:"stack"`
-	Content   interface{}      `json:"content"`
-	Type      string           `json:"type"`
-	Generic   pgtype.Bool      `json:"generic"`
+	ID             int32            `json:"id"`
+	PlayerID       pgtype.Int4      `json:"player_id"`
+	FromClone      pgtype.Bool      `json:"from_clone"`
+	Flipped        pgtype.Bool      `json:"flipped"`
+	Shredded       pgtype.Bool      `json:"shredded"`
+	Updated        pgtype.Timestamp `json:"updated"`
+	Slot           pgtype.Int4      `json:"slot"`
+	Stack          pgtype.Int4      `json:"stack"`
+	Content        interface{}      `json:"content"`
+	Type           string           `json:"type"`
+	Generic        pgtype.Bool      `json:"generic"`
+	ModifierEffect pgtype.Text      `json:"modifier_effect"`
 }
 
 func (q *Queries) GameCardsPlayerView(ctx context.Context, gameID string) ([]GameCardsPlayerViewRow, error) {
@@ -178,6 +183,7 @@ func (q *Queries) GameCardsPlayerView(ctx context.Context, gameID string) ([]Gam
 			&i.Content,
 			&i.Type,
 			&i.Generic,
+			&i.ModifierEffect,
 		); err != nil {
 			return nil, err
 		}

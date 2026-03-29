@@ -13,7 +13,7 @@ CREATE TABLE IF NOT EXISTS game_states (
 INSERT INTO game_states (id, name, description)
 VALUES
 (0, 'created', 'game created, but no members have joined'),
-(1, 'inviting', 'at least one player has joined'), --  TODO: useless?
+(1, 'inviting', 'at least one player has joined'),
 (2, 'ready', 'joining is closed, ready to start (or paused)'),
 (3, 'turn', 'player is mid-turn, spinning wheel or responding'),
 (4, 'pending', 'rule modifier choice is pending'),
@@ -58,6 +58,17 @@ VALUES
 	('modifier', 'one-time effect applied to a chosen card'),
 	('prompt', 'single challenge to be immediately completed');
 
+CREATE TABLE IF NOT EXISTS modifier_effects (
+	name TEXT PRIMARY KEY,
+	description TEXT
+);
+INSERT INTO modifier_effects (name, description)
+VALUES
+	('flip', 'flip a card to reveal its back side'),
+	('shred', 'permanently remove a card from play'),
+	('clone', 'duplicate a card and give the copy to another player'),
+	('transfer', 'transfer a card to another player');
+
 CREATE TABLE IF NOT EXISTS cards (
 	id SERIAL PRIMARY KEY,
 	type TEXT NOT NULL,
@@ -66,28 +77,34 @@ CREATE TABLE IF NOT EXISTS cards (
 	creator INTEGER,
 	created TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
 	generic BOOLEAN DEFAULT FALSE,
-	FOREIGN KEY (type) REFERENCES card_types(name) ON DELETE CASCADE
+	modifier_effect TEXT,
+	FOREIGN KEY (type) REFERENCES card_types(name) ON DELETE CASCADE,
+	FOREIGN KEY (modifier_effect) REFERENCES modifier_effects(name) ON DELETE SET NULL,
+	CONSTRAINT chk_modifier_effect CHECK (
+		(type = 'modifier' AND modifier_effect IS NOT NULL)
+		OR (type != 'modifier' AND modifier_effect IS NULL)
+	)
 );
 
-INSERT INTO cards (type, front, back, creator, created, generic)
+INSERT INTO cards (type, front, back, creator, created, generic, modifier_effect)
 VALUES
-	('rule', 'wearing a giant hat', 'wearing a tiny hat', 0, CURRENT_TIMESTAMP, TRUE),
-	('rule', 'while doing your best Robert De Nero impersonation', 'wearing a tiny hat', 0, CURRENT_TIMESTAMP, TRUE),
-	('modifier', 'flip any of your own cards', '', 0, CURRENT_TIMESTAMP, TRUE),
-	('modifier', 'shred any of your own cards', '', 0, CURRENT_TIMESTAMP, TRUE),
-	('modifier', 'clone any of your own cards, and give to someone else', '', 0, CURRENT_TIMESTAMP, TRUE),
-	('modifier', 'swap any two of your own cards', '', 0, CURRENT_TIMESTAMP, TRUE),
-  ('rule', 'a', '1', 0, CURRENT_TIMESTAMP, TRUE),
-  ('rule', 'b', '2', 0, CURRENT_TIMESTAMP, TRUE),
-  ('rule', 'c', '3', 0, CURRENT_TIMESTAMP, TRUE),
-  ('rule', 'd', '4', 0, CURRENT_TIMESTAMP, TRUE),
-  ('rule', 'e', '5', 0, CURRENT_TIMESTAMP, TRUE),
-  ('rule', 'f', '6', 0, CURRENT_TIMESTAMP, TRUE),
-  ('rule', 'g', '7', 0, CURRENT_TIMESTAMP, TRUE),
-  ('rule', 'h', '8', 0, CURRENT_TIMESTAMP, TRUE),
-  ('rule', 'i', '9', 0, CURRENT_TIMESTAMP, TRUE),
-  ('rule', 'j', '10', 0, CURRENT_TIMESTAMP, TRUE),
-  ('rule', 'k', '11', 0, CURRENT_TIMESTAMP, TRUE);
+	('rule', 'wearing a giant hat', 'wearing a tiny hat', 0, CURRENT_TIMESTAMP, TRUE, NULL),
+	('rule', 'while doing your best Robert De Nero impersonation', 'wearing a tiny hat', 0, CURRENT_TIMESTAMP, TRUE, NULL),
+	('modifier', 'flip any of your own cards', '', 0, CURRENT_TIMESTAMP, TRUE, 'flip'),
+	('modifier', 'shred any of your own cards', '', 0, CURRENT_TIMESTAMP, TRUE, 'shred'),
+	('modifier', 'clone any of your own cards, and give to someone else', '', 0, CURRENT_TIMESTAMP, TRUE, 'clone'),
+	('modifier', 'transfer any of your own cards to another player', '', 0, CURRENT_TIMESTAMP, TRUE, 'transfer'),
+	('rule', 'a', '1', 0, CURRENT_TIMESTAMP, TRUE, NULL),
+	('rule', 'b', '2', 0, CURRENT_TIMESTAMP, TRUE, NULL),
+	('rule', 'c', '3', 0, CURRENT_TIMESTAMP, TRUE, NULL),
+	('rule', 'd', '4', 0, CURRENT_TIMESTAMP, TRUE, NULL),
+	('rule', 'e', '5', 0, CURRENT_TIMESTAMP, TRUE, NULL),
+	('rule', 'f', '6', 0, CURRENT_TIMESTAMP, TRUE, NULL),
+	('rule', 'g', '7', 0, CURRENT_TIMESTAMP, TRUE, NULL),
+	('rule', 'h', '8', 0, CURRENT_TIMESTAMP, TRUE, NULL),
+	('rule', 'i', '9', 0, CURRENT_TIMESTAMP, TRUE, NULL),
+	('rule', 'j', '10', 0, CURRENT_TIMESTAMP, TRUE, NULL),
+	('rule', 'k', '11', 0, CURRENT_TIMESTAMP, TRUE, NULL);
 
 -- card_id lacks primary key to allow cloning within a game,
 CREATE TABLE IF NOT EXISTS game_cards (

@@ -192,7 +192,7 @@ func dataHandler(w http.ResponseWriter, r *http.Request) {
 				http.Error(w, "internal server error", http.StatusInternalServerError)
 			}
 			return
-		case "self":
+		case "self": // TODO: can this be inferred from "state", maybe?
 			for _, p := range state.Players {
 				if p.SessionKey.String == cookieKey {
 					w.Header().Set("Content-Type", "text/plain")

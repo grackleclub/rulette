@@ -14,13 +14,14 @@ type CardTypes struct {
 }
 
 type Cards struct {
-	ID      int32            `json:"id"`
-	Type    string           `json:"type"`
-	Front   string           `json:"front"`
-	Back    pgtype.Text      `json:"back"`
-	Creator pgtype.Int4      `json:"creator"`
-	Created pgtype.Timestamp `json:"created"`
-	Generic pgtype.Bool      `json:"generic"`
+	ID             int32            `json:"id"`
+	Type           string           `json:"type"`
+	Front          string           `json:"front"`
+	Back           pgtype.Text      `json:"back"`
+	Creator        pgtype.Int4      `json:"creator"`
+	Created        pgtype.Timestamp `json:"created"`
+	Generic        pgtype.Bool      `json:"generic"`
+	ModifierEffect pgtype.Text      `json:"modifier_effect"`
 }
 
 type GameCache struct {
@@ -77,6 +78,11 @@ type Infractions struct {
 	Created   pgtype.Timestamp `json:"created"`
 	Active    pgtype.Bool      `json:"active"`
 	Convicted pgtype.Bool      `json:"convicted"`
+}
+
+type ModifierEffects struct {
+	Name        string      `json:"name"`
+	Description pgtype.Text `json:"description"`
 }
 
 type Players struct {

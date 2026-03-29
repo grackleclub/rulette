@@ -55,9 +55,13 @@ SELECT
         WHERE cards.id = game_cards.card_id
     ) AS type,
     (
-        SELECT generic FROM cards 
+        SELECT generic FROM cards
         WHERE cards.id = game_cards.card_id
-    ) AS generic
+    ) AS generic,
+    (
+        SELECT modifier_effect FROM cards
+        WHERE cards.id = game_cards.card_id
+    ) AS modifier_effect
 FROM game_cards
 WHERE game_id = $1
     AND shredded IS FALSE

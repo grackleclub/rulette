@@ -116,17 +116,58 @@ func actionHandler(w http.ResponseWriter, r *http.Request) {
 				ID:       gameID,
 				PlayerID: pgtype.Int4{Int32: int32(id), Valid: true},
 			}
-			cardID, err := queries.GameCardsWheelSpin(r.Context(), args)
+			gcID, err := queries.GameCardsWheelSpin(r.Context(), args)
 			if err != nil {
-				log.Error("spin wheel", "error", err)
+				log.Error("spin wheel",
+					"error", err,
+					"game_id", gameID,
+					"player_id", id,
+				)
 				http.Error(w, "server error", http.StatusInternalServerError)
 				return
 			}
 			log.Info("wheel spun",
 				"game_id", gameID,
-				"card_id", cardID,
+				"game_card_id", gcID,
 				"player_id", id,
 			)
+
+			// check if drawn card is a modifier via spin log
+			lastSpin, err := queries.SpinLogPendingModifier(
+				r.Context(), gameID,
+			)
+			if err != nil {
+				log.Error("check spin log modifier",
+					"error", err,
+					"game_id", gameID,
+				)
+				http.Error(w, "server error", http.StatusInternalServerError)
+				return
+			}
+			if lastSpin.ModifierEffect.Valid {
+				log.Info("modifier drawn, entering pending state",
+					"game_id", gameID,
+					"effect", lastSpin.ModifierEffect.String,
+					"player_id", id,
+				)
+				err = queries.GameUpdate(r.Context(), sqlc.GameUpdateParams{
+					ID:      gameID,
+					StateID: 4, // pending
+					InitiativeCurrent: pgtype.Int4{
+						Int32: state.Game.InitiativeCurrent.Int32,
+						Valid: true,
+					},
+				})
+				if err != nil {
+					log.Error("transition to pending",
+						"error", err,
+						"game_id", gameID,
+					)
+					http.Error(w, "server error", http.StatusInternalServerError)
+					return
+				}
+			}
+
 			cache.Delete(gameID)
 			w.Header().Set("HX-Trigger", "refreshTable")
 			w.WriteHeader(http.StatusOK)
@@ -149,23 +190,59 @@ func actionHandler(w http.ResponseWriter, r *http.Request) {
 			return
 
 		case "flip":
-			// FIXME: additional safeguards required
 			if !state.isPlayerTurn(cookieKey) {
 				log.Info("prohibiting non-turn player from flipping",
+					"game_id", gameID,
 					"cookie_id", cookieID,
 				)
 				http.Error(w, "not your turn", http.StatusConflict)
 				return
 			}
+			if state.Game.StateID != 4 {
+				log.Info("flip requires pending state",
+					"game_id", gameID,
+					"state_id", state.Game.StateID,
+				)
+				http.Error(w, "no pending modifier", http.StatusConflict)
+				return
+			}
+			lastSpin, err := queries.SpinLogPendingModifier(
+				r.Context(), gameID,
+			)
+			if err != nil {
+				log.Error("check spin log modifier",
+					"error", err,
+					"game_id", gameID,
+				)
+				http.Error(w, "server error", http.StatusInternalServerError)
+				return
+			}
+			if !lastSpin.ModifierEffect.Valid {
+				log.Info("no pending modifier",
+					"game_id", gameID,
+				)
+				http.Error(w, "no pending modifier", http.StatusConflict)
+				return
+			}
+			if lastSpin.ModifierEffect.String != "flip" {
+				log.Info("no pending flip modifier",
+					"game_id", gameID,
+				)
+				http.Error(w, "no pending flip", http.StatusConflict)
+				return
+			}
 			cardStr := r.URL.Query().Get("card_id")
 			if cardStr == "" {
-				log.Info("missing card_id")
+				log.Info("flip: missing card_id", "game_id", gameID)
 				http.Error(w, "missing card_id", http.StatusBadRequest)
 				return
 			}
 			cardID, err := strconv.Atoi(cardStr)
 			if err != nil {
-				log.Error("invalid card_id", "error", err)
+				log.Error("invalid card_id",
+					"error", err,
+					"game_id", gameID,
+				)
 				http.Error(w, "invalid card_id", http.StatusBadRequest)
 				return
 			}
@@ -174,11 +251,42 @@ func actionHandler(w http.ResponseWriter, r *http.Request) {
 				CardID: int32(cardID),
 			})
 			if err != nil {
-				log.Error("flip card", "error", err)
+				log.Error("flip card",
+					"error", err,
+					"game_id", gameID,
+					"card_id", cardID,
+				)
 				http.Error(w, "server error", http.StatusInternalServerError)
 				return
 			}
-			log.Info("card flipped",
+
+			// resolve: back to turn state and advance initiative
+			err = queries.GameUpdate(r.Context(), sqlc.GameUpdateParams{
+				ID:      gameID,
+				StateID: 3, // turn
+				InitiativeCurrent: pgtype.Int4{
+					Int32: state.Game.InitiativeCurrent.Int32,
+					Valid: true,
+				},
+			})
+			if err != nil {
+				log.Error("transition to turn",
+					"error", err,
+					"game_id", gameID,
+				)
+				http.Error(w, "server error", http.StatusInternalServerError)
+				return
+			}
+			err = queries.InitiativeAdvance(r.Context(), gameID)
+			if err != nil {
+				log.Error("advance initiative after flip",
+					"error", err,
+					"game_id", gameID,
+				)
+				http.Error(w, "server error", http.StatusInternalServerError)
+				return
+			}
+			log.Info("card flipped, modifier resolved",
 				"game_id", gameID,
 				"card_id", cardID,
 			)
