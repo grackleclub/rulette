@@ -231,18 +231,80 @@ func TestGame(t *testing.T) {
 			gs, err := queries.GameState(ctx, gameID)
 			require.NoError(t, err)
 			if gs.StateID == 4 {
-				t.Logf("spin %d: modifier drawn, state=pending", i)
-				// TODO: resolve modifier (flip/shred/etc)
-				// for now, just transition back to turn
-				err = queries.GameUpdate(ctx, sqlc.GameUpdateParams{
-					ID:      gameID,
-					StateID: 3,
-					InitiativeCurrent: pgtype.Int4{
-						Int32: gs.InitiativeCurrent.Int32,
-						Valid: true,
-					},
-				})
+				lastSpin, err := queries.SpinLogPendingModifier(ctx, gameID)
 				require.NoError(t, err)
+				effect := lastSpin.ModifierEffect.String
+				t.Logf("spin %d: modifier=%s, state=pending", i, effect)
+
+				// find a card the current player holds to target
+				cards, err := queries.GameCardsPlayerView(ctx, gameID)
+				require.NoError(t, err)
+				var targetCard int32
+				for _, card := range cards {
+					if card.PlayerID.Int32 == lastSpin.PlayerID.Int32 &&
+						card.Type == "rule" {
+						targetCard = card.ID
+						break
+					}
+				}
+
+				// pick a different player as target for clone/transfer
+				var targetPlayer int32
+				for _, p := range players {
+					if p.PlayerID != lastSpin.PlayerID.Int32 {
+						targetPlayer = p.PlayerID
+						break
+					}
+				}
+
+				var actionPath string
+				switch effect {
+				case modFlip:
+					actionPath = fmt.Sprintf("/%s/action/flip?card_id=%d",
+						gameID, targetCard,
+					)
+				case modShred:
+					actionPath = fmt.Sprintf("/%s/action/shred?card_id=%d",
+						gameID, targetCard,
+					)
+				case modClone:
+					actionPath = fmt.Sprintf(
+						"/%s/action/clone?card_id=%d&target_player_id=%d",
+						gameID, targetCard, targetPlayer,
+					)
+				case modTransfer:
+					actionPath = fmt.Sprintf(
+						"/%s/action/transfer?card_id=%d&target_player_id=%d",
+						gameID, targetCard, targetPlayer,
+					)
+				}
+
+				if targetCard == 0 {
+					// no rule card to target, just reset state
+					t.Logf("spin %d: no rule card to target, skipping", i)
+					err = queries.GameUpdate(ctx, sqlc.GameUpdateParams{
+						ID:      gameID,
+						StateID: 3,
+						InitiativeCurrent: pgtype.Int4{
+							Int32: gs.InitiativeCurrent.Int32,
+							Valid: true,
+						},
+					})
+					require.NoError(t, err)
+				} else {
+					modReq := httptest.NewRequest(http.MethodPost, actionPath, nil)
+					modReq.AddCookie(c)
+					modW := httptest.NewRecorder()
+					cache.Delete(gameID)
+					actionHandler(modW, modReq)
+					require.Equal(t, http.StatusOK, modW.Result().StatusCode,
+						"spin %d: %s action failed", i, effect,
+					)
+					t.Logf("spin %d: %s resolved", i, effect)
+					// modifier auto-advances initiative, skip manual next
+					current = (current % maxInit) + 1
+					continue
+				}
 			}
 
 			// host advances initiative via action handler
