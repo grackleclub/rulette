@@ -16,8 +16,8 @@ VALUES
 (1, 'inviting', 'at least one player has joined'), --  TODO: useless?
 (2, 'ready', 'joining is closed, ready to start (or paused)'),
 (3, 'turn', 'player is mid-turn, spinning wheel or responding'),
-(4, 'pending', 'game is pending rule modifier choice'),
-(5, 'challenge', 'either a points challenge or a card action choice is pending'),
+(4, 'pending', 'rule modifier choice is pending'),
+(5, 'challenge', 'a points challenge is pending'),
 (6, 'end', 'game over');
 
 CREATE TABLE IF NOT EXISTS games (
