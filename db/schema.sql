@@ -16,8 +16,9 @@ VALUES
 (1, 'inviting', 'at least one player has joined'), --  TODO: useless?
 (2, 'ready', 'joining is closed, ready to start (or paused)'),
 (3, 'turn', 'player is mid-turn, spinning wheel or responding'),
-(4, 'challenge', ''), -- pause for points adjustment |  TODO: useless?
-(5, 'end', 'game over');
+(4, 'pending', 'game is pending rule modifier choice'),
+(5, 'challenge', 'either a points challenge or a card action choice is pending'),
+(6, 'end', 'game over');
 
 CREATE TABLE IF NOT EXISTS games (
 	id VARCHAR(6) PRIMARY KEY,
@@ -48,13 +49,14 @@ CREATE TABLE IF NOT EXISTS game_players (
 
 -- TODO: should is_host be a card?
 CREATE TABLE IF NOT EXISTS card_types (
-	name TEXT NOT NULL UNIQUE
+	name TEXT NOT NULL UNIQUE,
+	description TEXT
 );
-INSERT INTO card_types (name) 
+INSERT INTO card_types (name, description)
 VALUES
-	('rule'),
-	('modifier'),
-	('prompt');
+	('rule', 'persistent rule that applies to a single player'),
+	('modifier', 'one-time effect applied to a chosen card'),
+	('prompt', 'single challenge to be immediately completed');
 
 CREATE TABLE IF NOT EXISTS cards (
 	id SERIAL PRIMARY KEY,

@@ -9,7 +9,8 @@ import (
 )
 
 type CardTypes struct {
-	Name string `json:"name"`
+	Name        string      `json:"name"`
+	Description pgtype.Text `json:"description"`
 }
 
 type Cards struct {

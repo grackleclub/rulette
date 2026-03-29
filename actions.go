@@ -46,7 +46,7 @@ func actionHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	switch state.Game.StateID {
-	case 5: // game over
+	case 6: // game over
 		log.Info("request to ended game", "game_id", gameID)
 		http.Error(w, "game over", http.StatusGone)
 		return
@@ -85,7 +85,7 @@ func actionHandler(w http.ResponseWriter, r *http.Request) {
 			http.Error(w, ErrActionInvaid.Error(), http.StatusTooEarly)
 			return
 		}
-	case 4, 3, 2: // game in progress
+	case 5, 4, 3, 2: // game in progress
 		switch action {
 		case "points":
 			if !state.isHost(cookieKey) {
@@ -149,9 +149,42 @@ func actionHandler(w http.ResponseWriter, r *http.Request) {
 			return
 
 		case "flip":
-			// TODO: implement
-			log.Error("not implemented")
-			http.Error(w, "not implemented", http.StatusNotImplemented)
+			// FIXME: additional safeguards required
+			if !state.isPlayerTurn(cookieKey) {
+				log.Info("prohibiting non-turn player from flipping",
+					"cookie_id", cookieID,
+				)
+				http.Error(w, "not your turn", http.StatusConflict)
+				return
+			}
+			cardStr := r.URL.Query().Get("card_id")
+			if cardStr == "" {
+				log.Info("missing card_id")
+				http.Error(w, "missing card_id", http.StatusBadRequest)
+				return
+			}
+			cardID, err := strconv.Atoi(cardStr)
+			if err != nil {
+				log.Error("invalid card_id", "error", err)
+				http.Error(w, "invalid card_id", http.StatusBadRequest)
+				return
+			}
+			err = queries.GameCardFlip(r.Context(), sqlc.GameCardFlipParams{
+				GameID: gameID,
+				CardID: int32(cardID),
+			})
+			if err != nil {
+				log.Error("flip card", "error", err)
+				http.Error(w, "server error", http.StatusInternalServerError)
+				return
+			}
+			log.Info("card flipped",
+				"game_id", gameID,
+				"card_id", cardID,
+			)
+			cache.Delete(gameID)
+			w.Header().Set("HX-Trigger", "refreshTable")
+			w.WriteHeader(http.StatusOK)
 		case "shred":
 			// TODO: implement
 			log.Error("not implemented")
@@ -183,7 +216,7 @@ func actionHandler(w http.ResponseWriter, r *http.Request) {
 			}
 			err := queries.GameUpdate(r.Context(), sqlc.GameUpdateParams{
 				ID:                gameID,
-				StateID:           5, // game over
+				StateID:           6, // game over
 				InitiativeCurrent: pgtype.Int4{Int32: 0, Valid: true},
 			})
 			if err != nil {
