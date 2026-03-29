@@ -7,20 +7,14 @@ WHERE game_id = $2
 ;
 
 -- name: InitiativeAdvance :exec
--- TODO: % MAX()
-WITH initiative_current AS (
-    SELECT initiative_current
-    FROM games
-    WHERE id = $1
-),
-initiative_max AS (
-    SELECT MAX(game_players.initiative) AS highest
-    FROM game_players
-    WHERE game_players.game_id = $1
+WITH initiative_max AS (
+  SELECT MAX(game_players.initiative) AS highest
+  FROM game_players
+  WHERE game_players.game_id = $1
 )
 UPDATE games
 SET initiative_current = (
-    initiative_current.initiative_current %
-    initiative_max.highest
+  games.initiative_current % initiative_max.highest
 ) + 1
+FROM initiative_max
 WHERE games.id = $1;
