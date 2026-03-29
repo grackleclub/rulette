@@ -39,7 +39,7 @@ func actionHandler(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		log.Error("unexpected error getting state", "error", err, "game_id", gameID)
-		http.Error(w, "internal server error", http.StatusInternalServerError)
+		http.Error(w, "server error", http.StatusInternalServerError)
 		return
 	}
 	if !state.isPlayerInGame(cookieKey) {
@@ -135,11 +135,11 @@ func actionHandler(w http.ResponseWriter, r *http.Request) {
 			}
 			id, err := strconv.Atoi(cookieID)
 			if err != nil {
-				log.Error("invalid game id",
+				log.Error("invalid player id",
 					"game_id", gameID,
 					"error", err,
 				)
-				http.Error(w, "invalid game id", http.StatusBadRequest)
+				http.Error(w, "invalid player id", http.StatusBadRequest)
 				return
 			}
 			args := sqlc.GameCardsWheelSpinParams{
@@ -685,20 +685,221 @@ func actionHandler(w http.ResponseWriter, r *http.Request) {
 			w.Header().Set("HX-Trigger", "refreshTable")
 			w.WriteHeader(http.StatusOK)
 
-		// TODO: implement
-			log.Error("not implemented")
-			http.Error(w, "not implemented", http.StatusNotImplemented)
 		case "accuse":
-			// {game_id}/accuse?accuser_id={accuser_id}&defendant_id={defendant_id}&rule_id={rule_id}
-			// TODO: implement
-			log.Error("not implemented")
-			http.Error(w, "not implemented", http.StatusNotImplemented)
+			defendantStr := r.URL.Query().Get("defendant_id")
+			gcStr := r.URL.Query().Get("game_card_id")
+			if defendantStr == "" || gcStr == "" {
+				log.Info("missing defendant_id or game_card_id",
+					"game_id", gameID,
+				)
+				http.Error(w,
+					"missing defendant_id or game_card_id",
+					http.StatusBadRequest,
+				)
+				return
+			}
+			defendantID, err := strconv.Atoi(defendantStr)
+			if err != nil {
+				log.Error("invalid defendant_id",
+					"error", err,
+					"game_id", gameID,
+				)
+				http.Error(w, "invalid defendant_id", http.StatusBadRequest)
+				return
+			}
+			gcID, err := strconv.Atoi(gcStr)
+			if err != nil {
+				log.Error("invalid game_card_id",
+					"error", err,
+					"game_id", gameID,
+				)
+				http.Error(w, "invalid game_card_id", http.StatusBadRequest)
+				return
+			}
+			accuserID, err := strconv.Atoi(cookieID)
+			if err != nil {
+				log.Error("invalid accuser cookie",
+					"error", err,
+					"game_id", gameID,
+				)
+				http.Error(w, "invalid accuser", http.StatusBadRequest)
+				return
+			}
+			infractionID, err := queries.InfractionCreate(
+				r.Context(), sqlc.InfractionCreateParams{
+					GameID:     gameID,
+					GameCardID: int32(gcID),
+					Accused:    int32(defendantID),
+					Accuser:    int32(accuserID),
+				},
+			)
+			if err != nil {
+				log.Error("create infraction",
+					"error", err,
+					"game_id", gameID,
+				)
+				http.Error(w, "server error", http.StatusInternalServerError)
+				return
+			}
+			// transition to challenge state
+			err = queries.GameUpdate(r.Context(), sqlc.GameUpdateParams{
+				ID:      gameID,
+				StateID: 5, // challenge
+				InitiativeCurrent: pgtype.Int4{
+					Int32: state.Game.InitiativeCurrent.Int32,
+					Valid: true,
+				},
+			})
+			if err != nil {
+				log.Error("transition to challenge",
+					"error", err,
+					"game_id", gameID,
+				)
+				http.Error(w, "server error", http.StatusInternalServerError)
+				return
+			}
+			log.Info("infraction created",
+				"game_id", gameID,
+				"infraction_id", infractionID,
+				"accused", defendantID,
+				"accuser", accuserID,
+				"game_card_id", gcID,
+			)
+			cache.Delete(gameID)
+			w.Header().Set("HX-Trigger", "refreshTable")
+			w.WriteHeader(http.StatusOK)
+
 		case "decide":
-			// - POST:
-			// {game_id}/decide?infraction_id={infraction_id}&verdict={verdict}
-			// TODO: implement
-			log.Error("not implemented")
-			http.Error(w, "not implemented", http.StatusNotImplemented)
+			if !state.isHost(cookieKey) {
+				log.Info("prohibiting non-host from deciding")
+				http.Error(w, "only host can decide", http.StatusForbidden)
+				return
+			}
+			if state.Game.StateID != 5 {
+				log.Info("decide requires challenge state",
+					"game_id", gameID,
+					"state_id", state.Game.StateID,
+				)
+				http.Error(w, "no active challenge", http.StatusConflict)
+				return
+			}
+			infStr := r.URL.Query().Get("infraction_id")
+			verdict := r.URL.Query().Get("verdict")
+			if infStr == "" || verdict == "" {
+				log.Info("missing infraction_id or verdict",
+					"game_id", gameID,
+				)
+				http.Error(w,
+					"missing infraction_id or verdict",
+					http.StatusBadRequest,
+				)
+				return
+			}
+			infID, err := strconv.Atoi(infStr)
+			if err != nil {
+				log.Error("invalid infraction_id",
+					"error", err,
+					"game_id", gameID,
+				)
+				http.Error(w, "invalid infraction_id", http.StatusBadRequest)
+				return
+			}
+
+			affirmed := verdict == "affirm"
+			var penalty int32
+			if affirmed {
+				ptsStr := r.URL.Query().Get("points")
+				if ptsStr == "" {
+					log.Info("missing points for affirm",
+						"game_id", gameID,
+					)
+					http.Error(w, "missing points", http.StatusBadRequest)
+					return
+				}
+				pts, err := strconv.Atoi(ptsStr)
+				if err != nil {
+					log.Error("invalid points",
+						"error", err,
+						"game_id", gameID,
+					)
+					http.Error(w, "invalid points", http.StatusBadRequest)
+					return
+				}
+				penalty = int32(pts)
+			}
+
+			err = queries.InfractionDecide(r.Context(), sqlc.InfractionDecideParams{
+				ID:       int32(infID),
+				Affirmed: pgtype.Bool{Bool: affirmed, Valid: true},
+				Points:   pgtype.Int4{Int32: penalty, Valid: true},
+			})
+			if err != nil {
+				log.Error("decide infraction",
+					"error", err,
+					"game_id", gameID,
+					"infraction_id", infID,
+				)
+				http.Error(w, "server error", http.StatusInternalServerError)
+				return
+			}
+
+			// deduct points if affirmed
+			if affirmed {
+				inf, err := queries.InfractionGet(r.Context(), int32(infID))
+				if err != nil {
+					log.Error("get infraction",
+						"error", err,
+						"game_id", gameID,
+						"infraction_id", infID,
+					)
+					http.Error(w, "server error", http.StatusInternalServerError)
+					return
+				}
+				err = queries.InfractionUpdatePoints(
+					r.Context(), sqlc.InfractionUpdatePointsParams{
+						Points:   pgtype.Int4{Int32: penalty, Valid: true},
+						GameID:   gameID,
+						PlayerID: inf.Accused,
+					},
+				)
+				if err != nil {
+					log.Error("deduct points",
+						"error", err,
+						"game_id", gameID,
+						"accused", inf.Accused,
+						"points", penalty,
+					)
+					http.Error(w, "server error", http.StatusInternalServerError)
+					return
+				}
+			}
+
+			// return to turn state
+			err = queries.GameUpdate(r.Context(), sqlc.GameUpdateParams{
+				ID:      gameID,
+				StateID: 3,
+				InitiativeCurrent: pgtype.Int4{
+					Int32: state.Game.InitiativeCurrent.Int32,
+					Valid: true,
+				},
+			})
+			if err != nil {
+				log.Error("transition to turn",
+					"error", err,
+					"game_id", gameID,
+				)
+				http.Error(w, "server error", http.StatusInternalServerError)
+				return
+			}
+			log.Info("infraction decided",
+				"game_id", gameID,
+				"infraction_id", infID,
+				"verdict", verdict,
+				"points", penalty,
+			)
+			cache.Delete(gameID)
+			w.Header().Set("HX-Trigger", "refreshTable")
+			w.WriteHeader(http.StatusOK)
 		case "end":
 			if !state.isHost(cookieKey) {
 				log.Info("prohibiting non-host from ending game")

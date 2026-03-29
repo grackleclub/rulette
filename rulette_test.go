@@ -321,11 +321,148 @@ func TestGame(t *testing.T) {
 		}
 	})
 
-	// - accuse, decide
-	//   - absolve
-	//   - convict
-	// - consequences
-	// - end game
+	// reset game to a playable state for accuse/decide tests
+	err = queries.GameUpdate(ctx, sqlc.GameUpdateParams{
+		ID:      gameID,
+		StateID: 3,
+		InitiativeCurrent: pgtype.Int4{
+			Int32: 1, Valid: true,
+		},
+	})
+	require.NoError(t, err)
+	cache.Delete(gameID)
+
+	// find a rule card held by a non-host player to accuse on
+	allCards, err := queries.GameCardsPlayerView(ctx, gameID)
+	require.NoError(t, err)
+	var accusedPlayerID int32
+	var ruleGameCardID int32
+	var accuserCookie *http.Cookie
+	for _, card := range allCards {
+		if card.Type == "rule" && card.PlayerID.Int32 != 1 {
+			accusedPlayerID = card.PlayerID.Int32
+			ruleGameCardID = card.ID
+			// accuser is a different non-host player
+			for _, p := range players {
+				if p.PlayerID != accusedPlayerID && p.Initiative.Int32 != 0 {
+					accuserCookie = cookieByInitiative[p.Initiative.Int32]
+					break
+				}
+			}
+			break
+		}
+	}
+	require.NotZero(t, ruleGameCardID, "need a rule card for accuse test")
+	require.NotNil(t, accuserCookie, "need an accuser cookie")
+
+	// get accused player's points before accusation
+	playersBefore, err := queries.GamePlayerPoints(ctx, gameID)
+	require.NoError(t, err)
+	var pointsBefore int32
+	for _, p := range playersBefore {
+		if p.PlayerID == accusedPlayerID {
+			pointsBefore = p.Points.Int32
+			break
+		}
+	}
+
+	t.Run("POST /{game_id}/action/accuse", func(t *testing.T) {
+		path := fmt.Sprintf(
+			"/%s/action/accuse?defendant_id=%d&game_card_id=%d",
+			gameID, accusedPlayerID, ruleGameCardID,
+		)
+		req := httptest.NewRequest(http.MethodPost, path, nil)
+		req.AddCookie(accuserCookie)
+		w := httptest.NewRecorder()
+		cache.Delete(gameID)
+		actionHandler(w, req)
+		require.Equal(t, http.StatusOK, w.Result().StatusCode)
+
+		// verify game entered challenge state
+		cache.Delete(gameID)
+		gs, err := queries.GameState(ctx, gameID)
+		require.NoError(t, err)
+		require.Equal(t, int32(5), gs.StateID, "expected challenge state")
+	})
+
+	t.Run("POST /{game_id}/action/decide (non-host rejected)", func(t *testing.T) {
+		path := fmt.Sprintf(
+			"/%s/action/decide?infraction_id=1&verdict=affirm&points=2",
+			gameID,
+		)
+		req := httptest.NewRequest(http.MethodPost, path, nil)
+		req.AddCookie(accuserCookie) // not the host
+		w := httptest.NewRecorder()
+		cache.Delete(gameID)
+		actionHandler(w, req)
+		require.Equal(t, http.StatusForbidden, w.Result().StatusCode)
+	})
+
+	t.Run("POST /{game_id}/action/decide (affirm)", func(t *testing.T) {
+		penalty := int32(2)
+		path := fmt.Sprintf(
+			"/%s/action/decide?infraction_id=1&verdict=affirm&points=%d",
+			gameID, penalty,
+		)
+		req := httptest.NewRequest(http.MethodPost, path, nil)
+		req.AddCookie(cookieByInitiative[0]) // host
+		w := httptest.NewRecorder()
+		cache.Delete(gameID)
+		actionHandler(w, req)
+		require.Equal(t, http.StatusOK, w.Result().StatusCode)
+
+		// verify game returned to turn state
+		cache.Delete(gameID)
+		gs, err := queries.GameState(ctx, gameID)
+		require.NoError(t, err)
+		require.Equal(t, int32(3), gs.StateID, "expected turn state")
+
+		// verify points deducted
+		playersAfter, err := queries.GamePlayerPoints(ctx, gameID)
+		require.NoError(t, err)
+		for _, p := range playersAfter {
+			if p.PlayerID == accusedPlayerID {
+				require.Equal(t, pointsBefore-penalty, p.Points.Int32,
+					"expected %d points deducted", penalty,
+				)
+				break
+			}
+		}
+	})
+
+	// test absolve flow
+	t.Run("POST /{game_id}/action/accuse (for absolve)", func(t *testing.T) {
+		path := fmt.Sprintf(
+			"/%s/action/accuse?defendant_id=%d&game_card_id=%d",
+			gameID, accusedPlayerID, ruleGameCardID,
+		)
+		req := httptest.NewRequest(http.MethodPost, path, nil)
+		req.AddCookie(accuserCookie)
+		w := httptest.NewRecorder()
+		cache.Delete(gameID)
+		actionHandler(w, req)
+		require.Equal(t, http.StatusOK, w.Result().StatusCode)
+	})
+
+	t.Run("POST /{game_id}/action/decide (absolve)", func(t *testing.T) {
+		path := fmt.Sprintf(
+			"/%s/action/decide?infraction_id=2&verdict=absolve",
+			gameID,
+		)
+		req := httptest.NewRequest(http.MethodPost, path, nil)
+		req.AddCookie(cookieByInitiative[0]) // host
+		w := httptest.NewRecorder()
+		cache.Delete(gameID)
+		actionHandler(w, req)
+		require.Equal(t, http.StatusOK, w.Result().StatusCode)
+
+		// verify game returned to turn state
+		cache.Delete(gameID)
+		gs, err := queries.GameState(ctx, gameID)
+		require.NoError(t, err)
+		require.Equal(t, int32(3), gs.StateID)
+	})
+
 	t.Run("POST /{game_id}/action/end", func(t *testing.T) {
 		// ensure game is in a playable state first
 		err := queries.GameUpdate(ctx, sqlc.GameUpdateParams{

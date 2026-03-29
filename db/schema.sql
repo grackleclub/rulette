@@ -139,12 +139,15 @@ CREATE TABLE IF NOT EXISTS spin_log (
 CREATE TABLE IF NOT EXISTS infractions (
 	id SERIAL PRIMARY KEY,
 	game_id VARCHAR(6) NOT NULL,
+	game_card_id INTEGER NOT NULL, -- which rule was allegedly violated
 	accused INTEGER NOT NULL,
 	accuser INTEGER NOT NULL,
 	created TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-	active BOOLEAN DEFAULT TRUE, -- active until applied or denied
-	convicted BOOLEAN DEFAULT FALSE,
+	active BOOLEAN DEFAULT TRUE, -- active until decided
+	affirmed BOOLEAN DEFAULT FALSE,
+	points INTEGER DEFAULT 0, -- points deducted if affirmed
 	FOREIGN KEY (game_id) REFERENCES games(id) ON DELETE CASCADE,
+	FOREIGN KEY (game_card_id) REFERENCES game_cards(id) ON DELETE CASCADE,
 	FOREIGN KEY (accused) REFERENCES players(id) ON DELETE CASCADE,
 	FOREIGN KEY (accuser) REFERENCES players(id) ON DELETE CASCADE
 );
