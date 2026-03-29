@@ -74,13 +74,6 @@ func main() {
 	mux.Handle("/{game_id}/data/{topic}", logMW(rateMW(http.HandlerFunc(dataHandler))))
 	mux.Handle("/{game_id}/action/{action}", logMW(rateMW(http.HandlerFunc(actionHandler))))
 
-	// actions.go
-	// mux.HandleFunc("/{game_id}/spin/{card_id}", spinHandler)
-	// mux.HandleFunc("/{game_id}/transfer/{card_id}", transferHandler)
-	// mux.HandleFunc("/{game_id}/flip/{card_id}", flipHandler)
-	// mux.HandleFunc("/{game_id}/shred/{card_id}", shredHandler)
-	// mux.HandleFunc("/{game_id}/clone/{card_id}", cloneHandler)
-
 	ctx := context.Background()
 	// TODO: setup
 	opts := postgres.PostgresOpts{
