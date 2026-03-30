@@ -59,18 +59,6 @@ func actionHandler(w http.ResponseWriter, r *http.Request) {
 	case 1, 0: // pregame
 		switch action {
 		case "start":
-			err := queries.GameUpdate(r.Context(), sqlc.GameUpdateParams{
-				ID:                gameID,
-				StateID:           2, // in progress
-				InitiativeCurrent: pgtype.Int4{Int32: 0, Valid: true},
-			})
-			if err != nil {
-				log.Error("start game", "error", err)
-				http.Error(w, "server error", http.StatusInternalServerError)
-				return
-			}
-			log.Info("game started")
-
 			// populate and shuffle the deck
 			err = queries.GameCardsInitGeneric(r.Context(), gameID)
 			if err != nil {
@@ -94,6 +82,20 @@ func actionHandler(w http.ResponseWriter, r *http.Request) {
 				"game_id", gameID,
 			)
 
+			// set game to in-progress
+			err := queries.GameUpdate(r.Context(), sqlc.GameUpdateParams{
+				ID:                gameID,
+				StateID:           2, // in progress
+				InitiativeCurrent: pgtype.Int4{Int32: 0, Valid: true},
+			})
+			if err != nil {
+				log.Error("start game", "error", err)
+				http.Error(w, "server error", http.StatusInternalServerError)
+				return
+			}
+			log.Info("game started")
+
+			// start initiative with first non-host player
 			err = queries.GameUpdate(r.Context(), sqlc.GameUpdateParams{
 				ID:                gameID,
 				StateID:           3,
