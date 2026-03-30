@@ -151,10 +151,22 @@ func actionHandler(w http.ResponseWriter, r *http.Request) {
 			gcID, err := queries.GameCardsWheelSpin(r.Context(), args)
 			if err != nil {
 				if errors.Is(err, pgx.ErrNoRows) {
-					log.Info("game over, deck exhausted",
+					log.Info("game over, deck slot exhausted",
 						"game_id", gameID,
 					)
-					http.Error(w, "game over, deck exhausted", http.StatusGone)
+					err := queries.GameUpdate(r.Context(), sqlc.GameUpdateParams{
+						ID:      gameID,
+						StateID: 6, // game over
+					})
+					if err != nil {
+						log.Error("update game state to game over",
+							"error", err,
+							"game_id", gameID,
+						)
+						http.Error(w, "server error while ending game", http.StatusInternalServerError)
+						return
+					}
+					http.Error(w, "game over, deck slot exhausted", http.StatusGone)
 					return
 				}
 				log.Error("spin wheel",
