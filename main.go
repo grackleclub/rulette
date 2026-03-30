@@ -36,7 +36,7 @@ var (
 	ErrReadParseTemplate = fmt.Errorf("cannot read and parse template")
 )
 
-// Cards of type "motifier" have specific consequences,
+// Cards of type "modifier" have specific consequences,
 // defined below and in the schema.
 const (
 	modFlip     = "flip"
