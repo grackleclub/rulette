@@ -48,6 +48,7 @@ func TestGame(t *testing.T) {
 	pool, err := db.Pool(ctx)
 	require.NoError(t, err)
 	require.NotNil(t, pool)
+	dbPool = pool
 	queries = sqlc.New(pool)
 	require.NotNil(t, queries)
 	t.Log("queries created")
@@ -260,21 +261,21 @@ func TestGame(t *testing.T) {
 				var actionPath string
 				switch effect {
 				case modFlip:
-					actionPath = fmt.Sprintf("/%s/action/flip?card_id=%d",
+					actionPath = fmt.Sprintf("/%s/action/flip?game_card_id=%d",
 						gameID, targetCard,
 					)
 				case modShred:
-					actionPath = fmt.Sprintf("/%s/action/shred?card_id=%d",
+					actionPath = fmt.Sprintf("/%s/action/shred?game_card_id=%d",
 						gameID, targetCard,
 					)
 				case modClone:
 					actionPath = fmt.Sprintf(
-						"/%s/action/clone?card_id=%d&target_player_id=%d",
+						"/%s/action/clone?game_card_id=%d&target_player_id=%d",
 						gameID, targetCard, targetPlayer,
 					)
 				case modTransfer:
 					actionPath = fmt.Sprintf(
-						"/%s/action/transfer?card_id=%d&target_player_id=%d",
+						"/%s/action/transfer?game_card_id=%d&target_player_id=%d",
 						gameID, targetCard, targetPlayer,
 					)
 				}

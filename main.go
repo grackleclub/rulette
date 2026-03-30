@@ -15,10 +15,12 @@ import (
 
 	"github.com/grackleclub/postgres"
 	sqlc "github.com/grackleclub/rulette/db/sqlc"
+	"github.com/jackc/pgx/v5/pgxpool"
 )
 
 var (
 	queries                *sqlc.Queries
+	dbPool                 *pgxpool.Pool
 	cache                  sync.Map
 	log                    *slog.Logger
 	maxCacheAge                   = 500 * time.Millisecond
@@ -93,6 +95,7 @@ func main() {
 	if err != nil {
 		panic(fmt.Sprintf("create test database pool: %v", err))
 	}
+	dbPool = pool
 	queries = sqlc.New(pool)
 	log.Info("created test database and sqlc queries", "db", db)
 

@@ -13,97 +13,61 @@ import (
 
 const gameCardClone = `-- name: GameCardClone :exec
 INSERT INTO game_cards (game_id, card_id, player_id, from_clone)
-SELECT game_id, card_id, $3, TRUE
+SELECT game_id, card_id, $2, TRUE
 FROM game_cards
-WHERE game_cards.game_id = $1
-    AND game_cards.card_id = $2
-    AND game_cards.player_id IS NOT NULL
-    AND game_cards.shredded = FALSE
-LIMIT 1
+WHERE game_cards.id = $1
+    AND player_id IS NOT NULL
+    AND shredded = FALSE
 `
 
 type GameCardCloneParams struct {
-	GameID   string      `json:"game_id"`
-	CardID   int32       `json:"card_id"`
+	ID       int32       `json:"id"`
 	PlayerID pgtype.Int4 `json:"player_id"`
 }
 
 func (q *Queries) GameCardClone(ctx context.Context, arg GameCardCloneParams) error {
-	_, err := q.db.Exec(ctx, gameCardClone, arg.GameID, arg.CardID, arg.PlayerID)
+	_, err := q.db.Exec(ctx, gameCardClone, arg.ID, arg.PlayerID)
 	return err
 }
 
 const gameCardFlip = `-- name: GameCardFlip :exec
 UPDATE game_cards
 SET flipped = NOT flipped
-WHERE game_cards.game_id = $1
-    AND game_cards.card_id = $2
-    AND game_cards.id = (
-        SELECT game_cards.id
-        FROM game_cards
-        WHERE game_cards.game_id = $1 AND game_cards.card_id = $2
-        LIMIT 1
-    )
+WHERE id = $1
 `
 
-type GameCardFlipParams struct {
-	GameID string `json:"game_id"`
-	CardID int32  `json:"card_id"`
-}
-
-func (q *Queries) GameCardFlip(ctx context.Context, arg GameCardFlipParams) error {
-	_, err := q.db.Exec(ctx, gameCardFlip, arg.GameID, arg.CardID)
+func (q *Queries) GameCardFlip(ctx context.Context, id int32) error {
+	_, err := q.db.Exec(ctx, gameCardFlip, id)
 	return err
 }
 
 const gameCardMove = `-- name: GameCardMove :exec
 
 UPDATE game_cards
-SET player_id = $1
-WHERE game_cards.game_id = $2
-    AND game_cards.card_id = $3
-    AND game_cards.id = (
-        SELECT game_cards.id
-        FROM game_cards
-        WHERE game_cards.game_id = $2 AND game_cards.card_id = $3
-        LIMIT 1
-    )
+SET player_id = $2
+WHERE id = $1
 `
 
 type GameCardMoveParams struct {
+	ID       int32       `json:"id"`
 	PlayerID pgtype.Int4 `json:"player_id"`
-	GameID   string      `json:"game_id"`
-	CardID   int32       `json:"card_id"`
 }
 
 // GameCardCreate :exec
 // TODO: after MVP, implement card creation phase
-// Moves a single card of matching id to the new player_id provided.
 func (q *Queries) GameCardMove(ctx context.Context, arg GameCardMoveParams) error {
-	_, err := q.db.Exec(ctx, gameCardMove, arg.PlayerID, arg.GameID, arg.CardID)
+	_, err := q.db.Exec(ctx, gameCardMove, arg.ID, arg.PlayerID)
 	return err
 }
 
 const gameCardShred = `-- name: GameCardShred :exec
-WITH cte AS (
-    SELECT id
-    FROM game_cards
-    WHERE game_cards.game_id = $1
-      AND game_cards.card_id = $2
-    LIMIT 1
-)
 UPDATE game_cards
-SET shredded = true
-WHERE id IN (SELECT id FROM cte)
+SET shredded = TRUE
+WHERE id = $1
 `
 
-type GameCardShredParams struct {
-	GameID string `json:"game_id"`
-	CardID int32  `json:"card_id"`
-}
-
-func (q *Queries) GameCardShred(ctx context.Context, arg GameCardShredParams) error {
-	_, err := q.db.Exec(ctx, gameCardShred, arg.GameID, arg.CardID)
+func (q *Queries) GameCardShred(ctx context.Context, id int32) error {
+	_, err := q.db.Exec(ctx, gameCardShred, id)
 	return err
 }
 
