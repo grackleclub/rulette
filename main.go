@@ -75,40 +75,78 @@ func main() {
 	mux.Handle("/{game_id}/action/{action}", logMW(rateMW(http.HandlerFunc(actionHandler))))
 
 	ctx := context.Background()
-	// TODO: setup
 	opts := postgres.PostgresOpts{
-		Host:     "localhost",
-		User:     "postgres",
-		Password: "TODO:replace-temporary",
-		Port:     "5432",
-		Sslmode:  "disable",
+		Host:     envOr("RULETTE_DB_HOST", "localhost"),
+		User:     envOr("RULETTE_DB_USER", "postgres"),
+		Password: envOr("RULETTE_DB_PASS", randHex(16)),
+		Name:     envOr("RULETTE_DB_NAME", "rulette"),
+		Port:     envOr("RULETTE_DB_PORT", "5432"),
+		Sslmode:  envOr("RULETTE_DB_SSL", "disable"),
 	}
-	// FIXME: replace with prod
-	db, close, err := postgres.NewTestDB(ctx, opts)
-	if err != nil {
-		panic(fmt.Sprintf("create test database: %v", err))
-	}
-	defer close()
-	pool, err := db.Pool(ctx)
-	if err != nil {
-		panic(fmt.Sprintf("create test database pool: %v", err))
-	}
-	queries = sqlc.New(pool)
-	log.Info("created test database and sqlc queries", "db", db)
 
-	_, err = db.Conn.ExecContext(ctx, dbSchema)
-	if err != nil {
-		log.Error("schema migration", "error", err)
-		panic(fmt.Sprintf("schema migration: %v", err))
+	_, local := os.LookupEnv("RULETTE_DB_LOCAL")
+	if local {
+		log.Info("using local test container database")
+		db, close, err := postgres.NewTestDB(ctx, opts)
+		if err != nil {
+			panic(fmt.Sprintf("create test database: %v", err))
+		}
+		defer close()
+		pool, err := db.Pool(ctx)
+		if err != nil {
+			panic(fmt.Sprintf("create database pool: %v", err))
+		}
+		queries = sqlc.New(pool)
+		log.Info("database ready", "host", db.Host, "port", db.Port)
+
+		_, err = db.Conn.ExecContext(ctx, dbSchema)
+		if err != nil {
+			panic(fmt.Sprintf("schema migration: %v", err))
+		}
+		log.Info("database schema migrated")
+	} else {
+		db, err := postgres.NewDB(ctx, opts)
+		if err != nil {
+			panic(fmt.Sprintf("connect to database: %v", err))
+		}
+		defer db.Conn.Close()
+		pool, err := db.Pool(ctx)
+		if err != nil {
+			panic(fmt.Sprintf("create database pool: %v", err))
+		}
+		queries = sqlc.New(pool)
+		err = pool.Ping(ctx)
+		if err != nil {
+			log.Error("ping external database failed, set RULETTE_DB_LOCAL for dev mode",
+				"user", db.User,
+				"name", db.Name,
+				"host", db.Host,
+				"port", db.Port,
+				"sslmode", db.Sslmode,
+				"error", err,
+			)
+			panic(fmt.Sprintf("ping database: %v", err))
+		}
+
+		log.Info("database ready",
+			"host", db.Host,
+			"port", db.Port,
+			"name", db.Name,
+		)
+
+		_, err = db.Conn.ExecContext(ctx, dbSchema)
+		if err != nil {
+			panic(fmt.Sprintf("schema migration: %v", err))
+		}
+		log.Info("database schema migrated")
 	}
-	log.Info("database schema migrated")
+
 	port := os.Getenv("PORT")
 	if port == "" {
 		port = fmt.Sprintf("%d", portDefault)
 	}
 	log.Info("starting server", "port", port)
-	err = http.ListenAndServe(fmt.Sprintf(":%v", port), mux)
-	if err != nil {
+	if err := http.ListenAndServe(fmt.Sprintf(":%v", port), mux); err != nil {
 		log.Error("server failed", "error", err)
 		panic(fmt.Sprintf("server failed: %v", err))
 	}
