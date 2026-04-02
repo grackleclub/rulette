@@ -85,13 +85,14 @@
         <form
           hx-post="/{{ $.Game.ID }}/action/points"
           hx-swap="none"
-          hx-on::after-request="if (event.detail.successful) getElementById('points-dialog').close()">
+          hx-on::after-request="if (event.detail.successful) document.getElementById('points-dialog').close()">
           <input type="hidden" name="player_id" value="{{ .PlayerID }}">
           <input id="points-amount-{{ .PlayerID }}" type="number" name="amount" value="0" min="-99" max="99">
-          <button type="submit" class="button">
+          <button type="submit" class="button">submit</button>
         </form>
       </div>
       {{ end }}
+      <button class="button" onclick="document.getElementById('points-dialog').close()">nevermind</button>
     </dialog>
 
     <section id="points" hx-get="/{{ .Game.ID }}/data/points"
