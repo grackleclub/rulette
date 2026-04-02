@@ -53,8 +53,10 @@
               hx-post="/{{ $.Game.ID }}/action/accuse"
               hx-swap="none"
               hx-on::after-request="
-                document.getElementById('hey-dialog').close();
-                document.getElementById('decide-dialog').showModal();
+                if (event.detail.successful) {
+                  document.getElementById('hey-dialog').close();
+                  document.getElementById('decide-dialog').showModal();
+                }
               ">{{ .Content }}</button>
           </form>
           {{ end }}
@@ -79,16 +81,14 @@
       <p>Award or deduct points</p>
       {{ range .Players }}
       <div>
-        <label>{{ .Name }} ({{ .Points.Value }})</label>
-        <form>
+        <label for="points-amount{{ .PlayerID }}">{{ .Name }} ({{ .Points.Value }})</label>
+        <form
+          hx-post="/{{ $.Game.ID }}/action/points"
+          hx-swap="none"
+          hx-on::after-request="if (event.detail.successful) getElementById('points-dialog').close()">
           <input type="hidden" name="player_id" value="{{ .PlayerID }}">
-          <input type="number" name="amount" value="0" min="-99" max="99">
-          <button type="submit" class="button"
-            hx-post="/{{ $.Game.ID }}/action/points"
-            hx-swap="none"
-            hx-on::after-request="document.getElementById('points-dialog').close()">
-            Submit
-          </button>
+          <input id="points-amount-{{ .PlayerID }}" type="number" name="amount" value="0" min="-99" max="99">
+          <button type="submit" class="button">
         </form>
       </div>
       {{ end }}
