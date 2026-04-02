@@ -46,18 +46,18 @@
         {{ $pid := .PlayerID }}
         {{ range $.CardsPlayers }}
           {{ if eq .PlayerID.Int32 $pid }}
-          <form>
+<form method="POST" action="/{{ $.Game.ID }}/action/accuse"
+            hx-post="/{{ $.Game.ID }}/action/accuse"
+            hx-swap="none"
+            hx-on::after-request="
+              if (event.detail.successful) {
+                document.getElementById('hey-dialog').close();
+                document.getElementById('decide-dialog').showModal();
+              }
+            ">
             <input type="hidden" name="defendant_id" value="{{ $pid }}">
             <input type="hidden" name="card_id" value="{{ .ID }}">
-            <button type="submit" class="button"
-              hx-post="/{{ $.Game.ID }}/action/accuse"
-              hx-swap="none"
-              hx-on::after-request="
-                if (event.detail.successful) {
-                  document.getElementById('hey-dialog').close();
-                  document.getElementById('decide-dialog').showModal();
-                }
-              ">{{ .Content }}</button>
+            <button type="submit" class="button">{{ .Content }}</button>
           </form>
           {{ end }}
         {{ end }}
@@ -81,7 +81,7 @@
       <p>Award or deduct points</p>
       {{ range .Players }}
       <div>
-        <label for="points-amount{{ .PlayerID }}">{{ .Name }} ({{ .Points.Value }})</label>
+        <label for="points-amount-{{ .PlayerID }}">{{ .Name }} ({{ .Points.Value }})</label>
         <form
           hx-post="/{{ $.Game.ID }}/action/points"
           hx-swap="none"
