@@ -9,17 +9,19 @@ import (
 )
 
 type CardTypes struct {
-	Name string `json:"name"`
+	Name        string      `json:"name"`
+	Description pgtype.Text `json:"description"`
 }
 
 type Cards struct {
-	ID      int32            `json:"id"`
-	Type    string           `json:"type"`
-	Front   string           `json:"front"`
-	Back    pgtype.Text      `json:"back"`
-	Creator pgtype.Int4      `json:"creator"`
-	Created pgtype.Timestamp `json:"created"`
-	Generic pgtype.Bool      `json:"generic"`
+	ID             int32            `json:"id"`
+	Type           string           `json:"type"`
+	Front          string           `json:"front"`
+	Back           pgtype.Text      `json:"back"`
+	Creator        pgtype.Int4      `json:"creator"`
+	Created        pgtype.Timestamp `json:"created"`
+	Generic        pgtype.Bool      `json:"generic"`
+	ModifierEffect pgtype.Text      `json:"modifier_effect"`
 }
 
 type GameCache struct {
@@ -69,13 +71,20 @@ type Games struct {
 }
 
 type Infractions struct {
-	ID        int32            `json:"id"`
-	GameID    string           `json:"game_id"`
-	Accused   int32            `json:"accused"`
-	Accuser   int32            `json:"accuser"`
-	Created   pgtype.Timestamp `json:"created"`
-	Active    pgtype.Bool      `json:"active"`
-	Convicted pgtype.Bool      `json:"convicted"`
+	ID         int32            `json:"id"`
+	GameID     string           `json:"game_id"`
+	GameCardID int32            `json:"game_card_id"`
+	Accused    int32            `json:"accused"`
+	Accuser    int32            `json:"accuser"`
+	Created    pgtype.Timestamp `json:"created"`
+	Active     pgtype.Bool      `json:"active"`
+	Affirmed   pgtype.Bool      `json:"affirmed"`
+	Points     pgtype.Int4      `json:"points"`
+}
+
+type ModifierEffects struct {
+	Name        string      `json:"name"`
+	Description pgtype.Text `json:"description"`
 }
 
 type Players struct {

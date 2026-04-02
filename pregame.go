@@ -143,7 +143,7 @@ func joinHandler(w http.ResponseWriter, r *http.Request) {
 		}
 
 		switch game.StateID {
-		case 5:
+		case 6:
 			log.Info("join attempt to closed game")
 			http.Error(w, "game over", http.StatusGone)
 			return

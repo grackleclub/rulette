@@ -15,10 +15,12 @@ import (
 
 	"github.com/grackleclub/postgres"
 	sqlc "github.com/grackleclub/rulette/db/sqlc"
+	"github.com/jackc/pgx/v5/pgxpool"
 )
 
 var (
 	queries                *sqlc.Queries
+	dbPool                 *pgxpool.Pool
 	cache                  sync.Map
 	log                    *slog.Logger
 	maxCacheAge                   = 500 * time.Millisecond
@@ -34,6 +36,15 @@ var (
 	ErrTopicInvalid      = fmt.Errorf("topic invalid for context or does not exist")
 	ErrActionInvaid      = fmt.Errorf("action invalid for context or does not exist")
 	ErrReadParseTemplate = fmt.Errorf("cannot read and parse template")
+)
+
+// Cards of type "modifier" have specific consequences,
+// defined below and in the schema.
+const (
+	modFlip     = "flip"
+	modShred    = "shred"
+	modClone    = "clone"
+	modTransfer = "transfer"
 )
 
 //go:embed db/schema.sql
@@ -65,13 +76,6 @@ func main() {
 	mux.Handle("/{game_id}/data/{topic}", logMW(rateMW(http.HandlerFunc(dataHandler))))
 	mux.Handle("/{game_id}/action/{action}", logMW(rateMW(http.HandlerFunc(actionHandler))))
 
-	// actions.go
-	// mux.HandleFunc("/{game_id}/spin/{card_id}", spinHandler)
-	// mux.HandleFunc("/{game_id}/transfer/{card_id}", transferHandler)
-	// mux.HandleFunc("/{game_id}/flip/{card_id}", flipHandler)
-	// mux.HandleFunc("/{game_id}/shred/{card_id}", shredHandler)
-	// mux.HandleFunc("/{game_id}/clone/{card_id}", cloneHandler)
-
 	ctx := context.Background()
 	// TODO: setup
 	opts := postgres.PostgresOpts{
@@ -91,6 +95,7 @@ func main() {
 	if err != nil {
 		panic(fmt.Sprintf("create test database pool: %v", err))
 	}
+	dbPool = pool
 	queries = sqlc.New(pool)
 	log.Info("created test database and sqlc queries", "db", db)
 

@@ -12,7 +12,7 @@ import (
 )
 
 const card = `-- name: Card :one
-SELECT id, type, front, back, creator, created, generic FROM cards WHERE id = $1
+SELECT id, type, front, back, creator, created, generic, modifier_effect FROM cards WHERE id = $1
 `
 
 func (q *Queries) Card(ctx context.Context, id int32) (Cards, error) {
@@ -26,6 +26,7 @@ func (q *Queries) Card(ctx context.Context, id int32) (Cards, error) {
 		&i.Creator,
 		&i.Created,
 		&i.Generic,
+		&i.ModifierEffect,
 	)
 	return i, err
 }
