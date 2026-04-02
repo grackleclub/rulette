@@ -16,7 +16,11 @@
       <!-- TODO: make spin button disappear, replace with rolled card -->
       Spin
     </button>
-    <button class="button" onclick="document.getElementById('hey-dialog').showModal()">hey!</button>
+    <button class="button" onclick="
+      window.location.hash = 'hey';
+      window.location.reload();">
+      hey!
+    </button>    
     <button class="button"
       hx-post="/{{ .Game.ID }}/action/next"
       hx-swap="none">
