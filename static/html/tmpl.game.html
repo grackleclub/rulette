@@ -69,12 +69,13 @@
     <dialog id="decide-dialog">
       <p>Verdict</p>
       <button class="button" onclick="document.getElementById('decide-dialog').close()">
-        Absolve
+        deny
       </button>
       <button class="button" onclick="
         document.getElementById('decide-dialog').close();
+        document.querySelectorAll('#points-dialog form').forEach(f => f.reset());
         document.getElementById('points-dialog').showModal();
-      ">Punish</button>
+      ">affirm</button>
     </dialog>
 
     <dialog id="points-dialog">
