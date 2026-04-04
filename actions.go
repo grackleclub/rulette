@@ -708,8 +708,8 @@ func actionHandler(w http.ResponseWriter, r *http.Request) {
 			w.WriteHeader(http.StatusOK)
 
 		case "accuse":
-			if state.Game.StateID != 3 {
-				log.Info("accuse requires turn state",
+			if !state.isGameActive() {
+				log.Info("accuse requires active game state",
 					"game_id", gameID,
 					"state_id", state.Game.StateID,
 				)
