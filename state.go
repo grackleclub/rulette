@@ -80,3 +80,14 @@ func cookie(r *http.Request) (string, string, error) {
 	cookieKey = parts[1]
 	return cookieID, cookieKey, nil
 }
+
+// isGameActive returns true when when game is active
+// and players can accuse each other.
+func (s *state) isGameActive() bool {
+	switch s.Game.StateID {
+	case 3, 4, 5:
+		return true
+	default:
+		return false
+	}
+}
