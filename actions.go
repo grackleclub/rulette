@@ -125,7 +125,59 @@ func actionHandler(w http.ResponseWriter, r *http.Request) {
 				http.Error(w, "only host can update points", http.StatusForbidden)
 				return
 			}
-			// TODO: implement add points
+			if err := r.ParseForm(); err != nil {
+				log.Error("parse form", "error", err, "game_id", gameID)
+				http.Error(w, "bad request", http.StatusBadRequest)
+				return
+			}
+			playerStr := r.FormValue("player_id")
+			amountStr := r.FormValue("amount")
+			if playerStr == "" || amountStr == "" {
+				log.Info("missing player_id or amount", "game_id", gameID)
+				http.Error(w, "missing player_id or amount", http.StatusBadRequest)
+				return
+			}
+			targetID, err := strconv.Atoi(playerStr)
+			if err != nil {
+				log.Error("invalid player_id",
+					"error", err,
+					"game_id", gameID,
+				)
+				http.Error(w, "invalid player_id", http.StatusBadRequest)
+				return
+			}
+			amount, err := strconv.Atoi(amountStr)
+			if err != nil {
+				log.Error("invalid amount",
+					"error", err,
+					"game_id", gameID,
+				)
+				http.Error(w, "invalid amount", http.StatusBadRequest)
+				return
+			}
+			err = queries.GamePointsAdjust(r.Context(), sqlc.GamePointsAdjustParams{
+				Points:   pgtype.Int4{Int32: int32(amount), Valid: true},
+				GameID:   gameID,
+				PlayerID: int32(targetID),
+			})
+			if err != nil {
+				log.Error("adjust points",
+					"error", err,
+					"game_id", gameID,
+					"player_id", targetID,
+					"amount", amount,
+				)
+				http.Error(w, "server error", http.StatusInternalServerError)
+				return
+			}
+			log.Info("points adjusted",
+				"game_id", gameID,
+				"player_id", targetID,
+				"amount", amount,
+			)
+			cache.Delete(gameID)
+			w.Header().Set("HX-Trigger", "refreshTable")
+			w.WriteHeader(http.StatusOK)
 
 		case "spin":
 			if state.Game.StateID != 3 {
