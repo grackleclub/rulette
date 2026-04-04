@@ -3,13 +3,14 @@ INSERT INTO infractions (game_id, game_card_id, accused, accuser)
 VALUES ($1, $2, $3, $4)
 RETURNING id;
 
--- name: InfractionDecide :exec
+-- name: InfractionDecide :one
 UPDATE infractions
 SET active = FALSE,
     affirmed = $2,
     points = $3
 WHERE id = $1
-    AND active = TRUE;
+    AND active = TRUE
+RETURNING id;
 
 -- name: InfractionGet :one
 SELECT * FROM infractions

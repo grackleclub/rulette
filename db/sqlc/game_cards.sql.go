@@ -16,6 +16,7 @@ INSERT INTO game_cards (game_id, card_id, player_id, from_clone)
 SELECT game_id, card_id, $2, TRUE
 FROM game_cards
 WHERE game_cards.id = $1
+    AND game_cards.game_id = $3
     AND player_id IS NOT NULL
     AND shredded = FALSE
 `
@@ -23,10 +24,11 @@ WHERE game_cards.id = $1
 type GameCardCloneParams struct {
 	ID       int32       `json:"id"`
 	PlayerID pgtype.Int4 `json:"player_id"`
+	GameID   string      `json:"game_id"`
 }
 
 func (q *Queries) GameCardClone(ctx context.Context, arg GameCardCloneParams) error {
-	_, err := q.db.Exec(ctx, gameCardClone, arg.ID, arg.PlayerID)
+	_, err := q.db.Exec(ctx, gameCardClone, arg.ID, arg.PlayerID, arg.GameID)
 	return err
 }
 
@@ -34,10 +36,16 @@ const gameCardFlip = `-- name: GameCardFlip :exec
 UPDATE game_cards
 SET flipped = NOT flipped
 WHERE id = $1
+  AND game_id = $2
 `
 
-func (q *Queries) GameCardFlip(ctx context.Context, id int32) error {
-	_, err := q.db.Exec(ctx, gameCardFlip, id)
+type GameCardFlipParams struct {
+	ID     int32  `json:"id"`
+	GameID string `json:"game_id"`
+}
+
+func (q *Queries) GameCardFlip(ctx context.Context, arg GameCardFlipParams) error {
+	_, err := q.db.Exec(ctx, gameCardFlip, arg.ID, arg.GameID)
 	return err
 }
 
@@ -66,10 +74,16 @@ const gameCardShred = `-- name: GameCardShred :exec
 UPDATE game_cards
 SET shredded = TRUE
 WHERE id = $1
+  AND game_id = $2
 `
 
-func (q *Queries) GameCardShred(ctx context.Context, id int32) error {
-	_, err := q.db.Exec(ctx, gameCardShred, id)
+type GameCardShredParams struct {
+	ID     int32  `json:"id"`
+	GameID string `json:"game_id"`
+}
+
+func (q *Queries) GameCardShred(ctx context.Context, arg GameCardShredParams) error {
+	_, err := q.db.Exec(ctx, gameCardShred, arg.ID, arg.GameID)
 	return err
 }
 

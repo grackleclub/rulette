@@ -137,17 +137,20 @@ WHERE id = $1
 -- name: GameCardFlip :exec
 UPDATE game_cards
 SET flipped = NOT flipped
-WHERE id = $1;
+WHERE id = $1
+  AND game_id = $2;
 
 -- name: GameCardClone :exec
 INSERT INTO game_cards (game_id, card_id, player_id, from_clone)
 SELECT game_id, card_id, $2, TRUE
 FROM game_cards
 WHERE game_cards.id = $1
+    AND game_cards.game_id = $3
     AND player_id IS NOT NULL
     AND shredded = FALSE;
 
 -- name: GameCardShred :exec
 UPDATE game_cards
 SET shredded = TRUE
-WHERE id = $1;
+WHERE id = $1
+  AND game_id = $2;

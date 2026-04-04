@@ -36,13 +36,14 @@ func (q *Queries) InfractionCreate(ctx context.Context, arg InfractionCreatePara
 	return id, err
 }
 
-const infractionDecide = `-- name: InfractionDecide :exec
+const infractionDecide = `-- name: InfractionDecide :one
 UPDATE infractions
 SET active = FALSE,
     affirmed = $2,
     points = $3
 WHERE id = $1
     AND active = TRUE
+RETURNING id
 `
 
 type InfractionDecideParams struct {
@@ -51,9 +52,11 @@ type InfractionDecideParams struct {
 	Points   pgtype.Int4 `json:"points"`
 }
 
-func (q *Queries) InfractionDecide(ctx context.Context, arg InfractionDecideParams) error {
-	_, err := q.db.Exec(ctx, infractionDecide, arg.ID, arg.Affirmed, arg.Points)
-	return err
+func (q *Queries) InfractionDecide(ctx context.Context, arg InfractionDecideParams) (int32, error) {
+	row := q.db.QueryRow(ctx, infractionDecide, arg.ID, arg.Affirmed, arg.Points)
+	var id int32
+	err := row.Scan(&id)
+	return id, err
 }
 
 const infractionGet = `-- name: InfractionGet :one

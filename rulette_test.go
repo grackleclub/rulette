@@ -208,7 +208,9 @@ func TestGame(t *testing.T) {
 			}
 		}
 
-		for i := 0; ; i++ {
+		const maxSpins = 200
+		var exhausted bool
+		for i := 0; i < maxSpins; i++ {
 			c := cookieByInitiative[current]
 			require.NotNil(t, c, "no cookie for initiative %d", current)
 
@@ -221,6 +223,7 @@ func TestGame(t *testing.T) {
 
 			if w.Result().StatusCode == http.StatusGone {
 				t.Logf("deck exhausted after %d spins", i)
+				exhausted = true
 				break
 			}
 			require.Equal(t, http.StatusOK, w.Result().StatusCode,
@@ -320,6 +323,7 @@ func TestGame(t *testing.T) {
 			)
 			current = (current % maxInit) + 1
 		}
+		require.True(t, exhausted, "deck not exhausted within %d spins", maxSpins)
 	})
 
 	// reset game to a playable state for accuse/decide tests

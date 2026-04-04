@@ -313,7 +313,32 @@ func actionHandler(w http.ResponseWriter, r *http.Request) {
 				http.Error(w, "invalid game_card_id", http.StatusBadRequest)
 				return
 			}
-			err = queries.GameCardFlip(r.Context(), int32(gcID))
+			playerID, err := strconv.Atoi(cookieID)
+			if err != nil {
+				log.Error("invalid player id", "error", err, "game_id", gameID)
+				http.Error(w, "invalid player id", http.StatusBadRequest)
+				return
+			}
+			var ownedCard bool
+			for _, c := range state.CardsPlayers {
+				if c.ID == int32(gcID) && c.PlayerID.Int32 == int32(playerID) {
+					ownedCard = true
+					break
+				}
+			}
+			if !ownedCard {
+				log.Info("flip: card not owned by player",
+					"game_id", gameID,
+					"game_card_id", gcID,
+					"player_id", playerID,
+				)
+				http.Error(w, "card not owned by player", http.StatusForbidden)
+				return
+			}
+			err = queries.GameCardFlip(r.Context(), sqlc.GameCardFlipParams{
+				ID:     int32(gcID),
+				GameID: gameID,
+			})
 			if err != nil {
 				log.Error("flip card",
 					"error", err,
@@ -415,7 +440,33 @@ func actionHandler(w http.ResponseWriter, r *http.Request) {
 				http.Error(w, "invalid game_card_id", http.StatusBadRequest)
 				return
 			}
-			err = queries.GameCardShred(r.Context(), int32(cardID))
+			shredPlayerID, err := strconv.Atoi(cookieID)
+			if err != nil {
+				log.Error("invalid player id", "error", err, "game_id", gameID)
+				http.Error(w, "invalid player id", http.StatusBadRequest)
+				return
+			}
+			var ownedShred bool
+			for _, c := range state.CardsPlayers {
+				if c.ID == int32(cardID) &&
+					c.PlayerID.Int32 == int32(shredPlayerID) {
+					ownedShred = true
+					break
+				}
+			}
+			if !ownedShred {
+				log.Info("shred: card not owned by player",
+					"game_id", gameID,
+					"game_card_id", cardID,
+					"player_id", shredPlayerID,
+				)
+				http.Error(w, "card not owned by player", http.StatusForbidden)
+				return
+			}
+			err = queries.GameCardShred(r.Context(), sqlc.GameCardShredParams{
+				ID:     int32(cardID),
+				GameID: gameID,
+			})
 			if err != nil {
 				log.Error("shred card",
 					"error", err,
@@ -532,8 +583,47 @@ func actionHandler(w http.ResponseWriter, r *http.Request) {
 				http.Error(w, "invalid target_player_id", http.StatusBadRequest)
 				return
 			}
+			clonePlayerID, err := strconv.Atoi(cookieID)
+			if err != nil {
+				log.Error("invalid player id", "error", err, "game_id", gameID)
+				http.Error(w, "invalid player id", http.StatusBadRequest)
+				return
+			}
+			var ownedClone bool
+			for _, c := range state.CardsPlayers {
+				if c.ID == int32(cardID) &&
+					c.PlayerID.Int32 == int32(clonePlayerID) {
+					ownedClone = true
+					break
+				}
+			}
+			if !ownedClone {
+				log.Info("clone: source card not owned by player",
+					"game_id", gameID,
+					"game_card_id", cardID,
+					"player_id", clonePlayerID,
+				)
+				http.Error(w, "card not owned by player", http.StatusForbidden)
+				return
+			}
+			var targetInGame bool
+			for _, p := range state.Players {
+				if p.PlayerID == int32(targetID) {
+					targetInGame = true
+					break
+				}
+			}
+			if !targetInGame {
+				log.Info("clone: target player not in game",
+					"game_id", gameID,
+					"target_player_id", targetID,
+				)
+				http.Error(w, "target player not in game", http.StatusBadRequest)
+				return
+			}
 			err = queries.GameCardClone(r.Context(), sqlc.GameCardCloneParams{
-				ID: int32(cardID),
+				ID:     int32(cardID),
+				GameID: gameID,
 				PlayerID: pgtype.Int4{
 					Int32: int32(targetID),
 					Valid: true,
@@ -654,6 +744,44 @@ func actionHandler(w http.ResponseWriter, r *http.Request) {
 					"game_id", gameID,
 				)
 				http.Error(w, "invalid target_player_id", http.StatusBadRequest)
+				return
+			}
+			xferPlayerID, err := strconv.Atoi(cookieID)
+			if err != nil {
+				log.Error("invalid player id", "error", err, "game_id", gameID)
+				http.Error(w, "invalid player id", http.StatusBadRequest)
+				return
+			}
+			var ownedXfer bool
+			for _, c := range state.CardsPlayers {
+				if c.ID == int32(cardID) &&
+					c.PlayerID.Int32 == int32(xferPlayerID) {
+					ownedXfer = true
+					break
+				}
+			}
+			if !ownedXfer {
+				log.Info("transfer: card not owned by player",
+					"game_id", gameID,
+					"game_card_id", cardID,
+					"player_id", xferPlayerID,
+				)
+				http.Error(w, "card not owned by player", http.StatusForbidden)
+				return
+			}
+			var xferTargetInGame bool
+			for _, p := range state.Players {
+				if p.PlayerID == int32(targetID) {
+					xferTargetInGame = true
+					break
+				}
+			}
+			if !xferTargetInGame {
+				log.Info("transfer: target player not in game",
+					"game_id", gameID,
+					"target_player_id", targetID,
+				)
+				http.Error(w, "target player not in game", http.StatusBadRequest)
 				return
 			}
 			err = queries.GameCardMove(r.Context(), sqlc.GameCardMoveParams{
@@ -866,13 +994,21 @@ func actionHandler(w http.ResponseWriter, r *http.Request) {
 
 			// verify infraction exists, is active, and belongs to this game
 			infraction, err := queries.InfractionGet(r.Context(), int32(infID))
+			if errors.Is(err, pgx.ErrNoRows) {
+				log.Info("infraction not found",
+					"game_id", gameID,
+					"infraction_id", infID,
+				)
+				http.Error(w, "infraction not found", http.StatusNotFound)
+				return
+			}
 			if err != nil {
 				log.Error("get infraction",
 					"error", err,
 					"game_id", gameID,
 					"infraction_id", infID,
 				)
-				http.Error(w, "infraction not found", http.StatusNotFound)
+				http.Error(w, "server error", http.StatusInternalServerError)
 				return
 			}
 			if !infraction.Active.Bool {
@@ -913,6 +1049,9 @@ func actionHandler(w http.ResponseWriter, r *http.Request) {
 					http.Error(w, "invalid points", http.StatusBadRequest)
 					return
 				}
+				if pts < 0 {
+					pts = -pts
+				}
 				penalty = int32(pts)
 			}
 
@@ -928,11 +1067,19 @@ func actionHandler(w http.ResponseWriter, r *http.Request) {
 			defer tx.Rollback(r.Context())
 			txq := queries.WithTx(tx)
 
-			err = txq.InfractionDecide(r.Context(), sqlc.InfractionDecideParams{
+			_, err = txq.InfractionDecide(r.Context(), sqlc.InfractionDecideParams{
 				ID:       int32(infID),
 				Affirmed: pgtype.Bool{Bool: affirmed, Valid: true},
 				Points:   pgtype.Int4{Int32: penalty, Valid: true},
 			})
+			if errors.Is(err, pgx.ErrNoRows) {
+				log.Info("infraction already decided (race)",
+					"game_id", gameID,
+					"infraction_id", infID,
+				)
+				http.Error(w, "infraction already decided", http.StatusConflict)
+				return
+			}
 			if err != nil {
 				log.Error("decide infraction",
 					"error", err,
