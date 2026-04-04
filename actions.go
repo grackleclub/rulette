@@ -657,7 +657,8 @@ func actionHandler(w http.ResponseWriter, r *http.Request) {
 				return
 			}
 			err = queries.GameCardMove(r.Context(), sqlc.GameCardMoveParams{
-				ID: int32(cardID),
+				ID:     int32(cardID),
+				GameID: gameID,
 				PlayerID: pgtype.Int4{
 					Int32: int32(targetID),
 					Valid: true,

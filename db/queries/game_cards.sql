@@ -130,8 +130,9 @@ RETURNING id;
 
 -- name: GameCardMove :exec
 UPDATE game_cards
-SET player_id = $2
-WHERE id = $1;
+SET player_id = $3
+WHERE id = $1
+  AND game_id = $2;
 
 -- name: GameCardFlip :exec
 UPDATE game_cards

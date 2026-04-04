@@ -44,19 +44,21 @@ func (q *Queries) GameCardFlip(ctx context.Context, id int32) error {
 const gameCardMove = `-- name: GameCardMove :exec
 
 UPDATE game_cards
-SET player_id = $2
+SET player_id = $3
 WHERE id = $1
+  AND game_id = $2
 `
 
 type GameCardMoveParams struct {
 	ID       int32       `json:"id"`
+	GameID   string      `json:"game_id"`
 	PlayerID pgtype.Int4 `json:"player_id"`
 }
 
 // GameCardCreate :exec
 // TODO: after MVP, implement card creation phase
 func (q *Queries) GameCardMove(ctx context.Context, arg GameCardMoveParams) error {
-	_, err := q.db.Exec(ctx, gameCardMove, arg.ID, arg.PlayerID)
+	_, err := q.db.Exec(ctx, gameCardMove, arg.ID, arg.GameID, arg.PlayerID)
 	return err
 }
 
