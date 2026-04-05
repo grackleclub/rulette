@@ -17,6 +17,12 @@ DELETE FROM game_players
 WHERE game_id = $1 
 	AND player_id = $2;
 
+-- name: GamePointsAdjust :exec
+UPDATE game_players
+SET points = points + $1
+WHERE game_id = $2
+  AND player_id = $3;
+
 -- name: GamePlayerPoints :many
 -- TODO: is id=player_id correct?
 SELECT 

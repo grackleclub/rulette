@@ -112,11 +112,11 @@ func dataHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	switch state.Game.StateID {
-	case 5: // game over
+	case 6: // game over
 		log.Info("request to ended game", "game_id", gameID)
 		http.Error(w, "game over", http.StatusGone)
 		return
-	case 4, 3, 2, 1, 0: // game in progress
+	case 5, 4, 3, 2, 1, 0: // game in progress
 		switch topic {
 		case "players":
 			filepath := path.Join("static", "html", "tmpl.players.html")
@@ -192,7 +192,7 @@ func dataHandler(w http.ResponseWriter, r *http.Request) {
 				http.Error(w, "internal server error", http.StatusInternalServerError)
 			}
 			return
-		case "self":
+		case "self": // TODO: can this be inferred from "state", maybe?
 			for _, p := range state.Players {
 				if p.SessionKey.String == cookieKey {
 					w.Header().Set("Content-Type", "text/plain")
