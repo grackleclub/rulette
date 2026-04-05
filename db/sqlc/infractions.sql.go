@@ -98,3 +98,40 @@ func (q *Queries) InfractionUpdatePoints(ctx context.Context, arg InfractionUpda
 	_, err := q.db.Exec(ctx, infractionUpdatePoints, arg.Points, arg.GameID, arg.PlayerID)
 	return err
 }
+
+const infractionsByGame = `-- name: InfractionsByGame :many
+SELECT id, game_id, game_card_id, accused, accuser, created, active, affirmed, points
+FROM infractions
+WHERE game_id = $1
+ORDER BY created DESC
+`
+
+func (q *Queries) InfractionsByGame(ctx context.Context, gameID string) ([]Infractions, error) {
+	rows, err := q.db.Query(ctx, infractionsByGame, gameID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []Infractions
+	for rows.Next() {
+		var i Infractions
+		if err := rows.Scan(
+			&i.ID,
+			&i.GameID,
+			&i.GameCardID,
+			&i.Accused,
+			&i.Accuser,
+			&i.Created,
+			&i.Active,
+			&i.Affirmed,
+			&i.Points,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}

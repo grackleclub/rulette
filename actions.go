@@ -2,6 +2,7 @@ package main
 
 import (
 	"errors"
+	"fmt"
 	"net/http"
 	"strconv"
 	"strings"
@@ -897,16 +898,16 @@ func actionHandler(w http.ResponseWriter, r *http.Request) {
 				http.Error(w, "cannot accuse in current state", http.StatusConflict)
 				return
 			}
-			defendantStr := r.URL.Query().Get("defendant_id")
-			gcStr := r.URL.Query().Get("game_card_id")
-			if defendantStr == "" || gcStr == "" {
-				log.Info("missing defendant_id or game_card_id",
-					"game_id", gameID,
-				)
-				http.Error(w,
-					"missing defendant_id or game_card_id",
-					http.StatusBadRequest,
-				)
+			defendantStr := r.FormValue("defendant_id")
+			if defendantStr == "" {
+				log.Info("missing defendant_id", "game_id", gameID)
+				http.Error(w, "missing defendant_id", http.StatusBadRequest)
+				return
+			}
+			gcStr := r.FormValue("game_card_id")
+			if gcStr == "" {
+				log.Info("missing game_card_id", "game_id", gameID)
+				http.Error(w, "missing game_card_id", http.StatusBadRequest)
 				return
 			}
 			defendantID, err := strconv.Atoi(defendantStr)
@@ -990,14 +991,17 @@ func actionHandler(w http.ResponseWriter, r *http.Request) {
 				return
 			}
 			log.Info("infraction created",
-				"game_id", gameID,
+				"game_id",       gameID,
 				"infraction_id", infractionID,
-				"accused", defendantID,
-				"accuser", accuserID,
-				"game_card_id", gcID,
+				"accused",       defendantID,
+				"accuser",       accuserID,
+				"game_card_id",  gcID,
 			)
 			cache.Delete(gameID)
-			w.Header().Set("HX-Trigger", "refreshTable")
+			w.Header().Set("HX-Trigger", fmt.Sprintf(
+				`{"refreshTable":null,"infractionCreated":{"id":%d}}`,
+				infractionID,
+			))
 			w.WriteHeader(http.StatusOK)
 
 		case "decide":
@@ -1014,16 +1018,16 @@ func actionHandler(w http.ResponseWriter, r *http.Request) {
 				http.Error(w, "no active challenge", http.StatusConflict)
 				return
 			}
-			infStr := r.URL.Query().Get("infraction_id")
-			verdict := r.URL.Query().Get("verdict")
-			if infStr == "" || verdict == "" {
-				log.Info("missing infraction_id or verdict",
-					"game_id", gameID,
-				)
-				http.Error(w,
-					"missing infraction_id or verdict",
-					http.StatusBadRequest,
-				)
+			infStr := r.FormValue("infraction_id")
+			if infStr == "" {
+				log.Info("missing infraction_id", "game_id", gameID)
+				http.Error(w, "missing infraction_id", http.StatusBadRequest)
+				return
+			}
+			verdict := r.FormValue("verdict")
+			if verdict == "" {
+				log.Info("missing verdict", "game_id", gameID)
+				http.Error(w, "missing verdict", http.StatusBadRequest)
 				return
 			}
 			if verdict != "affirm" && verdict != "absolve" {
@@ -1083,28 +1087,43 @@ func actionHandler(w http.ResponseWriter, r *http.Request) {
 
 			affirmed := verdict == "affirm"
 			var penalty int32
+			var pointsPlayerID int32
 			if affirmed {
-				ptsStr := r.URL.Query().Get("points")
+				ptsStr := r.FormValue("amount")
 				if ptsStr == "" {
-					log.Info("missing points for affirm",
-						"game_id", gameID,
-					)
-					http.Error(w, "missing points", http.StatusBadRequest)
+					log.Info("missing amount for affirm", "game_id", gameID)
+					http.Error(w, "missing amount", http.StatusBadRequest)
 					return
 				}
 				pts, err := strconv.Atoi(ptsStr)
 				if err != nil {
-					log.Error("invalid points",
-						"error", err,
+					log.Error("affirm: invalid amount",
+						"error",   err,
+						"amount",  ptsStr,
 						"game_id", gameID,
 					)
-					http.Error(w, "invalid points", http.StatusBadRequest)
+					http.Error(w, "invalid amount", http.StatusBadRequest)
 					return
 				}
-				if pts < 0 {
-					pts = -pts
-				}
 				penalty = int32(pts)
+
+				pidStr := r.FormValue("player_id")
+				if pidStr == "" {
+					log.Info("missing player_id for affirm", "game_id", gameID)
+					http.Error(w, "missing player_id", http.StatusBadRequest)
+					return
+				}
+				pid, err := strconv.Atoi(pidStr)
+				if err != nil {
+					log.Error("affirm: invalid accused player_id",
+						"error",     err,
+						"player_id", pidStr,
+						"game_id",   gameID,
+					)
+					http.Error(w, "invalid player_id", http.StatusBadRequest)
+					return
+				}
+				pointsPlayerID = int32(pid)
 			}
 
 			tx, err := dbPool.Begin(r.Context())
@@ -1142,21 +1161,21 @@ func actionHandler(w http.ResponseWriter, r *http.Request) {
 				return
 			}
 
-			// deduct points if affirmed
+			// adjust points if affirmed
 			if affirmed {
-				err = txq.InfractionUpdatePoints(
-					r.Context(), sqlc.InfractionUpdatePointsParams{
+				err = txq.GamePointsAdjust(
+					r.Context(), sqlc.GamePointsAdjustParams{
 						Points:   pgtype.Int4{Int32: penalty, Valid: true},
 						GameID:   gameID,
-						PlayerID: infraction.Accused,
+						PlayerID: pointsPlayerID,
 					},
 				)
 				if err != nil {
-					log.Error("deduct points",
-						"error", err,
-						"game_id", gameID,
-						"accused", infraction.Accused,
-						"points", penalty,
+					log.Error("adjust points",
+						"error",     err,
+						"game_id",   gameID,
+						"player_id", pointsPlayerID,
+						"points",    penalty,
 					)
 					http.Error(w, "server error", http.StatusInternalServerError)
 					return

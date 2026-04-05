@@ -16,6 +16,7 @@ type state struct {
 	CardsWheel   []sqlc.GameCardsWheelViewRow  // hidden cards on the wheel
 	CardsPlayers []sqlc.GameCardsPlayerViewRow // revealed cards held by players
 	Config       map[string]string             // generic baggage (e.g. frontend refresh rate)
+	Infractions  []sqlc.Infractions             // infraction history
 }
 
 // isPlayerInGame returns true when cookieKey exists in game_players.

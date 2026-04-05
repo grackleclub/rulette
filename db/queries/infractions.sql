@@ -16,6 +16,12 @@ RETURNING id;
 SELECT * FROM infractions
 WHERE id = $1;
 
+-- name: InfractionsByGame :many
+SELECT id, game_id, game_card_id, accused, accuser, created, active, affirmed, points
+FROM infractions
+WHERE game_id = $1
+ORDER BY created DESC;
+
 -- name: InfractionUpdatePoints :exec
 UPDATE game_players
 SET points = points - $1

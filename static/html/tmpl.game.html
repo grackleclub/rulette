@@ -50,13 +50,10 @@
             hx-post="/{{ $.Game.ID }}/action/accuse"
             hx-swap="none"
             hx-on::after-request="
-              if (event.detail.successful) {
-                document.getElementById('hey-dialog').close();
-                document.getElementById('decide-dialog').showModal();
-              }
+              if (event.detail.successful) document.getElementById('hey-dialog').close();
             ">
             <input type="hidden" name="defendant_id" value="{{ $pid }}">
-            <input type="hidden" name="card_id" value="{{ .ID }}">
+            <input type="hidden" name="game_card_id" value="{{ .ID }}">
             <button type="submit" class="button">{{ .Content }}</button>
           </form>
           {{ end }}
@@ -68,9 +65,12 @@
 
     <dialog id="decide-dialog">
       <p>Verdict</p>
-      <button class="button" onclick="document.getElementById('decide-dialog').close()">
-        deny
-      </button>
+      <form hx-post="/{{ $.Game.ID }}/action/decide" hx-swap="none"
+        hx-on::after-request="if (event.detail.successful) document.getElementById('decide-dialog').close()">
+        <input type="hidden" name="verdict" value="absolve">
+        <input class="infraction-id-input" type="hidden" name="infraction_id" value="">
+        <button type="submit" class="button">deny</button>
+      </form>
       <button class="button" onclick="
         document.getElementById('decide-dialog').close();
         document.querySelectorAll('#points-dialog form').forEach(f => f.reset());
@@ -83,10 +83,10 @@
       {{ range .Players }}
       <div>
         <label for="points-amount-{{ .PlayerID }}">{{ .Name }} ({{ .Points.Value }})</label>
-        <form
-          hx-post="/{{ $.Game.ID }}/action/points"
-          hx-swap="none"
+        <form hx-post="/{{ $.Game.ID }}/action/decide" hx-swap="none"
           hx-on::after-request="if (event.detail.successful) document.getElementById('points-dialog').close()">
+          <input type="hidden" name="verdict" value="affirm">
+          <input class="infraction-id-input" type="hidden" name="infraction_id" value="">
           <input type="hidden" name="player_id" value="{{ .PlayerID }}">
           <input id="points-amount-{{ .PlayerID }}" type="number" name="amount" value="0" min="-99" max="99">
           <button type="submit" class="button">submit</button>

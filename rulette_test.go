@@ -406,8 +406,8 @@ func TestGame(t *testing.T) {
 	t.Run("POST /{game_id}/action/decide (affirm)", func(t *testing.T) {
 		penalty := int32(2)
 		path := fmt.Sprintf(
-			"/%s/action/decide?infraction_id=1&verdict=affirm&points=%d",
-			gameID, penalty,
+			"/%s/action/decide?infraction_id=1&verdict=affirm&amount=%d&player_id=%d",
+			gameID, -penalty, accusedPlayerID,
 		)
 		req := httptest.NewRequest(http.MethodPost, path, nil)
 		req.AddCookie(cookieByInitiative[0]) // host
@@ -422,7 +422,7 @@ func TestGame(t *testing.T) {
 		require.NoError(t, err)
 		require.Equal(t, int32(3), gs.StateID, "expected turn state")
 
-		// verify points deducted
+		// verify points adjusted
 		playersAfter, err := queries.GamePlayerPoints(ctx, gameID)
 		require.NoError(t, err)
 		for _, p := range playersAfter {
