@@ -2,7 +2,14 @@
   // open hey-dialog if navigated to directly via hash
   if (window.location.hash === '#hey') {
     window.location.hash = '';
-    document.getElementById('hey-dialog').showModal();
+    var target = document.querySelector("#accuse-content");
+    if (target) {
+      target.addEventListener("htmx:afterSettle", function once() {
+        target.removeEventListener("htmx:afterSettle", once);
+        document.getElementById('hey-dialog').showModal();
+      });
+      document.body.dispatchEvent(new Event("loadAccuse"));
+    }
   }
 
   // populate infraction_id inputs and open decide-dialog

@@ -40,26 +40,12 @@
     </section>
 
     <dialog id="hey-dialog">
-      <p>Which rule was broken?</p>
-      {{ range .Players }}
-      <div>
-        <strong>{{ .Name }}</strong>
-        {{ $pid := .PlayerID }}
-        {{ range $.CardsPlayers }}
-          {{ if eq .PlayerID.Int32 $pid }}
-<form method="POST" action="/{{ $.Game.ID }}/action/accuse"
-            hx-post="/{{ $.Game.ID }}/action/accuse"
-            hx-swap="none"
-            data-close-on-success="hey-dialog">
-            <input type="hidden" name="defendant_id" value="{{ $pid }}">
-            <input type="hidden" name="game_card_id" value="{{ .ID }}">
-            <button type="submit" class="button">{{ .Content }}</button>
-          </form>
-          {{ end }}
-        {{ end }}
+      <div id="accuse-content"
+        hx-get="/{{ .Game.ID }}/data/accuse"
+        hx-trigger="loadAccuse from:body"
+        hx-swap="innerHTML">
+        <p>Loading...</p>
       </div>
-      {{ end }}
-      <button class="button" data-close-dialog="hey-dialog">close</button>
     </dialog>
 
     <dialog id="decide-dialog">

@@ -192,7 +192,24 @@ func dataHandler(w http.ResponseWriter, r *http.Request) {
 				http.Error(w, "internal server error", http.StatusInternalServerError)
 			}
 			return
-		case "self": // TODO: can this be inferred from "state", maybe?
+		case "accuse":
+				filepath := path.Join("static", "html", "tmpl.accuse_dialog.html")
+				tmpl, err := readParse(static, filepath)
+				if err != nil {
+					log.Error(ErrReadParseTemplate.Error(), "filepath", filepath, "error", err)
+					http.Error(w, "internal server error", http.StatusInternalServerError)
+					return
+				}
+				err = tmpl.Execute(w, state)
+				if err != nil {
+					log.Error("execute template",
+						"error", err,
+						"template", filepath,
+					)
+					http.Error(w, "internal server error", http.StatusInternalServerError)
+				}
+				return
+			case "self": // TODO: can this be inferred from "state", maybe?
 			for _, p := range state.Players {
 				if p.SessionKey.String == cookieKey {
 					w.Header().Set("Content-Type", "text/plain")

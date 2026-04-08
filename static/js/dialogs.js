@@ -3,7 +3,22 @@
   document.body.addEventListener("click", function (e) {
     var btn = e.target.closest("[data-open-dialog]");
     if (btn) {
-      document.getElementById(btn.dataset.openDialog).showModal();
+      var dialogId = btn.dataset.openDialog;
+      var fetchEvent = btn.dataset.fetchEvent;
+      if (fetchEvent) {
+        // dispatch event to trigger htmx fetch, then open after load
+        var dialog = document.getElementById(dialogId);
+        var target = dialog.querySelector("[hx-trigger*='" + fetchEvent + "']");
+        if (target) {
+          target.addEventListener("htmx:afterSettle", function once() {
+            target.removeEventListener("htmx:afterSettle", once);
+            dialog.showModal();
+          });
+        }
+        document.body.dispatchEvent(new Event(fetchEvent));
+      } else {
+        document.getElementById(dialogId).showModal();
+      }
     }
   });
 
