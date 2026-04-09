@@ -220,6 +220,20 @@ func dataHandler(w http.ResponseWriter, r *http.Request) {
 			log.Warn("player not found in game", "cookie_key", cookieKey)
 			http.Error(w, "player not found", http.StatusNotFound)
 			return
+		case "pending":
+			if state.Game.StateID != 5 || !state.isHost(cookieKey) {
+				w.WriteHeader(http.StatusNoContent)
+				return
+			}
+			for _, inf := range state.Infractions {
+				if inf.Active.Bool {
+					w.Header().Set("Content-Type", "text/plain")
+					fmt.Fprint(w, inf.ID)
+					return
+				}
+			}
+			w.WriteHeader(http.StatusNoContent)
+			return
 		default:
 			log.Info(ErrTopicInvalid.Error())
 			http.Error(w, ErrTopicInvalid.Error(), http.StatusBadRequest)

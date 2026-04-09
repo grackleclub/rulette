@@ -12,12 +12,24 @@
     }
   }
 
+  function openDecideDialog(id) {
+    document.querySelectorAll('.infraction-id-input').forEach(function(el) {
+      el.value = id;
+    });
+    var d = document.getElementById('decide-dialog');
+    if (!d.open) d.showModal();
+  }
+
   // populate infraction_id inputs and open decide-dialog
   // when accuse action succeeds (htmx fires infractionCreated event)
   document.body.addEventListener('infractionCreated', function(e) {
-    document.querySelectorAll('.infraction-id-input').forEach(function(el) {
-      el.value = e.detail.id;
-    });
-    document.getElementById('decide-dialog').showModal();
+    openDecideDialog(e.detail.id);
   });
+
+  // open decide-dialog when polling finds a pending infraction
+  window.handlePending = function(e) {
+    if (e.detail.xhr.status === 200) {
+      openDecideDialog(e.detail.xhr.responseText);
+    }
+  };
 })();

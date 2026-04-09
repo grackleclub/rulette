@@ -48,6 +48,13 @@
       </div>
     </dialog>
 
+    <div id="pending-poll"
+      hx-get="/{{ .Game.ID }}/data/pending"
+      hx-trigger="every {{ .Config.refresh }}"
+      hx-swap="none"
+      hx-on::after-request="handlePending(event)">
+    </div>
+
     <dialog id="decide-dialog">
       <p>Verdict</p>
       <form hx-post="/{{ $.Game.ID }}/action/decide" hx-swap="none"
