@@ -27,3 +27,46 @@
   </section>
   {{ end }}
 </article>
+{{ if eq .Game.StateName "pending" }}
+  {{ range .Players }}
+    {{ if eq .Initiative.Int32 $.Game.InitiativeCurrent.Int32 }}
+      {{ $pid := .PlayerID }}
+      {{ $pname := .Name }}
+      {{ $effect := "" }}
+      {{ range $.CardsPlayers }}
+        {{ if and (eq .PlayerID.Int32 $pid) (eq .Type "modifier") }}
+          {{ $effect = .ModifierEffect.String }}
+        {{ end }}
+      {{ end }}
+      <div id="modifier-content" hx-swap-oob="true"
+        data-turn-player="{{ $pname }}" data-effect="{{ $effect }}">
+        <p>You drew a <strong>{{ $effect }}</strong> card!</p>
+        <p>Choose a card to {{ $effect }}:</p>
+        {{ if or (eq $effect "clone") (eq $effect "transfer") }}
+        <fieldset>
+          <legend>Target player:</legend>
+          {{ range $.Players }}
+            {{ if ne .PlayerID $pid }}
+            <label class="accuse-option">
+              <input type="radio" name="target_player_id" value="{{ .PlayerID }}">
+              {{ .Name }}
+            </label>
+            {{ end }}
+          {{ end }}
+        </fieldset>
+        {{ end }}
+        {{ range $.CardsPlayers }}
+          {{ if and (eq .PlayerID.Int32 $pid) (eq .Type "rule") }}
+          <button class="button modifier-card-btn"
+            data-game-card-id="{{ .ID }}"
+            data-action="/{{ $.Game.ID }}/action/{{ $effect }}">
+            {{ .Content }}
+          </button>
+          {{ end }}
+        {{ end }}
+      </div>
+    {{ end }}
+  {{ end }}
+{{ else }}
+  <div id="modifier-content" hx-swap-oob="true"></div>
+{{ end }}

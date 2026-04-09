@@ -8,6 +8,7 @@
     <script src="/static/js/htmx.min.js"></script>
     <script src="/static/js/accuse.js" defer></script>
     <script src="/static/js/dialogs.js" defer></script>
+    <script src="/static/js/modifier.js" defer></script>
   </head>
   <body>
     <!-- <script src="index.js"></script> -->
@@ -64,6 +65,10 @@
         <button type="submit" class="button">deny</button>
       </form>
       <button class="button" data-affirm>affirm</button>
+    </dialog>
+
+    <dialog id="modifier-dialog">
+      <div id="modifier-content"></div>
     </dialog>
 
     <dialog id="points-dialog">
