@@ -20,14 +20,8 @@
     if (!d.open) d.showModal();
   }
 
-  // populate infraction_id inputs and open decide-dialog
-  // when accuse action succeeds (htmx fires infractionCreated event)
-  document.body.addEventListener('infractionCreated', function(e) {
-    openDecideDialog(e.detail.id);
-  });
-
-  // open decide-dialog when polling finds a pending infraction
-  window.handlePending = function(e) {
+  // open decide-dialog when polling finds a pending infraction (host only)
+  window.handleInfraction = function(e) {
     if (e.detail.xhr.status === 200) {
       openDecideDialog(e.detail.xhr.responseText);
     }

@@ -48,11 +48,11 @@
       </div>
     </dialog>
 
-    <div id="pending-poll"
-      hx-get="/{{ .Game.ID }}/data/pending"
+    <div id="infraction-poll"
+      hx-get="/{{ .Game.ID }}/data/infraction"
       hx-trigger="every {{ .Config.refresh }}"
       hx-swap="none"
-      hx-on::after-request="handlePending(event)">
+      hx-on::after-request="handleInfraction(event)">
     </div>
 
     <dialog id="decide-dialog">

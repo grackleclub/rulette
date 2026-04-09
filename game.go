@@ -167,7 +167,7 @@ func dataHandler(w http.ResponseWriter, r *http.Request) {
 			}
 			return
 		case "state": // NOTE: debug endpoint
-			w.Header().Set("Content-Type", "application/json")
+			w.Header().Set("Content-Ty[pe]", "application/json")
 			w.WriteHeader(http.StatusOK)
 			err := json.NewEncoder(w).Encode(state)
 			if err != nil {
@@ -193,23 +193,23 @@ func dataHandler(w http.ResponseWriter, r *http.Request) {
 			}
 			return
 		case "accuse":
-				filepath := path.Join("static", "html", "tmpl.accuse_dialog.html")
-				tmpl, err := readParse(static, filepath)
-				if err != nil {
-					log.Error(ErrReadParseTemplate.Error(), "filepath", filepath, "error", err)
-					http.Error(w, "internal server error", http.StatusInternalServerError)
-					return
-				}
-				err = tmpl.Execute(w, state)
-				if err != nil {
-					log.Error("execute template",
-						"error", err,
-						"template", filepath,
-					)
-					http.Error(w, "internal server error", http.StatusInternalServerError)
-				}
+			filepath := path.Join("static", "html", "tmpl.accuse_dialog.html")
+			tmpl, err := readParse(static, filepath)
+			if err != nil {
+				log.Error(ErrReadParseTemplate.Error(), "filepath", filepath, "error", err)
+				http.Error(w, "internal server error", http.StatusInternalServerError)
 				return
-			case "self": // TODO: can this be inferred from "state", maybe?
+			}
+			err = tmpl.Execute(w, state)
+			if err != nil {
+				log.Error("execute template",
+					"error", err,
+					"template", filepath,
+				)
+				http.Error(w, "internal server error", http.StatusInternalServerError)
+			}
+			return
+		case "self": // TODO: can this be inferred from "state", maybe?
 			for _, p := range state.Players {
 				if p.SessionKey.String == cookieKey {
 					w.Header().Set("Content-Type", "text/plain")
@@ -220,7 +220,7 @@ func dataHandler(w http.ResponseWriter, r *http.Request) {
 			log.Warn("player not found in game", "cookie_key", cookieKey)
 			http.Error(w, "player not found", http.StatusNotFound)
 			return
-		case "pending":
+		case "infraction":
 			if state.Game.StateID != 5 || !state.isHost(cookieKey) {
 				w.WriteHeader(http.StatusNoContent)
 				return
