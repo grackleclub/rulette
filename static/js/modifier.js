@@ -25,10 +25,14 @@
   });
 
   // show notice when a modifier is shredded (no rule cards to target)
-  document.body.addEventListener("modifierShredded", function (e) {
+  function showShredNotice(e) {
+    console.log("modifierShredded fired", e);
     var notice = document.getElementById("modifier-notice");
-    if (!notice) return;
-    var effect = e.detail ? e.detail.value : "";
+    if (!notice) {
+      console.log("modifier-notice element not found");
+      return;
+    }
+    var effect = e.detail && e.detail.value ? e.detail.value : "";
     notice.textContent =
       "You drew a " + effect + " modifier but have no cards to target. Spin again!";
     notice.hidden = false;
@@ -36,7 +40,10 @@
     notice._timer = setTimeout(function () {
       notice.hidden = true;
     }, 5000);
-  });
+  }
+  // listen for both camelCase and kebab-case (htmx dispatches both)
+  document.body.addEventListener("modifierShredded", showShredNotice);
+  document.body.addEventListener("modifier-shredded", showShredNotice);
 
   // handle card button clicks
   document.body.addEventListener("click", function (e) {
