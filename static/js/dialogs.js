@@ -33,9 +33,11 @@
   // close dialog on successful htmx submit: data-close-on-success="dialog-id"
   document.body.addEventListener("htmx:afterRequest", function (e) {
     if (!e.detail.successful) return;
-    var dialogId = e.detail.elt.getAttribute("data-close-on-success");
-    if (dialogId) {
-      document.getElementById(dialogId).close();
+    // walk up to find the attribute (e.detail.elt may be the submit button,
+    // not the form that carries data-close-on-success)
+    var src = e.detail.elt.closest("[data-close-on-success]");
+    if (src) {
+      document.getElementById(src.getAttribute("data-close-on-success")).close();
     }
   });
 
