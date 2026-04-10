@@ -205,6 +205,22 @@ func actionHandler(w http.ResponseWriter, r *http.Request) {
 				http.Error(w, "invalid player id", http.StatusBadRequest)
 				return
 			}
+			prevSpin, err := queries.SpinLogPendingModifier(r.Context(), gameID)
+			if err != nil && !errors.Is(err, pgx.ErrNoRows) {
+				log.Error("check previous spin", "error", err, "game_id", gameID)
+				http.Error(w, "server error", http.StatusInternalServerError)
+				return
+			}
+			if err == nil &&
+				prevSpin.PlayerID.Int32 == int32(id) &&
+				!prevSpin.ModifierEffect.Valid {
+				log.Info("player already spun this turn",
+					"game_id", gameID,
+					"player_id", id,
+				)
+				http.Error(w, "already spun this turn", http.StatusConflict)
+				return
+			}
 			args := sqlc.GameCardsWheelSpinParams{
 				ID:       gameID,
 				PlayerID: pgtype.Int4{Int32: int32(id), Valid: true},
@@ -436,6 +452,23 @@ func actionHandler(w http.ResponseWriter, r *http.Request) {
 				http.Error(w, "server error", http.StatusInternalServerError)
 				return
 			}
+			// shred the modifier card that was just used
+			for _, c := range state.CardsPlayers {
+				if c.PlayerID.Int32 == int32(playerID) && c.Type == "modifier" {
+					err = queries.GameCardShred(r.Context(), sqlc.GameCardShredParams{
+						ID:     c.ID,
+						GameID: gameID,
+					})
+					if err != nil {
+						log.Error("shred used modifier card",
+							"error", err,
+							"game_id", gameID,
+							"game_card_id", c.ID,
+						)
+					}
+					break
+				}
+			}
 
 			// resolve: back to turn state and advance initiative
 			err = queries.GameUpdate(r.Context(), sqlc.GameUpdateParams{
@@ -463,7 +496,7 @@ func actionHandler(w http.ResponseWriter, r *http.Request) {
 				http.Error(w, "server error", http.StatusInternalServerError)
 				return
 			}
-			log.Info("card flipped, modifier resolved",
+			log.Info("card flipped, modifier resolved and shredded",
 				"game_id", gameID,
 				"game_card_id", gcID,
 			)
@@ -563,6 +596,23 @@ func actionHandler(w http.ResponseWriter, r *http.Request) {
 				)
 				http.Error(w, "server error", http.StatusInternalServerError)
 				return
+			}
+			// shred the modifier card that was just used
+			for _, c := range state.CardsPlayers {
+				if c.PlayerID.Int32 == int32(shredPlayerID) && c.Type == "modifier" {
+					err = queries.GameCardShred(r.Context(), sqlc.GameCardShredParams{
+						ID:     c.ID,
+						GameID: gameID,
+					})
+					if err != nil {
+						log.Error("shred used modifier card",
+							"error", err,
+							"game_id", gameID,
+							"game_card_id", c.ID,
+						)
+					}
+					break
+				}
 			}
 
 			// resolve: back to turn state and advance initiative
@@ -727,6 +777,23 @@ func actionHandler(w http.ResponseWriter, r *http.Request) {
 				http.Error(w, "server error", http.StatusInternalServerError)
 				return
 			}
+			// shred the modifier card that was just used
+			for _, c := range state.CardsPlayers {
+				if c.PlayerID.Int32 == int32(clonePlayerID) && c.Type == "modifier" {
+					err = queries.GameCardShred(r.Context(), sqlc.GameCardShredParams{
+						ID:     c.ID,
+						GameID: gameID,
+					})
+					if err != nil {
+						log.Error("shred used modifier card",
+							"error", err,
+							"game_id", gameID,
+							"game_card_id", c.ID,
+						)
+					}
+					break
+				}
+			}
 			err = queries.GameUpdate(r.Context(), sqlc.GameUpdateParams{
 				ID:      gameID,
 				StateID: 3,
@@ -752,7 +819,7 @@ func actionHandler(w http.ResponseWriter, r *http.Request) {
 				http.Error(w, "server error", http.StatusInternalServerError)
 				return
 			}
-			log.Info("card cloned, modifier resolved",
+			log.Info("card cloned, modifier resolved and shredded",
 				"game_id", gameID,
 				"card_id", cardID,
 				"target_player_id", targetID,
@@ -890,6 +957,23 @@ func actionHandler(w http.ResponseWriter, r *http.Request) {
 				http.Error(w, "server error", http.StatusInternalServerError)
 				return
 			}
+			// shred the modifier card that was just used
+			for _, c := range state.CardsPlayers {
+				if c.PlayerID.Int32 == int32(xferPlayerID) && c.Type == "modifier" {
+					err = queries.GameCardShred(r.Context(), sqlc.GameCardShredParams{
+						ID:     c.ID,
+						GameID: gameID,
+					})
+					if err != nil {
+						log.Error("shred used modifier card",
+							"error", err,
+							"game_id", gameID,
+							"game_card_id", c.ID,
+						)
+					}
+					break
+				}
+			}
 			err = queries.GameUpdate(r.Context(), sqlc.GameUpdateParams{
 				ID:      gameID,
 				StateID: 3,
@@ -915,7 +999,7 @@ func actionHandler(w http.ResponseWriter, r *http.Request) {
 				http.Error(w, "server error", http.StatusInternalServerError)
 				return
 			}
-			log.Info("card transferred, modifier resolved",
+			log.Info("card transferred, modifier resolved and shredded",
 				"game_id", gameID,
 				"card_id", cardID,
 				"target_player_id", targetID,
@@ -1026,11 +1110,11 @@ func actionHandler(w http.ResponseWriter, r *http.Request) {
 				return
 			}
 			log.Info("infraction created",
-				"game_id",       gameID,
+				"game_id", gameID,
 				"infraction_id", infractionID,
-				"accused",       defendantID,
-				"accuser",       accuserID,
-				"game_card_id",  gcID,
+				"accused", defendantID,
+				"accuser", accuserID,
+				"game_card_id", gcID,
 			)
 			cache.Delete(gameID)
 			w.Header().Set("HX-Trigger", fmt.Sprintf(
@@ -1133,8 +1217,8 @@ func actionHandler(w http.ResponseWriter, r *http.Request) {
 				pts, err := strconv.Atoi(ptsStr)
 				if err != nil {
 					log.Error("affirm: invalid amount",
-						"error",   err,
-						"amount",  ptsStr,
+						"error", err,
+						"amount", ptsStr,
 						"game_id", gameID,
 					)
 					http.Error(w, "invalid amount", http.StatusBadRequest)
@@ -1151,9 +1235,9 @@ func actionHandler(w http.ResponseWriter, r *http.Request) {
 				pid, err := strconv.Atoi(pidStr)
 				if err != nil {
 					log.Error("affirm: invalid accused player_id",
-						"error",     err,
+						"error", err,
 						"player_id", pidStr,
-						"game_id",   gameID,
+						"game_id", gameID,
 					)
 					http.Error(w, "invalid player_id", http.StatusBadRequest)
 					return
@@ -1207,10 +1291,10 @@ func actionHandler(w http.ResponseWriter, r *http.Request) {
 				)
 				if err != nil {
 					log.Error("adjust points",
-						"error",     err,
-						"game_id",   gameID,
+						"error", err,
+						"game_id", gameID,
 						"player_id", pointsPlayerID,
-						"points",    penalty,
+						"points", penalty,
 					)
 					http.Error(w, "server error", http.StatusInternalServerError)
 					return

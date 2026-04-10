@@ -74,20 +74,15 @@
     </dialog>
 
     <dialog id="points-dialog">
-      <p>Award or deduct points</p>
-      {{ range .Players }}
-      <div>
-        <label for="points-amount-{{ .PlayerID }}">{{ .Name }} ({{ .Points.Value }})</label>
-        <form hx-post="/{{ $.Game.ID }}/action/decide" hx-swap="none"
-          data-close-on-success="points-dialog">
-          <input type="hidden" name="verdict" value="affirm">
-          <input class="infraction-id-input" type="hidden" name="infraction_id" value="">
-          <input type="hidden" name="player_id" value="{{ .PlayerID }}">
-          <input id="points-amount-{{ .PlayerID }}" type="number" name="amount" value="0" min="-99" max="99">
-          <button type="submit" class="button">submit</button>
-        </form>
-      </div>
-      {{ end }}
+      <p>Penalty for the accused</p>
+      <form hx-post="/{{ $.Game.ID }}/action/decide" hx-swap="none"
+        data-close-on-success="points-dialog">
+        <input type="hidden" name="verdict" value="affirm">
+        <input class="infraction-id-input" type="hidden" name="infraction_id" value="">
+        <label for="points-amount">points</label>
+        <input id="points-amount" type="number" name="amount" value="0" min="-99" max="99">
+        <button type="submit" class="button">submit</button>
+      </form>
       <button class="button" data-close-dialog="points-dialog">nevermind</button>
     </dialog>
 

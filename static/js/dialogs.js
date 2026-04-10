@@ -44,9 +44,14 @@
   // affirm: close decide-dialog, reset points forms, open points-dialog
   document.body.addEventListener("click", function (e) {
     if (!e.target.closest("[data-affirm]")) return;
+    var idInput = document.querySelector("#decide-dialog .infraction-id-input");
+    var id = idInput ? idInput.value : "";
     document.getElementById("decide-dialog").close();
     document.querySelectorAll("#points-dialog form").forEach(function (f) {
       f.reset();
+    });
+    document.querySelectorAll("#points-dialog .infraction-id-input").forEach(function (el) {
+      el.value = id;
     });
     document.getElementById("points-dialog").showModal();
   });
