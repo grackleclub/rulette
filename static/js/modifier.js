@@ -24,6 +24,20 @@
     if (!dialog.open) dialog.showModal();
   });
 
+  // show notice when a modifier is shredded (no rule cards to target)
+  document.body.addEventListener("modifierShredded", function (e) {
+    var notice = document.getElementById("modifier-notice");
+    if (!notice) return;
+    var effect = e.detail ? e.detail.value : "";
+    notice.textContent =
+      "You drew a " + effect + " modifier but have no cards to target. Spin again!";
+    notice.hidden = false;
+    clearTimeout(notice._timer);
+    notice._timer = setTimeout(function () {
+      notice.hidden = true;
+    }, 5000);
+  });
+
   // handle card button clicks
   document.body.addEventListener("click", function (e) {
     var btn = e.target.closest(".modifier-card-btn");

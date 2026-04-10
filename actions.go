@@ -257,26 +257,61 @@ func actionHandler(w http.ResponseWriter, r *http.Request) {
 				return
 			}
 			if lastSpin.ModifierEffect.Valid {
-				log.Info("modifier drawn, entering pending state",
-					"game_id", gameID,
-					"effect", lastSpin.ModifierEffect.String,
-					"player_id", id,
-				)
-				err = queries.GameUpdate(r.Context(), sqlc.GameUpdateParams{
-					ID:      gameID,
-					StateID: 4, // pending
-					InitiativeCurrent: pgtype.Int4{
-						Int32: state.Game.InitiativeCurrent.Int32,
-						Valid: true,
-					},
-				})
-				if err != nil {
-					log.Error("transition to pending",
-						"error", err,
+				// check if player has any rule cards to target
+				var hasRuleCards bool
+				for _, c := range state.CardsPlayers {
+					if c.PlayerID.Int32 == int32(id) && c.Type == "rule" {
+						hasRuleCards = true
+						break
+					}
+				}
+				if !hasRuleCards {
+					err = queries.GameCardShred(r.Context(), sqlc.GameCardShredParams{
+						ID:     gcID,
+						GameID: gameID,
+					})
+					if err != nil {
+						log.Error("shred unresolvable modifier",
+							"error", err,
+							"game_id", gameID,
+							"game_card_id", gcID,
+						)
+						http.Error(w, "server error", http.StatusInternalServerError)
+						return
+					}
+					log.Info("modifier drawn but player has no rule cards, shredded and skipping pending",
 						"game_id", gameID,
+						"effect", lastSpin.ModifierEffect.String,
+						"player_id", id,
+						"game_card_id", gcID,
 					)
-					http.Error(w, "server error", http.StatusInternalServerError)
+					cache.Delete(gameID)
+					w.Header().Set("HX-Trigger",
+						`{"refreshTable":null,"modifierShredded":"`+lastSpin.ModifierEffect.String+`"}`)
+					w.WriteHeader(http.StatusOK)
 					return
+				} else {
+					log.Info("modifier drawn, entering pending state",
+						"game_id", gameID,
+						"effect", lastSpin.ModifierEffect.String,
+						"player_id", id,
+					)
+					err = queries.GameUpdate(r.Context(), sqlc.GameUpdateParams{
+						ID:      gameID,
+						StateID: 4, // pending
+						InitiativeCurrent: pgtype.Int4{
+							Int32: state.Game.InitiativeCurrent.Int32,
+							Valid: true,
+						},
+					})
+					if err != nil {
+						log.Error("transition to pending",
+							"error", err,
+							"game_id", gameID,
+						)
+						http.Error(w, "server error", http.StatusInternalServerError)
+						return
+					}
 				}
 			}
 
