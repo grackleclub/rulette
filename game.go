@@ -167,7 +167,7 @@ func dataHandler(w http.ResponseWriter, r *http.Request) {
 			}
 			return
 		case "state": // NOTE: debug endpoint
-			w.Header().Set("Content-Type", "application/json")
+			w.Header().Set("Content-Ty[pe]", "application/json")
 			w.WriteHeader(http.StatusOK)
 			err := json.NewEncoder(w).Encode(state)
 			if err != nil {
@@ -177,6 +177,23 @@ func dataHandler(w http.ResponseWriter, r *http.Request) {
 			}
 		case "points":
 			filepath := path.Join("static", "html", "tmpl.points.html")
+			tmpl, err := readParse(static, filepath)
+			if err != nil {
+				log.Error(ErrReadParseTemplate.Error(), "filepath", filepath, "error", err)
+				http.Error(w, "internal server error", http.StatusInternalServerError)
+				return
+			}
+			err = tmpl.Execute(w, state)
+			if err != nil {
+				log.Error("execute template",
+					"error", err,
+					"template", filepath,
+				)
+				http.Error(w, "internal server error", http.StatusInternalServerError)
+			}
+			return
+		case "accuse":
+			filepath := path.Join("static", "html", "tmpl.accuse_dialog.html")
 			tmpl, err := readParse(static, filepath)
 			if err != nil {
 				log.Error(ErrReadParseTemplate.Error(), "filepath", filepath, "error", err)
@@ -202,6 +219,20 @@ func dataHandler(w http.ResponseWriter, r *http.Request) {
 			}
 			log.Warn("player not found in game", "cookie_key", cookieKey)
 			http.Error(w, "player not found", http.StatusNotFound)
+			return
+		case "infraction":
+			if state.Game.StateID != 5 || !state.isHost(cookieKey) {
+				w.WriteHeader(http.StatusNoContent)
+				return
+			}
+			for _, inf := range state.Infractions {
+				if inf.Active.Bool {
+					w.Header().Set("Content-Type", "text/plain")
+					fmt.Fprint(w, inf.ID)
+					return
+				}
+			}
+			w.WriteHeader(http.StatusNoContent)
 			return
 		default:
 			log.Info(ErrTopicInvalid.Error())

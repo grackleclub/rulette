@@ -7,6 +7,8 @@
     <link rel="stylesheet" href="/static/css/style.css"> 
     <script src="/static/js/htmx.min.js"></script>
     <script src="/static/js/accuse.js" defer></script>
+    <script src="/static/js/dialogs.js" defer></script>
+    <script src="/static/js/modifier.js" defer></script>
   </head>
   <body>
     <!-- <script src="index.js"></script> -->
@@ -38,62 +40,50 @@
       </article>
     </section>
 
+    <div id="modifier-notice" hidden></div>
+
     <dialog id="hey-dialog">
-      <p>Which rule was broken?</p>
-      {{ range .Players }}
-      <div>
-        <strong>{{ .Name }}</strong>
-        {{ $pid := .PlayerID }}
-        {{ range $.CardsPlayers }}
-          {{ if eq .PlayerID.Int32 $pid }}
-<form method="POST" action="/{{ $.Game.ID }}/action/accuse"
-            hx-post="/{{ $.Game.ID }}/action/accuse"
-            hx-swap="none"
-            hx-on::after-request="
-              if (event.detail.successful) document.getElementById('hey-dialog').close();
-            ">
-            <input type="hidden" name="defendant_id" value="{{ $pid }}">
-            <input type="hidden" name="game_card_id" value="{{ .ID }}">
-            <button type="submit" class="button">{{ .Content }}</button>
-          </form>
-          {{ end }}
-        {{ end }}
+      <div id="accuse-content"
+        hx-get="/{{ .Game.ID }}/data/accuse"
+        hx-trigger="loadAccuse from:body"
+        hx-swap="innerHTML">
+        <p>Loading...</p>
       </div>
-      {{ end }}
-      <button class="button" onclick="document.getElementById('hey-dialog').close()">close</button>
     </dialog>
+
+    <div id="infraction-poll"
+      hx-get="/{{ .Game.ID }}/data/infraction"
+      hx-trigger="every {{ .Config.refresh }}"
+      hx-swap="none"
+      hx-on::after-request="handleInfraction(event)">
+    </div>
 
     <dialog id="decide-dialog">
       <p>Verdict</p>
       <form hx-post="/{{ $.Game.ID }}/action/decide" hx-swap="none"
-        hx-on::after-request="if (event.detail.successful) document.getElementById('decide-dialog').close()">
+        data-close-on-success="decide-dialog">
         <input type="hidden" name="verdict" value="absolve">
         <input class="infraction-id-input" type="hidden" name="infraction_id" value="">
         <button type="submit" class="button">deny</button>
       </form>
-      <button class="button" onclick="
-        document.getElementById('decide-dialog').close();
-        document.querySelectorAll('#points-dialog form').forEach(f => f.reset());
-        document.getElementById('points-dialog').showModal();
-      ">affirm</button>
+      <button class="button" data-affirm>affirm</button>
+    </dialog>
+
+    <dialog id="modifier-dialog">
+      <div id="modifier-content"></div>
     </dialog>
 
     <dialog id="points-dialog">
-      <p>Award or deduct points</p>
-      {{ range .Players }}
-      <div>
-        <label for="points-amount-{{ .PlayerID }}">{{ .Name }} ({{ .Points.Value }})</label>
-        <form hx-post="/{{ $.Game.ID }}/action/decide" hx-swap="none"
-          hx-on::after-request="if (event.detail.successful) document.getElementById('points-dialog').close()">
-          <input type="hidden" name="verdict" value="affirm">
-          <input class="infraction-id-input" type="hidden" name="infraction_id" value="">
-          <input type="hidden" name="player_id" value="{{ .PlayerID }}">
-          <input id="points-amount-{{ .PlayerID }}" type="number" name="amount" value="0" min="-99" max="99">
-          <button type="submit" class="button">submit</button>
-        </form>
-      </div>
-      {{ end }}
-      <button class="button" onclick="document.getElementById('points-dialog').close()">nevermind</button>
+      <p>Penalty for the accused</p>
+      <form hx-post="/{{ $.Game.ID }}/action/decide" hx-swap="none"
+        data-close-on-success="points-dialog">
+        <input type="hidden" name="verdict" value="affirm">
+        <input class="infraction-id-input" type="hidden" name="infraction_id" value="">
+        <label for="points-amount">points</label>
+        <input id="points-amount" type="number" name="amount" value="0" min="-99" max="99">
+        <button type="submit" class="button">submit</button>
+      </form>
+      <button class="button" data-close-dialog="points-dialog">nevermind</button>
     </dialog>
 
     <section id="points" hx-get="/{{ .Game.ID }}/data/points"
