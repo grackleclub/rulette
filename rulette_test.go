@@ -48,6 +48,7 @@ func TestGame(t *testing.T) {
 	pool, err := db.Pool(ctx)
 	require.NoError(t, err)
 	require.NotNil(t, pool)
+	dbPool = pool
 	queries = sqlc.New(pool)
 	require.NotNil(t, queries)
 	t.Log("queries created")
@@ -207,7 +208,9 @@ func TestGame(t *testing.T) {
 			}
 		}
 
-		for i := 0; ; i++ {
+		const maxSpins = 200
+		var exhausted bool
+		for i := 0; i < maxSpins; i++ {
 			c := cookieByInitiative[current]
 			require.NotNil(t, c, "no cookie for initiative %d", current)
 
@@ -220,6 +223,7 @@ func TestGame(t *testing.T) {
 
 			if w.Result().StatusCode == http.StatusGone {
 				t.Logf("deck exhausted after %d spins", i)
+				exhausted = true
 				break
 			}
 			require.Equal(t, http.StatusOK, w.Result().StatusCode,
@@ -260,21 +264,21 @@ func TestGame(t *testing.T) {
 				var actionPath string
 				switch effect {
 				case modFlip:
-					actionPath = fmt.Sprintf("/%s/action/flip?card_id=%d",
+					actionPath = fmt.Sprintf("/%s/action/flip?game_card_id=%d",
 						gameID, targetCard,
 					)
 				case modShred:
-					actionPath = fmt.Sprintf("/%s/action/shred?card_id=%d",
+					actionPath = fmt.Sprintf("/%s/action/shred?game_card_id=%d",
 						gameID, targetCard,
 					)
 				case modClone:
 					actionPath = fmt.Sprintf(
-						"/%s/action/clone?card_id=%d&target_player_id=%d",
+						"/%s/action/clone?game_card_id=%d&target_player_id=%d",
 						gameID, targetCard, targetPlayer,
 					)
 				case modTransfer:
 					actionPath = fmt.Sprintf(
-						"/%s/action/transfer?card_id=%d&target_player_id=%d",
+						"/%s/action/transfer?game_card_id=%d&target_player_id=%d",
 						gameID, targetCard, targetPlayer,
 					)
 				}
@@ -319,6 +323,7 @@ func TestGame(t *testing.T) {
 			)
 			current = (current % maxInit) + 1
 		}
+		require.True(t, exhausted, "deck not exhausted within %d spins", maxSpins)
 	})
 
 	// reset game to a playable state for accuse/decide tests
@@ -401,8 +406,8 @@ func TestGame(t *testing.T) {
 	t.Run("POST /{game_id}/action/decide (affirm)", func(t *testing.T) {
 		penalty := int32(2)
 		path := fmt.Sprintf(
-			"/%s/action/decide?infraction_id=1&verdict=affirm&points=%d",
-			gameID, penalty,
+			"/%s/action/decide?infraction_id=1&verdict=affirm&amount=%d&player_id=%d",
+			gameID, -penalty, accusedPlayerID,
 		)
 		req := httptest.NewRequest(http.MethodPost, path, nil)
 		req.AddCookie(cookieByInitiative[0]) // host
@@ -417,7 +422,7 @@ func TestGame(t *testing.T) {
 		require.NoError(t, err)
 		require.Equal(t, int32(3), gs.StateID, "expected turn state")
 
-		// verify points deducted
+		// verify points adjusted
 		playersAfter, err := queries.GamePlayerPoints(ctx, gameID)
 		require.NoError(t, err)
 		for _, p := range playersAfter {

@@ -97,6 +97,24 @@ func (q *Queries) GamePlayerPoints(ctx context.Context, gameID string) ([]GamePl
 	return items, nil
 }
 
+const gamePointsAdjust = `-- name: GamePointsAdjust :exec
+UPDATE game_players
+SET points = points + $1
+WHERE game_id = $2
+  AND player_id = $3
+`
+
+type GamePointsAdjustParams struct {
+	Points   pgtype.Int4 `json:"points"`
+	GameID   string      `json:"game_id"`
+	PlayerID int32       `json:"player_id"`
+}
+
+func (q *Queries) GamePointsAdjust(ctx context.Context, arg GamePointsAdjustParams) error {
+	_, err := q.db.Exec(ctx, gamePointsAdjust, arg.Points, arg.GameID, arg.PlayerID)
+	return err
+}
+
 const player = `-- name: Player :one
 SELECT id, name, created FROM players WHERE id = $1
 `

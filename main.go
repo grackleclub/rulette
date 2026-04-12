@@ -15,10 +15,12 @@ import (
 
 	"github.com/grackleclub/postgres"
 	sqlc "github.com/grackleclub/rulette/db/sqlc"
+	"github.com/jackc/pgx/v5/pgxpool"
 )
 
 var (
 	queries                *sqlc.Queries
+	dbPool                 *pgxpool.Pool
 	cache                  sync.Map
 	log                    *slog.Logger
 	maxCacheAge                   = 500 * time.Millisecond
@@ -36,7 +38,7 @@ var (
 	ErrReadParseTemplate = fmt.Errorf("cannot read and parse template")
 )
 
-// Cards of type "motifier" have specific consequences,
+// Cards of type "modifier" have specific consequences,
 // defined below and in the schema.
 const (
 	modFlip     = "flip"
@@ -83,6 +85,19 @@ func main() {
 		Port:     envOr("RULETTE_DB_PORT", "5432"),
 		Sslmode:  envOr("RULETTE_DB_SSL", "disable"),
 	}
+	// FIXME: replace with prod
+	db, close, err := postgres.NewTestDB(ctx, opts)
+	if err != nil {
+		panic(fmt.Sprintf("create test database: %v", err))
+	}
+	defer close()
+	pool, err := db.Pool(ctx)
+	if err != nil {
+		panic(fmt.Sprintf("create test database pool: %v", err))
+	}
+	dbPool = pool
+	queries = sqlc.New(pool)
+	log.Info("created test database and sqlc queries", "db", db)
 
 	_, local := os.LookupEnv("RULETTE_DB_LOCAL")
 	if local {

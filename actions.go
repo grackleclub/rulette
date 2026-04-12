@@ -2,6 +2,7 @@ package main
 
 import (
 	"errors"
+	"fmt"
 	"net/http"
 	"strconv"
 	"strings"
@@ -59,18 +60,6 @@ func actionHandler(w http.ResponseWriter, r *http.Request) {
 	case 1, 0: // pregame
 		switch action {
 		case "start":
-			err := queries.GameUpdate(r.Context(), sqlc.GameUpdateParams{
-				ID:                gameID,
-				StateID:           2, // in progress
-				InitiativeCurrent: pgtype.Int4{Int32: 0, Valid: true},
-			})
-			if err != nil {
-				log.Error("start game", "error", err)
-				http.Error(w, "server error", http.StatusInternalServerError)
-				return
-			}
-			log.Info("game started")
-
 			// populate and shuffle the deck
 			err = queries.GameCardsInitGeneric(r.Context(), gameID)
 			if err != nil {
@@ -94,6 +83,20 @@ func actionHandler(w http.ResponseWriter, r *http.Request) {
 				"game_id", gameID,
 			)
 
+			// set game to in-progress
+			err := queries.GameUpdate(r.Context(), sqlc.GameUpdateParams{
+				ID:                gameID,
+				StateID:           2, // in progress
+				InitiativeCurrent: pgtype.Int4{Int32: 0, Valid: true},
+			})
+			if err != nil {
+				log.Error("start game", "error", err)
+				http.Error(w, "server error", http.StatusInternalServerError)
+				return
+			}
+			log.Info("game started")
+
+			// start initiative with first non-host player
 			err = queries.GameUpdate(r.Context(), sqlc.GameUpdateParams{
 				ID:                gameID,
 				StateID:           3,
@@ -123,9 +126,69 @@ func actionHandler(w http.ResponseWriter, r *http.Request) {
 				http.Error(w, "only host can update points", http.StatusForbidden)
 				return
 			}
-			// TODO: implement add points
+			if err := r.ParseForm(); err != nil {
+				log.Error("parse form", "error", err, "game_id", gameID)
+				http.Error(w, "bad request", http.StatusBadRequest)
+				return
+			}
+			playerStr := r.FormValue("player_id")
+			amountStr := r.FormValue("amount")
+			if playerStr == "" || amountStr == "" {
+				log.Info("missing player_id or amount", "game_id", gameID)
+				http.Error(w, "missing player_id or amount", http.StatusBadRequest)
+				return
+			}
+			targetID, err := strconv.Atoi(playerStr)
+			if err != nil {
+				log.Error("invalid player_id",
+					"error", err,
+					"game_id", gameID,
+				)
+				http.Error(w, "invalid player_id", http.StatusBadRequest)
+				return
+			}
+			amount, err := strconv.Atoi(amountStr)
+			if err != nil {
+				log.Error("invalid amount",
+					"error", err,
+					"game_id", gameID,
+				)
+				http.Error(w, "invalid amount", http.StatusBadRequest)
+				return
+			}
+			err = queries.GamePointsAdjust(r.Context(), sqlc.GamePointsAdjustParams{
+				Points:   pgtype.Int4{Int32: int32(amount), Valid: true},
+				GameID:   gameID,
+				PlayerID: int32(targetID),
+			})
+			if err != nil {
+				log.Error("adjust points",
+					"error", err,
+					"game_id", gameID,
+					"player_id", targetID,
+					"amount", amount,
+				)
+				http.Error(w, "server error", http.StatusInternalServerError)
+				return
+			}
+			log.Info("points adjusted",
+				"game_id", gameID,
+				"player_id", targetID,
+				"amount", amount,
+			)
+			cache.Delete(gameID)
+			w.Header().Set("HX-Trigger", "refreshTable")
+			w.WriteHeader(http.StatusOK)
 
 		case "spin":
+			if state.Game.StateID != 3 {
+				log.Info("spin requires turn state",
+					"game_id", gameID,
+					"state_id", state.Game.StateID,
+				)
+				http.Error(w, "cannot spin in current state", http.StatusConflict)
+				return
+			}
 			if !state.isPlayerTurn(cookieKey) {
 				log.Info("prohibiting non-turn player from spinning",
 					"cookie_id", cookieID,
@@ -149,10 +212,22 @@ func actionHandler(w http.ResponseWriter, r *http.Request) {
 			gcID, err := queries.GameCardsWheelSpin(r.Context(), args)
 			if err != nil {
 				if errors.Is(err, pgx.ErrNoRows) {
-					log.Info("game over, deck exhausted",
+					log.Info("game over, deck slot exhausted",
 						"game_id", gameID,
 					)
-					http.Error(w, "game over, deck exhausted", http.StatusGone)
+					err := queries.GameUpdate(r.Context(), sqlc.GameUpdateParams{
+						ID:      gameID,
+						StateID: 6, // game over
+					})
+					if err != nil {
+						log.Error("update game state to game over",
+							"error", err,
+							"game_id", gameID,
+						)
+						http.Error(w, "server error while ending game", http.StatusInternalServerError)
+						return
+					}
+					http.Error(w, "game over, deck slot exhausted", http.StatusGone)
 					return
 				}
 				log.Error("spin wheel",
@@ -210,6 +285,14 @@ func actionHandler(w http.ResponseWriter, r *http.Request) {
 			w.WriteHeader(http.StatusOK)
 
 		case "next":
+			if state.Game.StateID != 3 {
+				log.Info("next requires turn state",
+					"game_id", gameID,
+					"state_id", state.Game.StateID,
+				)
+				http.Error(w, "cannot advance in current state", http.StatusConflict)
+				return
+			}
 			if !state.isHost(cookieKey) {
 				log.Info("prohibiting non-host from advancing initiative")
 				http.Error(w, "only host can advance initiative", http.StatusForbidden)
@@ -268,30 +351,52 @@ func actionHandler(w http.ResponseWriter, r *http.Request) {
 				http.Error(w, "no pending flip", http.StatusConflict)
 				return
 			}
-			cardStr := r.URL.Query().Get("card_id")
-			if cardStr == "" {
-				log.Info("flip: missing card_id", "game_id", gameID)
-				http.Error(w, "missing card_id", http.StatusBadRequest)
+			gcStr := r.URL.Query().Get("game_card_id")
+			if gcStr == "" {
+				log.Info("flip: missing game_card_id", "game_id", gameID)
+				http.Error(w, "missing game_card_id", http.StatusBadRequest)
 				return
 			}
-			cardID, err := strconv.Atoi(cardStr)
+			gcID, err := strconv.Atoi(gcStr)
 			if err != nil {
-				log.Error("invalid card_id",
+				log.Error("invalid game_card_id",
 					"error", err,
 					"game_id", gameID,
 				)
-				http.Error(w, "invalid card_id", http.StatusBadRequest)
+				http.Error(w, "invalid game_card_id", http.StatusBadRequest)
+				return
+			}
+			playerID, err := strconv.Atoi(cookieID)
+			if err != nil {
+				log.Error("invalid player id", "error", err, "game_id", gameID)
+				http.Error(w, "invalid player id", http.StatusBadRequest)
+				return
+			}
+			var ownedCard bool
+			for _, c := range state.CardsPlayers {
+				if c.ID == int32(gcID) && c.PlayerID.Int32 == int32(playerID) {
+					ownedCard = true
+					break
+				}
+			}
+			if !ownedCard {
+				log.Info("flip: card not owned by player",
+					"game_id", gameID,
+					"game_card_id", gcID,
+					"player_id", playerID,
+				)
+				http.Error(w, "card not owned by player", http.StatusForbidden)
 				return
 			}
 			err = queries.GameCardFlip(r.Context(), sqlc.GameCardFlipParams{
+				ID:     int32(gcID),
 				GameID: gameID,
-				CardID: int32(cardID),
 			})
 			if err != nil {
 				log.Error("flip card",
 					"error", err,
 					"game_id", gameID,
-					"card_id", cardID,
+					"game_card_id", gcID,
 				)
 				http.Error(w, "server error", http.StatusInternalServerError)
 				return
@@ -325,7 +430,7 @@ func actionHandler(w http.ResponseWriter, r *http.Request) {
 			}
 			log.Info("card flipped, modifier resolved",
 				"game_id", gameID,
-				"card_id", cardID,
+				"game_card_id", gcID,
 			)
 			cache.Delete(gameID)
 			w.Header().Set("HX-Trigger", "refreshTable")
@@ -373,30 +478,53 @@ func actionHandler(w http.ResponseWriter, r *http.Request) {
 				http.Error(w, "no pending shred", http.StatusConflict)
 				return
 			}
-			cardStr := r.URL.Query().Get("card_id")
+			cardStr := r.URL.Query().Get("game_card_id")
 			if cardStr == "" {
-				log.Info("missing card_id", "game_id", gameID)
-				http.Error(w, "missing card_id", http.StatusBadRequest)
+				log.Info("missing game_card_id", "game_id", gameID)
+				http.Error(w, "missing game_card_id", http.StatusBadRequest)
 				return
 			}
 			cardID, err := strconv.Atoi(cardStr)
 			if err != nil {
-				log.Error("invalid card_id",
+				log.Error("invalid game_card_id",
 					"error", err,
 					"game_id", gameID,
 				)
-				http.Error(w, "invalid card_id", http.StatusBadRequest)
+				http.Error(w, "invalid game_card_id", http.StatusBadRequest)
+				return
+			}
+			shredPlayerID, err := strconv.Atoi(cookieID)
+			if err != nil {
+				log.Error("invalid player id", "error", err, "game_id", gameID)
+				http.Error(w, "invalid player id", http.StatusBadRequest)
+				return
+			}
+			var ownedShred bool
+			for _, c := range state.CardsPlayers {
+				if c.ID == int32(cardID) &&
+					c.PlayerID.Int32 == int32(shredPlayerID) {
+					ownedShred = true
+					break
+				}
+			}
+			if !ownedShred {
+				log.Info("shred: card not owned by player",
+					"game_id", gameID,
+					"game_card_id", cardID,
+					"player_id", shredPlayerID,
+				)
+				http.Error(w, "card not owned by player", http.StatusForbidden)
 				return
 			}
 			err = queries.GameCardShred(r.Context(), sqlc.GameCardShredParams{
+				ID:     int32(cardID),
 				GameID: gameID,
-				CardID: int32(cardID),
 			})
 			if err != nil {
 				log.Error("shred card",
 					"error", err,
 					"game_id", gameID,
-					"card_id", cardID,
+					"game_card_id", cardID,
 				)
 				http.Error(w, "server error", http.StatusInternalServerError)
 				return
@@ -478,25 +606,25 @@ func actionHandler(w http.ResponseWriter, r *http.Request) {
 				http.Error(w, "no pending clone", http.StatusConflict)
 				return
 			}
-			cardStr := r.URL.Query().Get("card_id")
+			cardStr := r.URL.Query().Get("game_card_id")
+			if cardStr == "" {
+				log.Info("missing game_card_id", "game_id", gameID)
+				http.Error(w, "missing game_card_id", http.StatusBadRequest)
+				return
+			}
 			targetStr := r.URL.Query().Get("target_player_id")
-			if cardStr == "" || targetStr == "" {
-				log.Info("missing card_id or target_player_id",
-					"game_id", gameID,
-				)
-				http.Error(w,
-					"missing card_id or target_player_id",
-					http.StatusBadRequest,
-				)
+			if targetStr == "" {
+				log.Info("missing target_player_id", "game_id", gameID)
+				http.Error(w, "missing target_player_id", http.StatusBadRequest)
 				return
 			}
 			cardID, err := strconv.Atoi(cardStr)
 			if err != nil {
-				log.Error("invalid card_id",
+				log.Error("invalid game_card_id",
 					"error", err,
 					"game_id", gameID,
 				)
-				http.Error(w, "invalid card_id", http.StatusBadRequest)
+				http.Error(w, "invalid game_card_id", http.StatusBadRequest)
 				return
 			}
 			targetID, err := strconv.Atoi(targetStr)
@@ -508,9 +636,47 @@ func actionHandler(w http.ResponseWriter, r *http.Request) {
 				http.Error(w, "invalid target_player_id", http.StatusBadRequest)
 				return
 			}
+			clonePlayerID, err := strconv.Atoi(cookieID)
+			if err != nil {
+				log.Error("invalid player id", "error", err, "game_id", gameID)
+				http.Error(w, "invalid player id", http.StatusBadRequest)
+				return
+			}
+			var ownedClone bool
+			for _, c := range state.CardsPlayers {
+				if c.ID == int32(cardID) &&
+					c.PlayerID.Int32 == int32(clonePlayerID) {
+					ownedClone = true
+					break
+				}
+			}
+			if !ownedClone {
+				log.Info("clone: source card not owned by player",
+					"game_id", gameID,
+					"game_card_id", cardID,
+					"player_id", clonePlayerID,
+				)
+				http.Error(w, "card not owned by player", http.StatusForbidden)
+				return
+			}
+			var targetInGame bool
+			for _, p := range state.Players {
+				if p.PlayerID == int32(targetID) {
+					targetInGame = true
+					break
+				}
+			}
+			if !targetInGame {
+				log.Info("clone: target player not in game",
+					"game_id", gameID,
+					"target_player_id", targetID,
+				)
+				http.Error(w, "target player not in game", http.StatusBadRequest)
+				return
+			}
 			err = queries.GameCardClone(r.Context(), sqlc.GameCardCloneParams{
+				ID:     int32(cardID),
 				GameID: gameID,
-				CardID: int32(cardID),
 				PlayerID: pgtype.Int4{
 					Int32: int32(targetID),
 					Valid: true,
@@ -520,7 +686,7 @@ func actionHandler(w http.ResponseWriter, r *http.Request) {
 				log.Error("clone card",
 					"error", err,
 					"game_id", gameID,
-					"card_id", cardID,
+					"game_card_id", cardID,
 					"target_player_id", targetID,
 				)
 				http.Error(w, "server error", http.StatusInternalServerError)
@@ -603,25 +769,25 @@ func actionHandler(w http.ResponseWriter, r *http.Request) {
 				http.Error(w, "no pending transfer", http.StatusConflict)
 				return
 			}
-			cardStr := r.URL.Query().Get("card_id")
+			cardStr := r.URL.Query().Get("game_card_id")
+			if cardStr == "" {
+				log.Info("missing game_card_id", "game_id", gameID)
+				http.Error(w, "missing game_card_id", http.StatusBadRequest)
+				return
+			}
 			targetStr := r.URL.Query().Get("target_player_id")
-			if cardStr == "" || targetStr == "" {
-				log.Info("missing card_id or target_player_id",
-					"game_id", gameID,
-				)
-				http.Error(w,
-					"missing card_id or target_player_id",
-					http.StatusBadRequest,
-				)
+			if targetStr == "" {
+				log.Info("missing target_player_id", "game_id", gameID)
+				http.Error(w, "missing target_player_id", http.StatusBadRequest)
 				return
 			}
 			cardID, err := strconv.Atoi(cardStr)
 			if err != nil {
-				log.Error("invalid card_id",
+				log.Error("invalid game_card_id",
 					"error", err,
 					"game_id", gameID,
 				)
-				http.Error(w, "invalid card_id", http.StatusBadRequest)
+				http.Error(w, "invalid game_card_id", http.StatusBadRequest)
 				return
 			}
 			targetID, err := strconv.Atoi(targetStr)
@@ -633,19 +799,57 @@ func actionHandler(w http.ResponseWriter, r *http.Request) {
 				http.Error(w, "invalid target_player_id", http.StatusBadRequest)
 				return
 			}
+			xferPlayerID, err := strconv.Atoi(cookieID)
+			if err != nil {
+				log.Error("invalid player id", "error", err, "game_id", gameID)
+				http.Error(w, "invalid player id", http.StatusBadRequest)
+				return
+			}
+			var ownedXfer bool
+			for _, c := range state.CardsPlayers {
+				if c.ID == int32(cardID) &&
+					c.PlayerID.Int32 == int32(xferPlayerID) {
+					ownedXfer = true
+					break
+				}
+			}
+			if !ownedXfer {
+				log.Info("transfer: card not owned by player",
+					"game_id", gameID,
+					"game_card_id", cardID,
+					"player_id", xferPlayerID,
+				)
+				http.Error(w, "card not owned by player", http.StatusForbidden)
+				return
+			}
+			var xferTargetInGame bool
+			for _, p := range state.Players {
+				if p.PlayerID == int32(targetID) {
+					xferTargetInGame = true
+					break
+				}
+			}
+			if !xferTargetInGame {
+				log.Info("transfer: target player not in game",
+					"game_id", gameID,
+					"target_player_id", targetID,
+				)
+				http.Error(w, "target player not in game", http.StatusBadRequest)
+				return
+			}
 			err = queries.GameCardMove(r.Context(), sqlc.GameCardMoveParams{
+				ID:     int32(cardID),
+				GameID: gameID,
 				PlayerID: pgtype.Int4{
 					Int32: int32(targetID),
 					Valid: true,
 				},
-				GameID: gameID,
-				CardID: int32(cardID),
 			})
 			if err != nil {
 				log.Error("transfer card",
 					"error", err,
 					"game_id", gameID,
-					"card_id", cardID,
+					"game_card_id", cardID,
 					"target_player_id", targetID,
 				)
 				http.Error(w, "server error", http.StatusInternalServerError)
@@ -686,16 +890,24 @@ func actionHandler(w http.ResponseWriter, r *http.Request) {
 			w.WriteHeader(http.StatusOK)
 
 		case "accuse":
-			defendantStr := r.URL.Query().Get("defendant_id")
-			gcStr := r.URL.Query().Get("game_card_id")
-			if defendantStr == "" || gcStr == "" {
-				log.Info("missing defendant_id or game_card_id",
+			if !state.isGameActive() {
+				log.Info("accuse requires active game state",
 					"game_id", gameID,
+					"state_id", state.Game.StateID,
 				)
-				http.Error(w,
-					"missing defendant_id or game_card_id",
-					http.StatusBadRequest,
-				)
+				http.Error(w, "cannot accuse in current state", http.StatusConflict)
+				return
+			}
+			defendantStr := r.FormValue("defendant_id")
+			if defendantStr == "" {
+				log.Info("missing defendant_id", "game_id", gameID)
+				http.Error(w, "missing defendant_id", http.StatusBadRequest)
+				return
+			}
+			gcStr := r.FormValue("game_card_id")
+			if gcStr == "" {
+				log.Info("missing game_card_id", "game_id", gameID)
+				http.Error(w, "missing game_card_id", http.StatusBadRequest)
 				return
 			}
 			defendantID, err := strconv.Atoi(defendantStr)
@@ -716,6 +928,26 @@ func actionHandler(w http.ResponseWriter, r *http.Request) {
 				http.Error(w, "invalid game_card_id", http.StatusBadRequest)
 				return
 			}
+			// validate game_card belongs to defendant and is a rule
+			var validCard bool
+			for _, c := range state.CardsPlayers {
+				if c.ID == int32(gcID) &&
+					c.PlayerID.Int32 == int32(defendantID) &&
+					c.Type == "rule" {
+					validCard = true
+					break
+				}
+			}
+			if !validCard {
+				log.Info("invalid accusation target",
+					"game_id", gameID,
+					"game_card_id", gcID,
+					"defendant_id", defendantID,
+				)
+				http.Error(w, "card not a rule held by defendant", http.StatusBadRequest)
+				return
+			}
+
 			accuserID, err := strconv.Atoi(cookieID)
 			if err != nil {
 				log.Error("invalid accuser cookie",
@@ -759,14 +991,17 @@ func actionHandler(w http.ResponseWriter, r *http.Request) {
 				return
 			}
 			log.Info("infraction created",
-				"game_id", gameID,
+				"game_id",       gameID,
 				"infraction_id", infractionID,
-				"accused", defendantID,
-				"accuser", accuserID,
-				"game_card_id", gcID,
+				"accused",       defendantID,
+				"accuser",       accuserID,
+				"game_card_id",  gcID,
 			)
 			cache.Delete(gameID)
-			w.Header().Set("HX-Trigger", "refreshTable")
+			w.Header().Set("HX-Trigger", fmt.Sprintf(
+				`{"refreshTable":null,"infractionCreated":{"id":%d}}`,
+				infractionID,
+			))
 			w.WriteHeader(http.StatusOK)
 
 		case "decide":
@@ -783,16 +1018,24 @@ func actionHandler(w http.ResponseWriter, r *http.Request) {
 				http.Error(w, "no active challenge", http.StatusConflict)
 				return
 			}
-			infStr := r.URL.Query().Get("infraction_id")
-			verdict := r.URL.Query().Get("verdict")
-			if infStr == "" || verdict == "" {
-				log.Info("missing infraction_id or verdict",
+			infStr := r.FormValue("infraction_id")
+			if infStr == "" {
+				log.Info("missing infraction_id", "game_id", gameID)
+				http.Error(w, "missing infraction_id", http.StatusBadRequest)
+				return
+			}
+			verdict := r.FormValue("verdict")
+			if verdict == "" {
+				log.Info("missing verdict", "game_id", gameID)
+				http.Error(w, "missing verdict", http.StatusBadRequest)
+				return
+			}
+			if verdict != "affirm" && verdict != "absolve" {
+				log.Info("invalid verdict",
 					"game_id", gameID,
+					"verdict", verdict,
 				)
-				http.Error(w,
-					"missing infraction_id or verdict",
-					http.StatusBadRequest,
-				)
+				http.Error(w, "verdict must be affirm or absolve", http.StatusBadRequest)
 				return
 			}
 			infID, err := strconv.Atoi(infStr)
@@ -805,34 +1048,109 @@ func actionHandler(w http.ResponseWriter, r *http.Request) {
 				return
 			}
 
+			// verify infraction exists, is active, and belongs to this game
+			infraction, err := queries.InfractionGet(r.Context(), int32(infID))
+			if errors.Is(err, pgx.ErrNoRows) {
+				log.Info("infraction not found",
+					"game_id", gameID,
+					"infraction_id", infID,
+				)
+				http.Error(w, "infraction not found", http.StatusNotFound)
+				return
+			}
+			if err != nil {
+				log.Error("get infraction",
+					"error", err,
+					"game_id", gameID,
+					"infraction_id", infID,
+				)
+				http.Error(w, "server error", http.StatusInternalServerError)
+				return
+			}
+			if !infraction.Active.Bool {
+				log.Info("infraction already decided",
+					"game_id", gameID,
+					"infraction_id", infID,
+				)
+				http.Error(w, "infraction already decided", http.StatusConflict)
+				return
+			}
+			if infraction.GameID != gameID {
+				log.Info("infraction does not belong to this game",
+					"game_id", gameID,
+					"infraction_game_id", infraction.GameID,
+					"infraction_id", infID,
+				)
+				http.Error(w, "infraction not in this game", http.StatusForbidden)
+				return
+			}
+
 			affirmed := verdict == "affirm"
 			var penalty int32
+			var pointsPlayerID int32
 			if affirmed {
-				ptsStr := r.URL.Query().Get("points")
+				ptsStr := r.FormValue("amount")
 				if ptsStr == "" {
-					log.Info("missing points for affirm",
-						"game_id", gameID,
-					)
-					http.Error(w, "missing points", http.StatusBadRequest)
+					log.Info("missing amount for affirm", "game_id", gameID)
+					http.Error(w, "missing amount", http.StatusBadRequest)
 					return
 				}
 				pts, err := strconv.Atoi(ptsStr)
 				if err != nil {
-					log.Error("invalid points",
-						"error", err,
+					log.Error("affirm: invalid amount",
+						"error",   err,
+						"amount",  ptsStr,
 						"game_id", gameID,
 					)
-					http.Error(w, "invalid points", http.StatusBadRequest)
+					http.Error(w, "invalid amount", http.StatusBadRequest)
 					return
 				}
 				penalty = int32(pts)
+
+				pidStr := r.FormValue("player_id")
+				if pidStr == "" {
+					log.Info("missing player_id for affirm", "game_id", gameID)
+					http.Error(w, "missing player_id", http.StatusBadRequest)
+					return
+				}
+				pid, err := strconv.Atoi(pidStr)
+				if err != nil {
+					log.Error("affirm: invalid accused player_id",
+						"error",     err,
+						"player_id", pidStr,
+						"game_id",   gameID,
+					)
+					http.Error(w, "invalid player_id", http.StatusBadRequest)
+					return
+				}
+				pointsPlayerID = int32(pid)
 			}
 
-			err = queries.InfractionDecide(r.Context(), sqlc.InfractionDecideParams{
+			tx, err := dbPool.Begin(r.Context())
+			if err != nil {
+				log.Error("begin transaction",
+					"error", err,
+					"game_id", gameID,
+				)
+				http.Error(w, "server error", http.StatusInternalServerError)
+				return
+			}
+			defer tx.Rollback(r.Context())
+			txq := queries.WithTx(tx)
+
+			_, err = txq.InfractionDecide(r.Context(), sqlc.InfractionDecideParams{
 				ID:       int32(infID),
 				Affirmed: pgtype.Bool{Bool: affirmed, Valid: true},
 				Points:   pgtype.Int4{Int32: penalty, Valid: true},
 			})
+			if errors.Is(err, pgx.ErrNoRows) {
+				log.Info("infraction already decided (race)",
+					"game_id", gameID,
+					"infraction_id", infID,
+				)
+				http.Error(w, "infraction already decided", http.StatusConflict)
+				return
+			}
 			if err != nil {
 				log.Error("decide infraction",
 					"error", err,
@@ -843,31 +1161,21 @@ func actionHandler(w http.ResponseWriter, r *http.Request) {
 				return
 			}
 
-			// deduct points if affirmed
+			// adjust points if affirmed
 			if affirmed {
-				inf, err := queries.InfractionGet(r.Context(), int32(infID))
-				if err != nil {
-					log.Error("get infraction",
-						"error", err,
-						"game_id", gameID,
-						"infraction_id", infID,
-					)
-					http.Error(w, "server error", http.StatusInternalServerError)
-					return
-				}
-				err = queries.InfractionUpdatePoints(
-					r.Context(), sqlc.InfractionUpdatePointsParams{
+				err = txq.GamePointsAdjust(
+					r.Context(), sqlc.GamePointsAdjustParams{
 						Points:   pgtype.Int4{Int32: penalty, Valid: true},
 						GameID:   gameID,
-						PlayerID: inf.Accused,
+						PlayerID: pointsPlayerID,
 					},
 				)
 				if err != nil {
-					log.Error("deduct points",
-						"error", err,
-						"game_id", gameID,
-						"accused", inf.Accused,
-						"points", penalty,
+					log.Error("adjust points",
+						"error",     err,
+						"game_id",   gameID,
+						"player_id", pointsPlayerID,
+						"points",    penalty,
 					)
 					http.Error(w, "server error", http.StatusInternalServerError)
 					return
@@ -875,7 +1183,7 @@ func actionHandler(w http.ResponseWriter, r *http.Request) {
 			}
 
 			// return to turn state
-			err = queries.GameUpdate(r.Context(), sqlc.GameUpdateParams{
+			err = txq.GameUpdate(r.Context(), sqlc.GameUpdateParams{
 				ID:      gameID,
 				StateID: 3,
 				InitiativeCurrent: pgtype.Int4{
@@ -885,6 +1193,16 @@ func actionHandler(w http.ResponseWriter, r *http.Request) {
 			})
 			if err != nil {
 				log.Error("transition to turn",
+					"error", err,
+					"game_id", gameID,
+				)
+				http.Error(w, "server error", http.StatusInternalServerError)
+				return
+			}
+
+			err = tx.Commit(r.Context())
+			if err != nil {
+				log.Error("commit decide transaction",
 					"error", err,
 					"game_id", gameID,
 				)

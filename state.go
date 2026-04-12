@@ -16,6 +16,7 @@ type state struct {
 	CardsWheel   []sqlc.GameCardsWheelViewRow  // hidden cards on the wheel
 	CardsPlayers []sqlc.GameCardsPlayerViewRow // revealed cards held by players
 	Config       map[string]string             // generic baggage (e.g. frontend refresh rate)
+	Infractions  []sqlc.Infractions             // infraction history
 }
 
 // isPlayerInGame returns true when cookieKey exists in game_players.
@@ -79,4 +80,15 @@ func cookie(r *http.Request) (string, string, error) {
 	cookieID = parts[0]
 	cookieKey = parts[1]
 	return cookieID, cookieKey, nil
+}
+
+// isGameActive returns true when when game is active
+// and players can accuse each other.
+func (s *state) isGameActive() bool {
+	switch s.Game.StateID {
+	case 3, 4, 5:
+		return true
+	default:
+		return false
+	}
 }

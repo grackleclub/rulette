@@ -128,49 +128,29 @@ RETURNING id;
 -- GameCardCreate :exec
 -- TODO: after MVP, implement card creation phase
 
--- Moves a single card of matching id to the new player_id provided.
 -- name: GameCardMove :exec
 UPDATE game_cards
-SET player_id = $1
-WHERE game_cards.game_id = $2
-    AND game_cards.card_id = $3
-    AND game_cards.id = (
-        SELECT game_cards.id
-        FROM game_cards
-        WHERE game_cards.game_id = $2 AND game_cards.card_id = $3
-        LIMIT 1
-    );
+SET player_id = $3
+WHERE id = $1
+  AND game_id = $2;
 
 -- name: GameCardFlip :exec
 UPDATE game_cards
 SET flipped = NOT flipped
-WHERE game_cards.game_id = $1
-    AND game_cards.card_id = $2
-    AND game_cards.id = (
-        SELECT game_cards.id
-        FROM game_cards
-        WHERE game_cards.game_id = $1 AND game_cards.card_id = $2
-        LIMIT 1
-    );
+WHERE id = $1
+  AND game_id = $2;
 
 -- name: GameCardClone :exec
 INSERT INTO game_cards (game_id, card_id, player_id, from_clone)
-SELECT game_id, card_id, $3, TRUE
+SELECT game_id, card_id, $2, TRUE
 FROM game_cards
-WHERE game_cards.game_id = $1
-    AND game_cards.card_id = $2
-    AND game_cards.player_id IS NOT NULL
-    AND game_cards.shredded = FALSE
-LIMIT 1;
+WHERE game_cards.id = $1
+    AND game_cards.game_id = $3
+    AND player_id IS NOT NULL
+    AND shredded = FALSE;
 
 -- name: GameCardShred :exec
-WITH cte AS (
-    SELECT id
-    FROM game_cards
-    WHERE game_cards.game_id = $1
-      AND game_cards.card_id = $2
-    LIMIT 1
-)
 UPDATE game_cards
-SET shredded = true
-WHERE id IN (SELECT id FROM cte);
+SET shredded = TRUE
+WHERE id = $1
+  AND game_id = $2;

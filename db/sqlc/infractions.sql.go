@@ -36,13 +36,14 @@ func (q *Queries) InfractionCreate(ctx context.Context, arg InfractionCreatePara
 	return id, err
 }
 
-const infractionDecide = `-- name: InfractionDecide :exec
+const infractionDecide = `-- name: InfractionDecide :one
 UPDATE infractions
 SET active = FALSE,
     affirmed = $2,
     points = $3
 WHERE id = $1
     AND active = TRUE
+RETURNING id
 `
 
 type InfractionDecideParams struct {
@@ -51,9 +52,11 @@ type InfractionDecideParams struct {
 	Points   pgtype.Int4 `json:"points"`
 }
 
-func (q *Queries) InfractionDecide(ctx context.Context, arg InfractionDecideParams) error {
-	_, err := q.db.Exec(ctx, infractionDecide, arg.ID, arg.Affirmed, arg.Points)
-	return err
+func (q *Queries) InfractionDecide(ctx context.Context, arg InfractionDecideParams) (int32, error) {
+	row := q.db.QueryRow(ctx, infractionDecide, arg.ID, arg.Affirmed, arg.Points)
+	var id int32
+	err := row.Scan(&id)
+	return id, err
 }
 
 const infractionGet = `-- name: InfractionGet :one
@@ -94,4 +97,41 @@ type InfractionUpdatePointsParams struct {
 func (q *Queries) InfractionUpdatePoints(ctx context.Context, arg InfractionUpdatePointsParams) error {
 	_, err := q.db.Exec(ctx, infractionUpdatePoints, arg.Points, arg.GameID, arg.PlayerID)
 	return err
+}
+
+const infractionsByGame = `-- name: InfractionsByGame :many
+SELECT id, game_id, game_card_id, accused, accuser, created, active, affirmed, points
+FROM infractions
+WHERE game_id = $1
+ORDER BY created DESC
+`
+
+func (q *Queries) InfractionsByGame(ctx context.Context, gameID string) ([]Infractions, error) {
+	rows, err := q.db.Query(ctx, infractionsByGame, gameID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []Infractions
+	for rows.Next() {
+		var i Infractions
+		if err := rows.Scan(
+			&i.ID,
+			&i.GameID,
+			&i.GameCardID,
+			&i.Accused,
+			&i.Accuser,
+			&i.Created,
+			&i.Active,
+			&i.Affirmed,
+			&i.Points,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
 }
