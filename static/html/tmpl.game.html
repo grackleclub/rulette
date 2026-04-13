@@ -15,10 +15,7 @@
     
     <article id="title">
       <h1>{{ .Game.Name }}</h1>
-      <footer>Playing as <span id="self"
-        hx-get="/{{ .Game.ID }}/data/self" hx-trigger="load" 
-        hx-swap="innerHTML">...</span>
-      </footer>
+      <footer>Playing as {{ .CallerName }}</footer>
       <section id="status-fetch" hx-get="/{{ .Game.ID }}/data/status" 
         hx-target="#status" hx-trigger="load, every {{ .Config.refresh }}" hx-swap="innerHTML">
         <footer id="status">{{ .Game.StateName }}</footer>
@@ -34,7 +31,7 @@
     </section>
 
     <section id="table" hx-get="/{{ .Game.ID }}/data/table" 
-    hx-target="#table" hx-trigger="load, refreshTable from:body, every 30s" hx-swap="innerHTML">
+    hx-target="#table" hx-trigger="load, refreshTable from:body, every {{ .Config.refresh }}" hx-swap="innerHTML">
       <article id="loading-table">
         <p>loading table...</p>
       </article>

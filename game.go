@@ -46,6 +46,11 @@ func gameHandler(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "player not in game", http.StatusForbidden)
 		return
 	}
+	err = state.callerInfo(cookieKey)
+	if err != nil {
+		log.Error("populate caller info", "error", err)
+		http.Error(w, "server error", http.StatusInternalServerError)
+	}
 
 	filepath := path.Join("static", "html", "tmpl.game.html")
 	tmpl, err := readParse(static, filepath)
@@ -111,6 +116,12 @@ func dataHandler(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "player not in game", http.StatusForbidden)
 		return
 	}
+	err = state.callerInfo(cookieKey)
+	if err != nil {
+		log.Error("populate caller info", "error", err)
+		http.Error(w, "server error", http.StatusInternalServerError)
+	}
+
 	switch state.Game.StateID {
 	case 6: // game over
 		log.Info("request to ended game", "game_id", gameID)
@@ -143,6 +154,7 @@ func dataHandler(w http.ResponseWriter, r *http.Request) {
 				http.Error(w, "internal server error", http.StatusInternalServerError)
 				return
 			}
+
 			err = tmpl.Execute(w, state)
 			if err != nil {
 				log.Error("execute template",
@@ -167,7 +179,7 @@ func dataHandler(w http.ResponseWriter, r *http.Request) {
 			}
 			return
 		case "state": // NOTE: debug endpoint
-			w.Header().Set("Content-Ty[pe]", "application/json")
+			w.Header().Set("Content-Type", "application/json")
 			w.WriteHeader(http.StatusOK)
 			err := json.NewEncoder(w).Encode(state)
 			if err != nil {
@@ -209,20 +221,15 @@ func dataHandler(w http.ResponseWriter, r *http.Request) {
 				http.Error(w, "internal server error", http.StatusInternalServerError)
 			}
 			return
-		case "self": // TODO: can this be inferred from "state", maybe?
-			for _, p := range state.Players {
-				if p.SessionKey.String == cookieKey {
-					w.Header().Set("Content-Type", "text/plain")
-					fmt.Fprint(w, p.Name)
-					return
-				}
-			}
-			log.Warn("player not found in game", "cookie_key", cookieKey)
-			http.Error(w, "player not found", http.StatusNotFound)
-			return
 		case "infraction":
-			if state.Game.StateID != 5 || !state.isHost(cookieKey) {
+			if state.Game.StateID != 5 {
+				log.Debug("infraction poll outside challenge state", "state_id", state.Game.StateID)
 				w.WriteHeader(http.StatusNoContent)
+				return
+			}
+			if !state.isHost(cookieKey) {
+				log.Info("infraction submitted by non-host")
+				w.WriteHeader(http.StatusForbidden)
 				return
 			}
 			for _, inf := range state.Infractions {

@@ -43,6 +43,11 @@ func actionHandler(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "server error", http.StatusInternalServerError)
 		return
 	}
+	err = state.callerInfo(cookieKey)
+	if err != nil {
+		log.Error("populate caller info", "error", err)
+		http.Error(w, "server error", http.StatusInternalServerError)
+	}
 	if !state.isPlayerInGame(cookieKey) {
 		log.Info(
 			"prohibiting unauthorized player access",
@@ -60,6 +65,11 @@ func actionHandler(w http.ResponseWriter, r *http.Request) {
 	case 1, 0: // pregame
 		switch action {
 		case "start":
+			if !state.isHost(cookieKey) {
+				log.Info("non-host attempted to start game", "game_id", gameID)
+				http.Error(w, "only the host can start the game", http.StatusForbidden)
+				return
+			}
 			// populate and shuffle the deck
 			err = queries.GameCardsInitGeneric(r.Context(), gameID)
 			if err != nil {
@@ -114,8 +124,8 @@ func actionHandler(w http.ResponseWriter, r *http.Request) {
 			w.WriteHeader(http.StatusOK)
 			return
 		default:
-			log.Info(ErrActionInvalid.Error())
-			http.Error(w, ErrActionInvalid.Error(), http.StatusTooEarly)
+			log.Info(ErrActionInvaid.Error())
+			http.Error(w, ErrActionInvaid.Error(), http.StatusTooEarly)
 			return
 		}
 	case 5, 4, 3, 2: // game in progress
@@ -306,28 +316,28 @@ func actionHandler(w http.ResponseWriter, r *http.Request) {
 						`{"refreshTable":null,"modifierShredded":"`+lastSpin.ModifierEffect.String+`"}`)
 					w.WriteHeader(http.StatusOK)
 					return
-				} else {
-					log.Info("modifier drawn, entering pending state",
+				}
+
+				log.Info("modifier drawn, entering pending state",
+					"game_id", gameID,
+					"effect", lastSpin.ModifierEffect.String,
+					"player_id", id,
+				)
+				err = queries.GameUpdate(r.Context(), sqlc.GameUpdateParams{
+					ID:      gameID,
+					StateID: 4, // pending
+					InitiativeCurrent: pgtype.Int4{
+						Int32: state.Game.InitiativeCurrent.Int32,
+						Valid: true,
+					},
+				})
+				if err != nil {
+					log.Error("transition to pending",
+						"error", err,
 						"game_id", gameID,
-						"effect", lastSpin.ModifierEffect.String,
-						"player_id", id,
 					)
-					err = queries.GameUpdate(r.Context(), sqlc.GameUpdateParams{
-						ID:      gameID,
-						StateID: 4, // pending
-						InitiativeCurrent: pgtype.Int4{
-							Int32: state.Game.InitiativeCurrent.Int32,
-							Valid: true,
-						},
-					})
-					if err != nil {
-						log.Error("transition to pending",
-							"error", err,
-							"game_id", gameID,
-						)
-						http.Error(w, "server error", http.StatusInternalServerError)
-						return
-					}
+					http.Error(w, "server error", http.StatusInternalServerError)
+					return
 				}
 			}
 
@@ -1206,7 +1216,7 @@ func actionHandler(w http.ResponseWriter, r *http.Request) {
 
 			affirmed := verdict == "affirm"
 			var penalty int32
-			var pointsPlayerID int32
+			pointsPlayerID := infraction.Accused
 			if affirmed {
 				ptsStr := r.FormValue("amount")
 				if ptsStr == "" {
@@ -1225,24 +1235,6 @@ func actionHandler(w http.ResponseWriter, r *http.Request) {
 					return
 				}
 				penalty = int32(pts)
-
-				pidStr := r.FormValue("player_id")
-				if pidStr == "" {
-					log.Info("missing player_id for affirm", "game_id", gameID)
-					http.Error(w, "missing player_id", http.StatusBadRequest)
-					return
-				}
-				pid, err := strconv.Atoi(pidStr)
-				if err != nil {
-					log.Error("affirm: invalid accused player_id",
-						"error", err,
-						"player_id", pidStr,
-						"game_id", gameID,
-					)
-					http.Error(w, "invalid player_id", http.StatusBadRequest)
-					return
-				}
-				pointsPlayerID = int32(pid)
 			}
 
 			tx, err := dbPool.Begin(r.Context())
