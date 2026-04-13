@@ -35,12 +35,16 @@ func (s *state) isPlayerInGame(cookieKey string) bool {
 // isHost verifies that the player is host
 // by checking that they are initiative 0 for the game.
 func (s *state) isHost(cookieKey string) bool {
+	var inGame bool
 	for _, player := range s.Players {
-		if player.SessionKey.String == cookieKey &&
-			player.Initiative.Int32 == int32(0) {
-			return true
+		if player.SessionKey.String == cookieKey {
+			inGame = true
+			if player.Initiative.Int32 == int32(0) {
+				return true
+			}
 		}
 	}
+	log.Info("player not host", "in_game", inGame)
 	return false
 }
 
