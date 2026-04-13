@@ -18,7 +18,8 @@ VALUES
 (3, 'turn', 'player is mid-turn, spinning wheel or responding'),
 (4, 'pending', 'rule modifier choice is pending'),
 (5, 'challenge', 'a points challenge is pending'),
-(6, 'end', 'game over');
+(6, 'end', 'game over')
+ON CONFLICT DO NOTHING;
 
 CREATE TABLE IF NOT EXISTS games (
 	id VARCHAR(6) PRIMARY KEY,
@@ -56,7 +57,8 @@ INSERT INTO card_types (name, description)
 VALUES
 	('rule', 'persistent rule that applies to a single player'),
 	('modifier', 'one-time effect applied to a chosen card'),
-	('prompt', 'single challenge to be immediately completed');
+	('prompt', 'single challenge to be immediately completed')
+ON CONFLICT DO NOTHING;
 
 CREATE TABLE IF NOT EXISTS modifier_effects (
 	name TEXT PRIMARY KEY,
@@ -67,7 +69,8 @@ VALUES
 	('flip', 'flip a card to reveal its back side'),
 	('shred', 'permanently remove a card from play'),
 	('clone', 'duplicate a card and give the copy to another player'),
-	('transfer', 'transfer a card to another player');
+	('transfer', 'transfer a card to another player')
+ON CONFLICT DO NOTHING;
 
 CREATE TABLE IF NOT EXISTS cards (
 	id SERIAL PRIMARY KEY,
@@ -104,7 +107,8 @@ VALUES
 	('rule', 'h', '8', 0, CURRENT_TIMESTAMP, TRUE, NULL),
 	('rule', 'i', '9', 0, CURRENT_TIMESTAMP, TRUE, NULL),
 	('rule', 'j', '10', 0, CURRENT_TIMESTAMP, TRUE, NULL),
-	('rule', 'k', '11', 0, CURRENT_TIMESTAMP, TRUE, NULL);
+	('rule', 'k', '11', 0, CURRENT_TIMESTAMP, TRUE, NULL)
+ON CONFLICT DO NOTHING;
 
 -- card_id lacks primary key to allow cloning within a game,
 CREATE TABLE IF NOT EXISTS game_cards (

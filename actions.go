@@ -114,8 +114,8 @@ func actionHandler(w http.ResponseWriter, r *http.Request) {
 			w.WriteHeader(http.StatusOK)
 			return
 		default:
-			log.Info(ErrActionInvaid.Error())
-			http.Error(w, ErrActionInvaid.Error(), http.StatusTooEarly)
+			log.Info(ErrActionInvalid.Error())
+			http.Error(w, ErrActionInvalid.Error(), http.StatusTooEarly)
 			return
 		}
 	case 5, 4, 3, 2: // game in progress

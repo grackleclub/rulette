@@ -85,6 +85,8 @@ func main() {
 	if err != nil {
 		panic(fmt.Sprintf("create database pool: %v", err))
 	}
+	defer pool.Close()
+	dbPool = pool
 	queries = sqlc.New(pool)
 	if err := pool.Ping(ctx); err != nil {
 		log.Error("ping database failed",
@@ -105,6 +107,9 @@ func main() {
 		"host", db.Host, "port", db.Port, "name", db.Name,
 	)
 	port := os.Getenv("RULETTE_PORT")
+	if port == "" {
+		port = os.Getenv("PORT")
+	}
 	if port == "" {
 		port = fmt.Sprintf("%d", portDefault)
 	}
