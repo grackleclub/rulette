@@ -60,6 +60,11 @@ func actionHandler(w http.ResponseWriter, r *http.Request) {
 	case 1, 0: // pregame
 		switch action {
 		case "start":
+			if !state.isHost(cookieKey) {
+				log.Info("non-host attempted to start game", "game_id", gameID)
+				http.Error(w, "only the host can start the game", http.StatusForbidden)
+				return
+			}
 			// populate and shuffle the deck
 			err = queries.GameCardsInitGeneric(r.Context(), gameID)
 			if err != nil {

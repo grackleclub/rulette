@@ -34,7 +34,7 @@
     </section>
 
     <section id="table" hx-get="/{{ .Game.ID }}/data/table" 
-    hx-target="#table" hx-trigger="load, refreshTable from:body, every 30s" hx-swap="innerHTML">
+    hx-target="#table" hx-trigger="load, refreshTable from:body, every {{ .Config.refresh }}" hx-swap="innerHTML">
       <article id="loading-table">
         <p>loading table...</p>
       </article>

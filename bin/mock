@@ -125,7 +125,7 @@ open_in_firefox() {
 		return 1
 	fi
 
-	local port=17777
+	local port=$3
 
 	# Start a one-shot redirect server that sets the cookie via Set-Cookie header,
 	# then redirects to the real URL. No profile manipulation needed.
@@ -140,14 +140,14 @@ open_in_firefox() {
 
 # opens the game in a new private firefox window with the cookie of the provided player number
 open(){
-	if [[ -z "$join_as_player_num" ]]; then
+	if [[ -z "$1" ]]; then
 		echo "No player number was provided, will not be opening firefox."
     echo "Usage: $0 [-j <player_num>]"
     return
 	fi
-	player="$join_as_player_num"
+	player="$1"
 	echo "joining as ${PLAYERS[$player]} (player $player) in firefox"
-	open_in_firefox "http://localhost:7777/${GAME_ID}" "$(cookie_file "${PLAYERS[$player]}")"
+	open_in_firefox "http://localhost:7777/${GAME_ID}" "$(cookie_file "${PLAYERS[$player]}")" "$1777${1}"
 }
 
 # START UP NEW GAME
@@ -190,6 +190,8 @@ request "POST" "/$GAME_ID/action/start" "-b $HOST_COOKIE"
 
 echo "$join_as_player_num"
 open "$join_as_player_num" # NOTE: move this to wherever it's helpful for development
+
+# open 2
 
 # echo "first spin"
 # request "POST" "/$GAME_ID/action/spin" "-b $(cookie_file "${PLAYERS[1]}")"

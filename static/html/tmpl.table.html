@@ -1,13 +1,19 @@
 <article id="table" class="table">
   <h2>table</h2>
   {{ if eq .Game.StateName "inviting" }}
-  <section class="action">
-    <button class="button"
-      hx-post="/{{ .Game.ID }}/action/start" 
-      hx-swap="none">
-      Start Game
-    </button>
-  </section>
+    {{ if .IsHost }}
+    <section class="action">
+      <button class="button"
+        hx-post="/{{ .Game.ID }}/action/start"
+        hx-swap="none">
+        Start Game
+      </button>
+    </section>
+    {{ else }}
+    <section class="action">
+      <p>waiting for host to start the game…</p>
+    </section>
+    {{ end }}
   {{ else }}
   <section class="action">
     <button class="button" 

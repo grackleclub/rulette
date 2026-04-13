@@ -26,7 +26,7 @@ func gameHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	state, err := stateFromCacheOrDB(r.Context(), &cache, gameID)
+	s, err := stateFromCacheOrDB(r.Context(), &cache, gameID)
 	if err != nil {
 		if err == ErrStateNoGame {
 			log.Warn("game not found", "game_id", gameID)
@@ -37,7 +37,7 @@ func gameHandler(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "internal server error", http.StatusInternalServerError)
 		return
 	}
-	if !state.isPlayerInGame(cookieKey) {
+	if !s.isPlayerInGame(cookieKey) {
 		log.Info(
 			"prohibiting unauthorized player access",
 			"cookie_key", cookieKey,
@@ -57,7 +57,7 @@ func gameHandler(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "internal server error", http.StatusInternalServerError)
 		return
 	}
-	err = tmpl.Execute(w, state)
+	err = tmpl.Execute(w, s)
 	if err != nil {
 		log.Error("execute template",
 			"error", err,
@@ -91,7 +91,7 @@ func dataHandler(w http.ResponseWriter, r *http.Request) {
 		setCookieErr(w, err)
 		return
 	}
-	state, err := stateFromCacheOrDB(r.Context(), &cache, gameID)
+	s, err := stateFromCacheOrDB(r.Context(), &cache, gameID)
 	if err != nil {
 		if err == ErrStateNoGame {
 			log.Warn("game not found", "game_id", gameID)
@@ -102,7 +102,7 @@ func dataHandler(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "internal server error", http.StatusInternalServerError)
 		return
 	}
-	if !state.isPlayerInGame(cookieKey) {
+	if !s.isPlayerInGame(cookieKey) {
 		log.Info(
 			"prohibiting unauthorized player access",
 			"cookie_key", cookieKey,
@@ -111,7 +111,7 @@ func dataHandler(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "player not in game", http.StatusForbidden)
 		return
 	}
-	switch state.Game.StateID {
+	switch s.Game.StateID {
 	case 6: // game over
 		log.Info("request to ended game", "game_id", gameID)
 		http.Error(w, "game over", http.StatusGone)
@@ -126,7 +126,7 @@ func dataHandler(w http.ResponseWriter, r *http.Request) {
 				http.Error(w, "internal server error", http.StatusInternalServerError)
 				return
 			}
-			err = tmpl.Execute(w, state)
+			err = tmpl.Execute(w, s)
 			if err != nil {
 				log.Error("execute template",
 					"error", err,
@@ -143,7 +143,11 @@ func dataHandler(w http.ResponseWriter, r *http.Request) {
 				http.Error(w, "internal server error", http.StatusInternalServerError)
 				return
 			}
-			err = tmpl.Execute(w, state)
+			view := struct {
+				*state
+				IsHost bool
+			}{&s, s.isHost(cookieKey)}
+			err = tmpl.Execute(w, view)
 			if err != nil {
 				log.Error("execute template",
 					"error", err,
@@ -160,16 +164,16 @@ func dataHandler(w http.ResponseWriter, r *http.Request) {
 				http.Error(w, "internal server error", http.StatusInternalServerError)
 				return
 			}
-			err = tmpl.Execute(w, state)
+			err = tmpl.Execute(w, s)
 			if err != nil {
 				log.Error("execute template", "error", err, "template", filepath)
 				http.Error(w, "internal server error", http.StatusInternalServerError)
 			}
 			return
 		case "state": // NOTE: debug endpoint
-			w.Header().Set("Content-Ty[pe]", "application/json")
+			w.Header().Set("Content-Type", "application/json")
 			w.WriteHeader(http.StatusOK)
-			err := json.NewEncoder(w).Encode(state)
+			err := json.NewEncoder(w).Encode(s)
 			if err != nil {
 				log.Error("encode state response", "error", err)
 				http.Error(w, "server error", http.StatusInternalServerError)
@@ -183,7 +187,7 @@ func dataHandler(w http.ResponseWriter, r *http.Request) {
 				http.Error(w, "internal server error", http.StatusInternalServerError)
 				return
 			}
-			err = tmpl.Execute(w, state)
+			err = tmpl.Execute(w, s)
 			if err != nil {
 				log.Error("execute template",
 					"error", err,
@@ -200,7 +204,7 @@ func dataHandler(w http.ResponseWriter, r *http.Request) {
 				http.Error(w, "internal server error", http.StatusInternalServerError)
 				return
 			}
-			err = tmpl.Execute(w, state)
+			err = tmpl.Execute(w, s)
 			if err != nil {
 				log.Error("execute template",
 					"error", err,
@@ -210,7 +214,7 @@ func dataHandler(w http.ResponseWriter, r *http.Request) {
 			}
 			return
 		case "self": // TODO: can this be inferred from "state", maybe?
-			for _, p := range state.Players {
+			for _, p := range s.Players {
 				if p.SessionKey.String == cookieKey {
 					w.Header().Set("Content-Type", "text/plain")
 					fmt.Fprint(w, p.Name)
@@ -221,11 +225,15 @@ func dataHandler(w http.ResponseWriter, r *http.Request) {
 			http.Error(w, "player not found", http.StatusNotFound)
 			return
 		case "infraction":
-			if state.Game.StateID != 5 || !state.isHost(cookieKey) {
+			if s.Game.StateID != 5 {
 				w.WriteHeader(http.StatusNoContent)
 				return
 			}
-			for _, inf := range state.Infractions {
+			if !s.isHost(cookieKey) {
+				w.WriteHeader(http.StatusNoContent)
+				return
+			}
+			for _, inf := range s.Infractions {
 				if inf.Active.Bool {
 					w.Header().Set("Content-Type", "text/plain")
 					fmt.Fprint(w, inf.ID)
