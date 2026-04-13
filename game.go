@@ -230,7 +230,7 @@ func dataHandler(w http.ResponseWriter, r *http.Request) {
 				return
 			}
 			if !s.isHost(cookieKey) {
-				w.WriteHeader(http.StatusNoContent)
+				w.WriteHeader(http.StatusForbidden)
 				return
 			}
 			for _, inf := range s.Infractions {

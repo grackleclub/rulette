@@ -191,7 +191,7 @@ request "POST" "/$GAME_ID/action/start" "-b $HOST_COOKIE"
 echo "$join_as_player_num"
 open "$join_as_player_num" # NOTE: move this to wherever it's helpful for development
 
-# open 2
+open 2
 
 # echo "first spin"
 # request "POST" "/$GAME_ID/action/spin" "-b $(cookie_file "${PLAYERS[1]}")"
