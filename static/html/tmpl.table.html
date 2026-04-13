@@ -1,10 +1,18 @@
 <article id="table" class="table">
   <h2>table</h2>
+  {{ $cid := .CallerID }}
+  {{ $gid := .Game.ID }}
+  {{ $isHost := false }}
   {{ if eq .Game.StateName "inviting" }}
-    {{ if .IsHost }}
+    {{ range .Players }}
+      {{ if and (eq .Initiative.Int32 0) (eq $cid .PlayerID) }}
+        {{ $isHost = true }}
+      {{ end }}
+    {{ end }}
+    {{ if $isHost }}
     <section class="action">
       <button class="button"
-        hx-post="/{{ .Game.ID }}/action/start"
+        hx-post="/{{ $gid }}/action/start"
         hx-swap="none">
         Start Game
       </button>

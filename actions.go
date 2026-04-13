@@ -43,6 +43,11 @@ func actionHandler(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "server error", http.StatusInternalServerError)
 		return
 	}
+	err = state.callerInfo(cookieKey)
+	if err != nil {
+		log.Error("populate caller info", "error", err)
+		http.Error(w, "server error", http.StatusInternalServerError)
+	}
 	if !state.isPlayerInGame(cookieKey) {
 		log.Info(
 			"prohibiting unauthorized player access",
@@ -1211,7 +1216,7 @@ func actionHandler(w http.ResponseWriter, r *http.Request) {
 
 			affirmed := verdict == "affirm"
 			var penalty int32
-			var pointsPlayerID int32
+			pointsPlayerID := infraction.Accused
 			if affirmed {
 				ptsStr := r.FormValue("amount")
 				if ptsStr == "" {
@@ -1230,24 +1235,6 @@ func actionHandler(w http.ResponseWriter, r *http.Request) {
 					return
 				}
 				penalty = int32(pts)
-
-				pidStr := r.FormValue("player_id")
-				if pidStr == "" {
-					log.Info("missing player_id for affirm", "game_id", gameID)
-					http.Error(w, "missing player_id", http.StatusBadRequest)
-					return
-				}
-				pid, err := strconv.Atoi(pidStr)
-				if err != nil {
-					log.Error("affirm: invalid accused player_id",
-						"error", err,
-						"player_id", pidStr,
-						"game_id", gameID,
-					)
-					http.Error(w, "invalid player_id", http.StatusBadRequest)
-					return
-				}
-				pointsPlayerID = int32(pid)
 			}
 
 			tx, err := dbPool.Begin(r.Context())
