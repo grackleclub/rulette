@@ -25,17 +25,7 @@ var (
 	log                    *slog.Logger
 	maxCacheAge                   = 500 * time.Millisecond
 	portDefault                   = 7777
-	defaultFrontendRefresh string = fmt.Sprintf("%dms", 500)
-)
-
-var (
-	ErrCookieMissing     = fmt.Errorf("session cookie missing")
-	ErrCookieInvalid     = fmt.Errorf("invalid session cookie")
-	ErrStateNoGame       = fmt.Errorf("no game found")
-	ErrFetchPlayers      = fmt.Errorf("fetching players failed")
-	ErrTopicInvalid      = fmt.Errorf("topic invalid for context or does not exist")
-	ErrActionInvaid      = fmt.Errorf("action invalid for context or does not exist")
-	ErrReadParseTemplate = fmt.Errorf("cannot read and parse template")
+	defaultFrontendRefresh string = fmt.Sprintf("%dms", 500) // passed to templates; htmx-refresh
 )
 
 // Cards of type "modifier" have specific consequences,
@@ -78,85 +68,43 @@ func main() {
 
 	ctx := context.Background()
 	opts := postgres.PostgresOpts{
-		Host:     envOr("RULETTE_DB_HOST", "localhost"),
-		User:     envOr("RULETTE_DB_USER", "postgres"),
-		Password: envOr("RULETTE_DB_PASS", randHex(16)),
-		Name:     envOr("RULETTE_DB_NAME", "rulette"),
-		Port:     envOr("RULETTE_DB_PORT", "5432"),
-		Sslmode:  envOr("RULETTE_DB_SSL", "disable"),
+		Host:     envRequired("RULETTE_DB_HOST"),
+		User:     envRequired("RULETTE_DB_USER"),
+		Password: envRequired("RULETTE_DB_PASS"),
+		Name:     envRequired("RULETTE_DB_NAME"),
+		Port:     envRequired("RULETTE_DB_PORT"),
+		Sslmode:  envRequired("RULETTE_DB_SSL"),
 	}
-	// FIXME: replace with prod
-	db, close, err := postgres.NewTestDB(ctx, opts)
+
+	db, err := postgres.NewDB(ctx, opts)
 	if err != nil {
-		panic(fmt.Sprintf("create test database: %v", err))
+		panic(fmt.Sprintf("connect to database: %v", err))
 	}
-	defer close()
+	defer db.Conn.Close()
 	pool, err := db.Pool(ctx)
 	if err != nil {
-		panic(fmt.Sprintf("create test database pool: %v", err))
+		panic(fmt.Sprintf("create database pool: %v", err))
 	}
-	dbPool = pool
 	queries = sqlc.New(pool)
-	log.Info("created test database and sqlc queries", "db", db)
-
-	_, local := os.LookupEnv("RULETTE_DB_LOCAL")
-	if local {
-		log.Info("using local test container database")
-		db, close, err := postgres.NewTestDB(ctx, opts)
-		if err != nil {
-			panic(fmt.Sprintf("create test database: %v", err))
-		}
-		defer close()
-		pool, err := db.Pool(ctx)
-		if err != nil {
-			panic(fmt.Sprintf("create database pool: %v", err))
-		}
-		queries = sqlc.New(pool)
-		log.Info("database ready", "host", db.Host, "port", db.Port)
-
-		_, err = db.Conn.ExecContext(ctx, dbSchema)
-		if err != nil {
-			panic(fmt.Sprintf("schema migration: %v", err))
-		}
-		log.Info("database schema migrated")
-	} else {
-		db, err := postgres.NewDB(ctx, opts)
-		if err != nil {
-			panic(fmt.Sprintf("connect to database: %v", err))
-		}
-		defer db.Conn.Close()
-		pool, err := db.Pool(ctx)
-		if err != nil {
-			panic(fmt.Sprintf("create database pool: %v", err))
-		}
-		queries = sqlc.New(pool)
-		err = pool.Ping(ctx)
-		if err != nil {
-			log.Error("ping external database failed, set RULETTE_DB_LOCAL for dev mode",
-				"user", db.User,
-				"name", db.Name,
-				"host", db.Host,
-				"port", db.Port,
-				"sslmode", db.Sslmode,
-				"error", err,
-			)
-			panic(fmt.Sprintf("ping database: %v", err))
-		}
-
-		log.Info("database ready",
+	if err := pool.Ping(ctx); err != nil {
+		log.Error("ping database failed",
+			"user", db.User,
+			"name", db.Name,
 			"host", db.Host,
 			"port", db.Port,
-			"name", db.Name,
+			"sslmode", db.Sslmode,
+			"error", err,
 		)
-
-		_, err = db.Conn.ExecContext(ctx, dbSchema)
-		if err != nil {
-			panic(fmt.Sprintf("schema migration: %v", err))
-		}
-		log.Info("database schema migrated")
+		panic(fmt.Sprintf("ping database: %v", err))
 	}
-
-	port := os.Getenv("PORT")
+	_, err = db.Conn.ExecContext(ctx, dbSchema)
+	if err != nil {
+		panic(fmt.Sprintf("schema migration: %v", err))
+	}
+	log.Info("database ready",
+		"host", db.Host, "port", db.Port, "name", db.Name,
+	)
+	port := os.Getenv("RULETTE_PORT")
 	if port == "" {
 		port = fmt.Sprintf("%d", portDefault)
 	}
