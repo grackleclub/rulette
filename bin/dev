@@ -1,0 +1,19 @@
+#!/usr/bin/env bash
+
+pid=""
+echo "starting db..."
+
+bin/db-dev &
+pid=$!
+trap "kill ${pid}" EXIT
+while ! [ -f /tmp/rulette/db-ready ]; do
+  sleep 0.5
+done
+
+echo "starting server..."
+source "dev.env"
+if command -v go-run &>/dev/null; then
+  go-run
+else
+  go run .
+fi

@@ -24,9 +24,9 @@ bin/test -v
 
 
 #### run
-Start the backend (with optional 'debug' level logging):
+Start the backend (with 'debug' level logging):
 ```
-DEBUG=1 go run .
+bin/dev
 ```
 
 #### debug
@@ -38,9 +38,9 @@ bin/state
 Or just visit https://localhost:7777/{game_id}/data/state.
 
 #### mock
-Sets up a game, then opens Firefox as specified player.
+Sets up a game, then opens Firefox as specified player. Exemplified: join as player 1:
 ```sh
-bin/mock
+bin/mock -j 1
 ```
 
 ### database

@@ -25,17 +25,7 @@ var (
 	log                    *slog.Logger
 	maxCacheAge                   = 500 * time.Millisecond
 	portDefault                   = 7777
-	defaultFrontendRefresh string = fmt.Sprintf("%dms", 500)
-)
-
-var (
-	ErrCookieMissing     = fmt.Errorf("session cookie missing")
-	ErrCookieInvalid     = fmt.Errorf("invalid session cookie")
-	ErrStateNoGame       = fmt.Errorf("no game found")
-	ErrFetchPlayers      = fmt.Errorf("fetching players failed")
-	ErrTopicInvalid      = fmt.Errorf("topic invalid for context or does not exist")
-	ErrActionInvaid      = fmt.Errorf("action invalid for context or does not exist")
-	ErrReadParseTemplate = fmt.Errorf("cannot read and parse template")
+	defaultFrontendRefresh string = fmt.Sprintf("%dms", 500) // passed to templates; htmx-refresh
 )
 
 // Cards of type "modifier" have specific consequences,
@@ -77,41 +67,54 @@ func main() {
 	mux.Handle("/{game_id}/action/{action}", logMW(rateMW(http.HandlerFunc(actionHandler))))
 
 	ctx := context.Background()
-	// TODO: setup
 	opts := postgres.PostgresOpts{
-		Host:     "localhost",
-		User:     "postgres",
-		Password: "TODO:replace-temporary",
-		Port:     "5432",
-		Sslmode:  "disable",
+		Host:     envRequired("RULETTE_DB_HOST"),
+		User:     envRequired("RULETTE_DB_USER"),
+		Password: envRequired("RULETTE_DB_PASS"),
+		Name:     envRequired("RULETTE_DB_NAME"),
+		Port:     envRequired("RULETTE_DB_PORT"),
+		Sslmode:  envRequired("RULETTE_DB_SSL"),
 	}
-	// FIXME: replace with prod
-	db, close, err := postgres.NewTestDB(ctx, opts)
+
+	db, err := postgres.NewDB(ctx, opts)
 	if err != nil {
-		panic(fmt.Sprintf("create test database: %v", err))
+		panic(fmt.Sprintf("connect to database: %v", err))
 	}
-	defer close()
+	defer db.Conn.Close()
 	pool, err := db.Pool(ctx)
 	if err != nil {
-		panic(fmt.Sprintf("create test database pool: %v", err))
+		panic(fmt.Sprintf("create database pool: %v", err))
 	}
+	defer pool.Close()
 	dbPool = pool
 	queries = sqlc.New(pool)
-	log.Info("created test database and sqlc queries", "db", db)
-
+	if err := pool.Ping(ctx); err != nil {
+		log.Error("ping database failed",
+			"user", db.User,
+			"name", db.Name,
+			"host", db.Host,
+			"port", db.Port,
+			"sslmode", db.Sslmode,
+			"error", err,
+		)
+		panic(fmt.Sprintf("ping database: %v", err))
+	}
 	_, err = db.Conn.ExecContext(ctx, dbSchema)
 	if err != nil {
-		log.Error("schema migration", "error", err)
 		panic(fmt.Sprintf("schema migration: %v", err))
 	}
-	log.Info("database schema migrated")
-	port := os.Getenv("PORT")
+	log.Info("database ready",
+		"host", db.Host, "port", db.Port, "name", db.Name,
+	)
+	port := os.Getenv("RULETTE_PORT")
+	if port == "" {
+		port = os.Getenv("PORT")
+	}
 	if port == "" {
 		port = fmt.Sprintf("%d", portDefault)
 	}
 	log.Info("starting server", "port", port)
-	err = http.ListenAndServe(fmt.Sprintf(":%v", port), mux)
-	if err != nil {
+	if err := http.ListenAndServe(fmt.Sprintf(":%v", port), mux); err != nil {
 		log.Error("server failed", "error", err)
 		panic(fmt.Sprintf("server failed: %v", err))
 	}
