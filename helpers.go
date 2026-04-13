@@ -12,6 +12,6 @@ func envRequired(key string) string {
 	if v := os.Getenv(key); v != "" {
 		return v
 	}
-	err := fmt.Errorf("required environment variable missing: %w", key)
+	err := fmt.Errorf("required environment variable missing: %s", key)
 	panic(err)
 }
