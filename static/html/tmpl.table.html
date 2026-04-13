@@ -1,13 +1,27 @@
 <article id="table" class="table">
   <h2>table</h2>
+  {{ $cid := .CallerID }}
+  {{ $gid := .Game.ID }}
+  {{ $isHost := false }}
   {{ if eq .Game.StateName "inviting" }}
-  <section class="action">
-    <button class="button"
-      hx-post="/{{ .Game.ID }}/action/start" 
-      hx-swap="none">
-      Start Game
-    </button>
-  </section>
+    {{ range .Players }}
+      {{ if and (eq .Initiative.Int32 0) (eq $cid .PlayerID) }}
+        {{ $isHost = true }}
+      {{ end }}
+    {{ end }}
+    {{ if $isHost }}
+    <section class="action">
+      <button class="button"
+        hx-post="/{{ $gid }}/action/start"
+        hx-swap="none">
+        Start Game
+      </button>
+    </section>
+    {{ else }}
+    <section class="action">
+      <p>waiting for host to start the game…</p>
+    </section>
+    {{ end }}
   {{ else }}
   <section class="action">
     <button class="button" 
@@ -16,7 +30,7 @@
       <!-- TODO: make spin button disappear, replace with rolled card -->
       Spin
     </button>
-    <button class="button" onclick="document.getElementById('hey-dialog').showModal()">
+    <button class="button" data-open-dialog="hey-dialog" data-fetch-event="loadAccuse">
       hey!
     </button>
     <button class="button"
@@ -27,3 +41,46 @@
   </section>
   {{ end }}
 </article>
+{{ if eq .Game.StateName "pending" }}
+  {{ range .Players }}
+    {{ if eq .Initiative.Int32 $.Game.InitiativeCurrent.Int32 }}
+      {{ $pid := .PlayerID }}
+      {{ $pname := .Name }}
+      {{ $effect := "" }}
+      {{ range $.CardsPlayers }}
+        {{ if and (eq .PlayerID.Int32 $pid) (eq .Type "modifier") }}
+          {{ $effect = .ModifierEffect.String }}
+        {{ end }}
+      {{ end }}
+      <div id="modifier-content" hx-swap-oob="true"
+        data-turn-player="{{ $pname }}" data-effect="{{ $effect }}">
+        <p>You drew a <strong>{{ $effect }}</strong> card!</p>
+        <p>Choose a card to {{ $effect }}:</p>
+        {{ if or (eq $effect "clone") (eq $effect "transfer") }}
+        <fieldset>
+          <legend>Target player:</legend>
+          {{ range $.Players }}
+            {{ if ne .PlayerID $pid }}
+            <label class="accuse-option">
+              <input type="radio" name="target_player_id" value="{{ .PlayerID }}">
+              {{ .Name }}
+            </label>
+            {{ end }}
+          {{ end }}
+        </fieldset>
+        {{ end }}
+        {{ range $.CardsPlayers }}
+          {{ if and (eq .PlayerID.Int32 $pid) (eq .Type "rule") }}
+          <button class="button modifier-card-btn"
+            data-game-card-id="{{ .ID }}"
+            data-action="/{{ $.Game.ID }}/action/{{ $effect }}">
+            {{ .Content }}
+          </button>
+          {{ end }}
+        {{ end }}
+      </div>
+    {{ end }}
+  {{ end }}
+{{ else }}
+  <div id="modifier-content" hx-swap-oob="true"></div>
+{{ end }}
