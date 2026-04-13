@@ -221,23 +221,14 @@ func dataHandler(w http.ResponseWriter, r *http.Request) {
 				http.Error(w, "internal server error", http.StatusInternalServerError)
 			}
 			return
-		case "self": // TODO: can this be inferred from "state", maybe?
-			for _, p := range state.Players {
-				if p.SessionKey.String == cookieKey {
-					w.Header().Set("Content-Type", "text/plain")
-					fmt.Fprint(w, p.Name)
-					return
-				}
-			}
-			log.Warn("player not found in game", "cookie_key", cookieKey)
-			http.Error(w, "player not found", http.StatusNotFound)
-			return
 		case "infraction":
 			if state.Game.StateID != 5 {
+				log.Debug("infraction poll outside challenge state", "state_id", state.Game.StateID)
 				w.WriteHeader(http.StatusNoContent)
 				return
 			}
 			if !state.isHost(cookieKey) {
+				log.Info("infraction submitted by non-host")
 				w.WriteHeader(http.StatusForbidden)
 				return
 			}
