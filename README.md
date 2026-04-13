@@ -24,9 +24,9 @@ bin/test -v
 
 
 #### run
-Start the backend (with optional 'debug' level logging):
+Start the backend (with 'debug' level logging):
 ```
-RULETTE_DB_LOCAL=1 DEBUG=1 go run .
+bin/dev
 ```
 
 #### debug

@@ -52,6 +52,9 @@ printf "waiting for %s to be ready..." ${CONTAINER}
 for _ in $(seq 1 30); do
   if docker exec "$CONTAINER" pg_isready -U "$USER" >/dev/null 2>&1; then
     printf "\n"
+    mkdir -p "/tmp/rulette"
+    touch "/tmp/rulette/db-ready"
+    trap "rm -f /tmp/rulette/db-ready" EXIT
     echo "${CONTAINER} ready on :${PORT}"
     echo
     echo "ctrl-c to stop"
