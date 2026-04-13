@@ -311,28 +311,28 @@ func actionHandler(w http.ResponseWriter, r *http.Request) {
 						`{"refreshTable":null,"modifierShredded":"`+lastSpin.ModifierEffect.String+`"}`)
 					w.WriteHeader(http.StatusOK)
 					return
-				} else {
-					log.Info("modifier drawn, entering pending state",
+				}
+
+				log.Info("modifier drawn, entering pending state",
+					"game_id", gameID,
+					"effect", lastSpin.ModifierEffect.String,
+					"player_id", id,
+				)
+				err = queries.GameUpdate(r.Context(), sqlc.GameUpdateParams{
+					ID:      gameID,
+					StateID: 4, // pending
+					InitiativeCurrent: pgtype.Int4{
+						Int32: state.Game.InitiativeCurrent.Int32,
+						Valid: true,
+					},
+				})
+				if err != nil {
+					log.Error("transition to pending",
+						"error", err,
 						"game_id", gameID,
-						"effect", lastSpin.ModifierEffect.String,
-						"player_id", id,
 					)
-					err = queries.GameUpdate(r.Context(), sqlc.GameUpdateParams{
-						ID:      gameID,
-						StateID: 4, // pending
-						InitiativeCurrent: pgtype.Int4{
-							Int32: state.Game.InitiativeCurrent.Int32,
-							Valid: true,
-						},
-					})
-					if err != nil {
-						log.Error("transition to pending",
-							"error", err,
-							"game_id", gameID,
-						)
-						http.Error(w, "server error", http.StatusInternalServerError)
-						return
-					}
+					http.Error(w, "server error", http.StatusInternalServerError)
+					return
 				}
 			}
 
