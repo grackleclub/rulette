@@ -1,3 +1,13 @@
+:root {
+  --color-bg: #e8e1d5;
+  --color-surface: #fdfaf5;
+  --color-primary: #FFC1C1;
+  --color-accent: #c77676;
+  --color-text: #2b2623;
+  --color-shadow: rgba(40, 30, 30, 0.22);
+  --color-shadow-soft: rgba(40, 30, 30, 0.15);
+}
+
 /* reset */
 *,
 *::before,
@@ -20,6 +30,8 @@ body {
   align-items: center;
   padding: 1em;
   gap: 1em;
+  background: var(--color-bg);
+  color: var(--color-text);
 }
 
 ul,
@@ -43,9 +55,9 @@ ol {
 }
 
 .surface {
-  background: white;
+  background: var(--color-surface);
   border-radius: .5em;
-  box-shadow: 0 .25em .5em rgba(0, 0, 0, 0.2);
+  box-shadow: 0 .25em .5em var(--color-shadow-soft);
 }
 
 .actions {
@@ -55,17 +67,19 @@ ol {
 }
 
 .button {
-  background: #FFC1C1;
+  background: var(--color-primary);
+  color: var(--color-text);
   border: none;
   border-radius: .5em;
   padding: .75em 1.25em;
   font: inherit;
   cursor: pointer;
-  box-shadow: 0 .25em .5em rgba(0, 0, 0, 0.25);
+  box-shadow: 0 .25em .5em var(--color-shadow-soft);
 }
 
 .button:hover {
-  filter: brightness(0.95);
+  background: var(--color-accent);
+  color: var(--color-surface);
 }
 
 /* game card (the big rule card shown to players) */
@@ -78,9 +92,9 @@ ol {
   width: 20em;
   min-height: 35em;
   padding: 1em;
-  background: white;
+  background: var(--color-surface);
   border-radius: .5em;
-  box-shadow: 0 .5em .75em rgba(0, 0, 0, 0.25);
+  box-shadow: 0 .5em .75em var(--color-shadow);
 }
 
 .card-float {
@@ -118,14 +132,16 @@ footer {
 }
 
 .accuse-option:hover {
-  background: #FFC1C1;
+  background: var(--color-primary);
 }
 
 dialog {
   border: none;
   border-radius: .5em;
   padding: 1.5em;
-  box-shadow: 0 .5em 1em rgba(0, 0, 0, 0.4);
+  background: var(--color-surface);
+  color: var(--color-text);
+  box-shadow: 0 .5em 1em var(--color-shadow);
 }
 
 dialog fieldset {
