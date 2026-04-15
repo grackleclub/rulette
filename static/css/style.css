@@ -1,58 +1,98 @@
-* {
-    font-family: 'Roboto', sans-serif;
-    border: 1px dotted #000;
-    box-sizing: border-box;
-	  color: rebeccapurple;
-    border-radius: .5rem;
-    background: #9C9C9C;
-}
-
 /* reset */
-*, *::before, *::after {
-    box-sizing: border-box;
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+  margin: 0;
 }
 
-* {
-    margin: 0;
+html {
+  font-size: 16px;
 }
 
 body {
-    line-height: 1;
-    -webkit-font-smoothing: antialiased;
+  font-family: 'Roboto', sans-serif;
+  line-height: 1.4;
+  -webkit-font-smoothing: antialiased;
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 1em;
+  gap: 1em;
 }
 
 ul,
-ol,
-ul[class], 
-ol[class] {
-    list-style: none;
-    padding: 0;
+ol {
+  list-style: none;
+  padding: 0;
 }
 
-/* custom styles */
-body {
-  position: relative;
+/* primitives */
+.stack {
   display: flex;
   flex-direction: column;
-  justify-content: center;
-  align-items: center;
-  min-height: 100vh;
+  gap: .75em;
 }
 
-footer {
-  margin-top: auto;
-  text-align: center;
-}
-
-
-.players {
+.panel {
   display: flex;
   flex-direction: column;
   gap: .75em;
   padding: .75em;
-  /* position: relative;
-  min-height: 20em;
-  width: 100%; */
+}
+
+.surface {
+  background: white;
+  border-radius: .5em;
+  box-shadow: 0 .25em .5em rgba(0, 0, 0, 0.2);
+}
+
+.actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: .75em;
+}
+
+.button {
+  background: #FFC1C1;
+  border: none;
+  border-radius: .5em;
+  padding: .75em 1.25em;
+  font: inherit;
+  cursor: pointer;
+  box-shadow: 0 .25em .5em rgba(0, 0, 0, 0.25);
+}
+
+.button:hover {
+  filter: brightness(0.95);
+}
+
+/* game card (the big rule card shown to players) */
+.card {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  gap: 1em;
+  width: 20em;
+  min-height: 35em;
+  padding: 1em;
+  background: white;
+  border-radius: .5em;
+  box-shadow: 0 .5em .75em rgba(0, 0, 0, 0.25);
+}
+
+.card-float {
+  display: grid;
+  place-items: center;
+  flex: 1;
+}
+
+/* layout regions */
+footer {
+  margin-top: auto;
+  text-align: center;
 }
 
 .invite {
@@ -68,70 +108,31 @@ footer {
   pointer-events: auto;
 }
 
-.button {
-  background: #FFC1C1;
-  padding: 3em;
-  box-shadow: 0 .5em .75em rgba(0, 0, 0, 0.4);
-}
-
-.card-float {
-  display: grid;
-  place-items: center;
-  flex: 1;
-}
-
-.card {
-  background: white;
-  display: flex;
-  flex-direction: column;
-  justify-content: center;
-  align-items: center;
-  width: 20em;
-  min-height: 35em;
-  margin: 1em;
-  padding: .5em;
-  line-height: 1.6;
-  gap: 1em;
-  }
-
-
-.player {
-  background: white;
-}
-
-.player div {
-  background: white;
-}
-
-/* accuse panel */
-.accuse-panel {
-  background: white;
-  padding: 1.5em;
-  box-shadow: 0 .5em 1em rgba(0, 0, 0, 0.4);
-  margin-top: 1em;
-}
-
-.accuse-panel fieldset {
-  border: none;
-  padding: 0;
-  display: flex;
-  flex-direction: column;
-  gap: 0.75em;
-  margin-bottom: 1em;
-}
-
+/* accuse dialog */
 .accuse-option {
   display: flex;
   align-items: center;
-  gap: 0.5em;
+  gap: .5em;
+  padding: .5em;
   cursor: pointer;
-  padding: 0.5em;
 }
 
 .accuse-option:hover {
   background: #FFC1C1;
 }
 
-/* #table {
-  display: none;
-} */
+dialog {
+  border: none;
+  border-radius: .5em;
+  padding: 1.5em;
+  box-shadow: 0 .5em 1em rgba(0, 0, 0, 0.4);
+}
+
+dialog fieldset {
+  border: none;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: .75em;
+  margin-bottom: 1em;
+}
