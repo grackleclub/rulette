@@ -11,6 +11,7 @@ import (
 
 	"github.com/grackleclub/postgres"
 	sqlc "github.com/grackleclub/rulette/db/sqlc"
+	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/stretchr/testify/require"
 )
 
@@ -19,19 +20,12 @@ type testuser struct {
 	cookie   *http.Cookie
 }
 
-var users = map[string]testuser{
-	"bob": {
-		username: "Bobson Dugnut",
-		cookie:   nil,
-	},
-	"mike": {
-		username: "Mike Truk",
-		cookie:   nil,
-	},
-	"todd": {
-		username: "Todd Bonzales",
-		cookie:   nil,
-	},
+// ordered to match bin/mock: first player is host (initiative 0)
+var users = []testuser{
+	{username: "Sam"},
+	{username: "Oscar"},
+	{username: "Anna"},
+	{username: "Jeremy"},
 }
 
 func TestGame(t *testing.T) {
@@ -54,6 +48,7 @@ func TestGame(t *testing.T) {
 	pool, err := db.Pool(ctx)
 	require.NoError(t, err)
 	require.NotNil(t, pool)
+	dbPool = pool
 	queries = sqlc.New(pool)
 	require.NotNil(t, queries)
 	t.Log("queries created")
@@ -101,7 +96,7 @@ func TestGame(t *testing.T) {
 	})
 	// join game
 	t.Run("POST /{game_id}/join", func(t *testing.T) {
-		for k, user := range users {
+		for i, user := range users {
 			values := url.Values{}
 			values.Set("username", user.username)
 			u := &url.URL{
@@ -118,8 +113,7 @@ func TestGame(t *testing.T) {
 			var found bool
 			for _, cookie := range cookies {
 				if cookie.Name == "session" {
-					user.cookie = cookie
-					users[k] = user
+					users[i].cookie = cookie
 					found = true
 				}
 			}
@@ -130,7 +124,7 @@ func TestGame(t *testing.T) {
 		}
 		// duplicate should fail
 		values := url.Values{}
-		values.Set("username", users["bob"].username)
+		values.Set("username", users[0].username)
 		u := &url.URL{
 			Path:     fmt.Sprintf("/%s/join", gameID),
 			RawQuery: values.Encode(),
@@ -139,14 +133,14 @@ func TestGame(t *testing.T) {
 		w := httptest.NewRecorder()
 		joinHandler(w, req)
 		require.Equal(t, http.StatusConflict, w.Result().StatusCode,
-			"should not be able to join game with duplicate username: %s", users["bob"].username,
+			"should not be able to join game with duplicate username: %s", users[0].username,
 		)
 	})
 
 	t.Run("GET /{game_id}/data/status (expect inviting)", func(t *testing.T) {
 		path := fmt.Sprintf("/%s/data/status", gameID)
 		req := httptest.NewRequest(http.MethodGet, path, nil)
-		req.AddCookie(users["bob"].cookie)
+		req.AddCookie(users[0].cookie)
 		w := httptest.NewRecorder()
 		dataHandler(w, req)
 		require.Equal(t, http.StatusOK, w.Result().StatusCode)
@@ -156,7 +150,7 @@ func TestGame(t *testing.T) {
 	t.Run("GET /{game_id}/data/players", func(t *testing.T) {
 		path := fmt.Sprintf("/%s/data/players", gameID)
 		req := httptest.NewRequest(http.MethodGet, path, nil)
-		req.AddCookie(users["bob"].cookie)
+		req.AddCookie(users[0].cookie)
 		w := httptest.NewRecorder()
 		dataHandler(w, req)
 		require.Equal(t, http.StatusOK, w.Result().StatusCode)
@@ -164,7 +158,7 @@ func TestGame(t *testing.T) {
 	t.Run("GET /{game_id}/data/table", func(t *testing.T) {
 		path := fmt.Sprintf("/%s/data/table", gameID)
 		req := httptest.NewRequest(http.MethodGet, path, nil)
-		req.AddCookie(users["bob"].cookie)
+		req.AddCookie(users[0].cookie)
 		w := httptest.NewRecorder()
 		dataHandler(w, req)
 		require.Equal(t, http.StatusOK, w.Result().StatusCode)
@@ -172,7 +166,7 @@ func TestGame(t *testing.T) {
 	t.Run("POST /{game_id}/action/start", func(t *testing.T) {
 		path := fmt.Sprintf("/%s/action/start", gameID)
 		req := httptest.NewRequest(http.MethodPost, path, nil)
-		req.AddCookie(users["bob"].cookie)
+		req.AddCookie(users[0].cookie)
 		w := httptest.NewRecorder()
 		actionHandler(w, req)
 		require.Equal(t, http.StatusOK, w.Result().StatusCode)
@@ -180,28 +174,316 @@ func TestGame(t *testing.T) {
 	t.Run("GET /{game_id}/data/status (expect=ready)", func(t *testing.T) {
 		path := fmt.Sprintf("/%s/data/status", gameID)
 		req := httptest.NewRequest(http.MethodGet, path, nil)
-		req.AddCookie(users["bob"].cookie)
+		req.AddCookie(users[0].cookie)
 		w := httptest.NewRecorder()
 		dataHandler(w, req)
 		require.Equal(t, http.StatusOK, w.Result().StatusCode)
 		status := w.Body.String()
 		require.Contains(t, status, "turn")
 	})
-	// spin
-	// TODO: implement the rest
-	t.Run("POST /{game_id}/action/spin", func(t *testing.T) {})
-	// - accuse, decide
-	//   - absolve
-	//   - convict
-	// - consequences
-	// - end game
-	// TODO: this requires host to make the request, and tests don't capture that
-	// t.Run("POST /{game_id}/action/end", func(t *testing.T) {
-	// 	path := fmt.Sprintf("/%s/action/end", gameID)
-	// 	req := httptest.NewRequest(http.MethodPost, path, nil)
-	// 	req.AddCookie(users["bob"].cookie)
-	// 	w := httptest.NewRecorder()
-	// 	actionHandler(w, req)
-	// 	require.Equal(t, http.StatusGone, w.Result().StatusCode)
-	// })
+	// build initiative-ordered player list
+	players, err := queries.GamePlayerPoints(ctx, gameID)
+	require.NoError(t, err)
+	cookieByInitiative := make(map[int32]*http.Cookie)
+	for _, p := range players {
+		for _, u := range users {
+			if u.cookie != nil && u.cookie.Value != "" {
+				parts := strings.Split(u.cookie.Value, ":")
+				if len(parts) == 2 && parts[0] == fmt.Sprintf("%d", p.PlayerID) {
+					cookieByInitiative[p.Initiative.Int32] = u.cookie
+				}
+			}
+		}
+	}
+
+	// spin through the entire deck, advancing initiative each turn
+	t.Run("POST /{game_id}/action/spin (exhaust deck)", func(t *testing.T) {
+		state, err := queries.GameState(ctx, gameID)
+		require.NoError(t, err)
+		current := state.InitiativeCurrent.Int32
+		maxInit := int32(0)
+		for _, p := range players {
+			if p.Initiative.Int32 > maxInit {
+				maxInit = p.Initiative.Int32
+			}
+		}
+
+		const maxSpins = 200
+		var exhausted bool
+		for i := 0; i < maxSpins; i++ {
+			c := cookieByInitiative[current]
+			require.NotNil(t, c, "no cookie for initiative %d", current)
+
+			path := fmt.Sprintf("/%s/action/spin", gameID)
+			req := httptest.NewRequest(http.MethodPost, path, nil)
+			req.AddCookie(c)
+			w := httptest.NewRecorder()
+			cache.Delete(gameID)
+			actionHandler(w, req)
+
+			if w.Result().StatusCode == http.StatusGone {
+				t.Logf("deck exhausted after %d spins", i)
+				exhausted = true
+				break
+			}
+			require.Equal(t, http.StatusOK, w.Result().StatusCode,
+				"spin %d failed", i,
+			)
+
+			// check if we entered pending state (modifier drawn)
+			cache.Delete(gameID)
+			gs, err := queries.GameState(ctx, gameID)
+			require.NoError(t, err)
+			if gs.StateID == 4 {
+				lastSpin, err := queries.SpinLogPendingModifier(ctx, gameID)
+				require.NoError(t, err)
+				effect := lastSpin.ModifierEffect.String
+				t.Logf("spin %d: modifier=%s, state=pending", i, effect)
+
+				// find a card the current player holds to target
+				cards, err := queries.GameCardsPlayerView(ctx, gameID)
+				require.NoError(t, err)
+				var targetCard int32
+				for _, card := range cards {
+					if card.PlayerID.Int32 == lastSpin.PlayerID.Int32 &&
+						card.Type == "rule" {
+						targetCard = card.ID
+						break
+					}
+				}
+
+				// pick a different player as target for clone/transfer
+				var targetPlayer int32
+				for _, p := range players {
+					if p.PlayerID != lastSpin.PlayerID.Int32 {
+						targetPlayer = p.PlayerID
+						break
+					}
+				}
+
+				var actionPath string
+				switch effect {
+				case modFlip:
+					actionPath = fmt.Sprintf("/%s/action/flip?game_card_id=%d",
+						gameID, targetCard,
+					)
+				case modShred:
+					actionPath = fmt.Sprintf("/%s/action/shred?game_card_id=%d",
+						gameID, targetCard,
+					)
+				case modClone:
+					actionPath = fmt.Sprintf(
+						"/%s/action/clone?game_card_id=%d&target_player_id=%d",
+						gameID, targetCard, targetPlayer,
+					)
+				case modTransfer:
+					actionPath = fmt.Sprintf(
+						"/%s/action/transfer?game_card_id=%d&target_player_id=%d",
+						gameID, targetCard, targetPlayer,
+					)
+				}
+
+				if targetCard == 0 {
+					// no rule card to target, just reset state
+					t.Logf("spin %d: no rule card to target, skipping", i)
+					err = queries.GameUpdate(ctx, sqlc.GameUpdateParams{
+						ID:      gameID,
+						StateID: 3,
+						InitiativeCurrent: pgtype.Int4{
+							Int32: gs.InitiativeCurrent.Int32,
+							Valid: true,
+						},
+					})
+					require.NoError(t, err)
+				} else {
+					modReq := httptest.NewRequest(http.MethodPost, actionPath, nil)
+					modReq.AddCookie(c)
+					modW := httptest.NewRecorder()
+					cache.Delete(gameID)
+					actionHandler(modW, modReq)
+					require.Equal(t, http.StatusOK, modW.Result().StatusCode,
+						"spin %d: %s action failed", i, effect,
+					)
+					t.Logf("spin %d: %s resolved", i, effect)
+					// modifier auto-advances initiative, skip manual next
+					current = (current % maxInit) + 1
+					continue
+				}
+			}
+
+			// host advances initiative via action handler
+			cache.Delete(gameID)
+			nextPath := fmt.Sprintf("/%s/action/next", gameID)
+			nextReq := httptest.NewRequest(http.MethodPost, nextPath, nil)
+			nextReq.AddCookie(cookieByInitiative[0]) // host
+			nextW := httptest.NewRecorder()
+			actionHandler(nextW, nextReq)
+			require.Equal(t, http.StatusOK, nextW.Result().StatusCode,
+				"next failed on spin %d", i,
+			)
+			current = (current % maxInit) + 1
+		}
+		require.True(t, exhausted, "deck not exhausted within %d spins", maxSpins)
+	})
+
+	// reset game to a playable state for accuse/decide tests
+	err = queries.GameUpdate(ctx, sqlc.GameUpdateParams{
+		ID:      gameID,
+		StateID: 3,
+		InitiativeCurrent: pgtype.Int4{
+			Int32: 1, Valid: true,
+		},
+	})
+	require.NoError(t, err)
+	cache.Delete(gameID)
+
+	// find a rule card held by a non-host player to accuse on
+	allCards, err := queries.GameCardsPlayerView(ctx, gameID)
+	require.NoError(t, err)
+	var accusedPlayerID int32
+	var ruleGameCardID int32
+	var accuserCookie *http.Cookie
+	for _, card := range allCards {
+		if card.Type == "rule" && card.PlayerID.Int32 != 1 {
+			accusedPlayerID = card.PlayerID.Int32
+			ruleGameCardID = card.ID
+			// accuser is a different non-host player
+			for _, p := range players {
+				if p.PlayerID != accusedPlayerID && p.Initiative.Int32 != 0 {
+					accuserCookie = cookieByInitiative[p.Initiative.Int32]
+					break
+				}
+			}
+			break
+		}
+	}
+	require.NotZero(t, ruleGameCardID, "need a rule card for accuse test")
+	require.NotNil(t, accuserCookie, "need an accuser cookie")
+
+	// get accused player's points before accusation
+	playersBefore, err := queries.GamePlayerPoints(ctx, gameID)
+	require.NoError(t, err)
+	var pointsBefore int32
+	for _, p := range playersBefore {
+		if p.PlayerID == accusedPlayerID {
+			pointsBefore = p.Points.Int32
+			break
+		}
+	}
+
+	t.Run("POST /{game_id}/action/accuse", func(t *testing.T) {
+		path := fmt.Sprintf(
+			"/%s/action/accuse?defendant_id=%d&game_card_id=%d",
+			gameID, accusedPlayerID, ruleGameCardID,
+		)
+		req := httptest.NewRequest(http.MethodPost, path, nil)
+		req.AddCookie(accuserCookie)
+		w := httptest.NewRecorder()
+		cache.Delete(gameID)
+		actionHandler(w, req)
+		require.Equal(t, http.StatusOK, w.Result().StatusCode)
+
+		// verify game entered challenge state
+		cache.Delete(gameID)
+		gs, err := queries.GameState(ctx, gameID)
+		require.NoError(t, err)
+		require.Equal(t, int32(5), gs.StateID, "expected challenge state")
+	})
+
+	t.Run("POST /{game_id}/action/decide (non-host rejected)", func(t *testing.T) {
+		path := fmt.Sprintf(
+			"/%s/action/decide?infraction_id=1&verdict=affirm&points=2",
+			gameID,
+		)
+		req := httptest.NewRequest(http.MethodPost, path, nil)
+		req.AddCookie(accuserCookie) // not the host
+		w := httptest.NewRecorder()
+		cache.Delete(gameID)
+		actionHandler(w, req)
+		require.Equal(t, http.StatusForbidden, w.Result().StatusCode)
+	})
+
+	t.Run("POST /{game_id}/action/decide (affirm)", func(t *testing.T) {
+		penalty := int32(2)
+		path := fmt.Sprintf(
+			"/%s/action/decide?infraction_id=1&verdict=affirm&amount=%d&player_id=%d",
+			gameID, -penalty, accusedPlayerID,
+		)
+		req := httptest.NewRequest(http.MethodPost, path, nil)
+		req.AddCookie(cookieByInitiative[0]) // host
+		w := httptest.NewRecorder()
+		cache.Delete(gameID)
+		actionHandler(w, req)
+		require.Equal(t, http.StatusOK, w.Result().StatusCode)
+
+		// verify game returned to turn state
+		cache.Delete(gameID)
+		gs, err := queries.GameState(ctx, gameID)
+		require.NoError(t, err)
+		require.Equal(t, int32(3), gs.StateID, "expected turn state")
+
+		// verify points adjusted
+		playersAfter, err := queries.GamePlayerPoints(ctx, gameID)
+		require.NoError(t, err)
+		for _, p := range playersAfter {
+			if p.PlayerID == accusedPlayerID {
+				require.Equal(t, pointsBefore-penalty, p.Points.Int32,
+					"expected %d points deducted", penalty,
+				)
+				break
+			}
+		}
+	})
+
+	// test absolve flow
+	t.Run("POST /{game_id}/action/accuse (for absolve)", func(t *testing.T) {
+		path := fmt.Sprintf(
+			"/%s/action/accuse?defendant_id=%d&game_card_id=%d",
+			gameID, accusedPlayerID, ruleGameCardID,
+		)
+		req := httptest.NewRequest(http.MethodPost, path, nil)
+		req.AddCookie(accuserCookie)
+		w := httptest.NewRecorder()
+		cache.Delete(gameID)
+		actionHandler(w, req)
+		require.Equal(t, http.StatusOK, w.Result().StatusCode)
+	})
+
+	t.Run("POST /{game_id}/action/decide (absolve)", func(t *testing.T) {
+		path := fmt.Sprintf(
+			"/%s/action/decide?infraction_id=2&verdict=absolve",
+			gameID,
+		)
+		req := httptest.NewRequest(http.MethodPost, path, nil)
+		req.AddCookie(cookieByInitiative[0]) // host
+		w := httptest.NewRecorder()
+		cache.Delete(gameID)
+		actionHandler(w, req)
+		require.Equal(t, http.StatusOK, w.Result().StatusCode)
+
+		// verify game returned to turn state
+		cache.Delete(gameID)
+		gs, err := queries.GameState(ctx, gameID)
+		require.NoError(t, err)
+		require.Equal(t, int32(3), gs.StateID)
+	})
+
+	t.Run("POST /{game_id}/action/end", func(t *testing.T) {
+		// ensure game is in a playable state first
+		err := queries.GameUpdate(ctx, sqlc.GameUpdateParams{
+			ID:      gameID,
+			StateID: 3,
+			InitiativeCurrent: pgtype.Int4{
+				Int32: 1, Valid: true,
+			},
+		})
+		require.NoError(t, err)
+		path := fmt.Sprintf("/%s/action/end", gameID)
+		req := httptest.NewRequest(http.MethodPost, path, nil)
+		req.AddCookie(cookieByInitiative[0]) // host
+		w := httptest.NewRecorder()
+		cache.Delete(gameID)
+		actionHandler(w, req)
+		require.Equal(t, http.StatusGone, w.Result().StatusCode)
+	})
 }

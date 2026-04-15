@@ -1,0 +1,74 @@
+#!/usr/bin/env bash
+
+set -euo pipefail
+
+CONTAINER="rulette-db-dev"
+ENV_FILE="dev.env"
+VERBOSE=""
+
+for arg in "$@"; do
+  case "$arg" in
+    -v | --verbose) VERBOSE=1 ;;
+    *) ENV_FILE="$arg" ;;
+  esac
+done
+
+if ! [ -f "$ENV_FILE" ]; then
+  echo "error: env file not found: $ENV_FILE" >&2
+  exit 1
+fi
+
+# shellcheck source=/dev/null
+source "$ENV_FILE"
+
+PORT="${RULETTE_DB_PORT}"
+USER="${RULETTE_DB_USER}"
+PASS="${RULETTE_DB_PASS}"
+DB="${RULETTE_DB_NAME}"
+
+cleanup() {
+  echo ""
+  echo "stopping ${CONTAINER}..."
+  docker rm -f "$CONTAINER" >/dev/null 2>&1 || true
+}
+trap cleanup EXIT
+
+# remove stale container if it exists
+docker rm -f "$CONTAINER" >/dev/null 2>&1 || true
+
+if ! docker run -d \
+  --name "$CONTAINER" \
+  -p "${PORT}:5432" \
+  -e POSTGRES_USER="$USER" \
+  -e POSTGRES_PASSWORD="$PASS" \
+  -e POSTGRES_DB="$DB" \
+  postgres:17-alpine >/dev/null; then
+  echo "error: failed to start container" >&2
+  exit 1
+fi
+
+# wait for ready
+printf "waiting for %s to be ready..." ${CONTAINER}
+for _ in $(seq 1 30); do
+  if docker exec "$CONTAINER" pg_isready -U "$USER" >/dev/null 2>&1; then
+    printf "\n"
+    mkdir -p "/tmp/rulette"
+    touch "/tmp/rulette/db-ready"
+    trap "rm -f /tmp/rulette/db-ready" EXIT
+    echo "${CONTAINER} ready on :${PORT}"
+    echo
+    echo "ctrl-c to stop"
+    echo
+    if [ -n "$VERBOSE" ]; then
+      echo "VERBOSE enabled, showing logs for ${CONTAINER}..."
+      docker logs -f "$CONTAINER"
+    else
+      sleep infinity
+    fi
+  fi
+  printf "."
+  sleep 0.5
+done
+
+echo "error: ${CONTAINER} failed to become ready" >&2
+exit 1

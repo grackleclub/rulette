@@ -1,6 +1,7 @@
 package main
 
 import (
+	"fmt"
 	"net/http"
 	"strings"
 	"time"
@@ -16,6 +17,9 @@ type state struct {
 	CardsWheel   []sqlc.GameCardsWheelViewRow  // hidden cards on the wheel
 	CardsPlayers []sqlc.GameCardsPlayerViewRow // revealed cards held by players
 	Config       map[string]string             // generic baggage (e.g. frontend refresh rate)
+	Infractions  []sqlc.Infractions            // infraction history
+	CallerID     int                           // init empty, copies populated by callerInfo()
+	CallerName   string                        // init empty, copies populated by callerInfo()
 }
 
 // isPlayerInGame returns true when cookieKey exists in game_players.
@@ -58,6 +62,39 @@ func (s *state) isPlayerTurn(cookieKey string) bool {
 	return false
 }
 
+func (s *state) callerID(cookieKey string) (int, error) {
+	for _, player := range s.Players {
+		if player.SessionKey.String == cookieKey {
+			return int(player.PlayerID), nil
+		}
+	}
+	return 0, fmt.Errorf("player not in game")
+}
+
+func (s *state) callerName(cookieKey string) (string, error) {
+	for _, player := range s.Players {
+		if player.SessionKey.String == cookieKey {
+			return player.Name, nil
+		}
+	}
+	return "", fmt.Errorf("player not in game")
+}
+
+func (s *state) callerInfo(cookieKey string) error {
+	callerID, err := s.callerID(cookieKey)
+	if err != nil {
+		return fmt.Errorf("determine caller id: %w", err)
+	}
+	s.CallerID = callerID
+
+	callerName, err := s.callerName(cookieKey)
+	if err != nil {
+		return fmt.Errorf("determine caller name: %w", err)
+	}
+	s.CallerName = callerName
+	return nil
+}
+
 // cookie inspects the request for cookie and returns
 // the player ID and session key, or any error.
 //
@@ -79,4 +116,15 @@ func cookie(r *http.Request) (string, string, error) {
 	cookieID = parts[0]
 	cookieKey = parts[1]
 	return cookieID, cookieKey, nil
+}
+
+// isGameActive returns true when when game is active
+// and players can accuse each other.
+func (s *state) isGameActive() bool {
+	switch s.Game.StateID {
+	case 3, 4, 5:
+		return true
+	default:
+		return false
+	}
 }

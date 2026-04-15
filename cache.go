@@ -7,13 +7,6 @@ import (
 	"time"
 )
 
-// TODO: interface?
-// type cacher interface {
-// 	set() error
-// 	get() (state, error)
-// 	clean() error
-// }
-
 // stateFromCacheOrDB returns the current state of the game specified by gameID,
 // drawing from cache if newer than maxCacheAge, otherwise fetching from the database.
 func stateFromCacheOrDB(ctx context.Context, cache *sync.Map, gameID string) (state, error) {
@@ -71,6 +64,14 @@ func fetchStateFromDB(ctx context.Context, gameID string) (state, error) {
 	if err != nil {
 		return state{}, fmt.Errorf("fetch wheel cards for game: %w", err)
 	}
+	// get infraction history
+	infractions, err := queries.InfractionsByGame(ctx, gameID)
+	if err != nil {
+		return state{}, fmt.Errorf("fetch infractions for game: %w", err)
+	}
+	if len(infractions) == 0 {
+		log.Debug("no infractions to fetch", "game_id", gameID)
+	}
 
 	log.Debug("fetched game state and players",
 		"player_count", len(players),
@@ -84,5 +85,6 @@ func fetchStateFromDB(ctx context.Context, gameID string) (state, error) {
 		Updated:      time.Now().UTC(),
 		CardsWheel:   cardsWheel,
 		CardsPlayers: cardsPlayers,
+		Infractions:  infractions,
 	}, nil
 }

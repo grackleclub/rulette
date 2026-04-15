@@ -8,6 +8,7 @@ sql:
       - "queries/game_cards.sql"
       - "queries/infractions.sql"
       - "queries/initiative.sql"
+      - "queries/log.sql"
       - "queries/player.sql"
     schema: "schema.sql"
     gen:
