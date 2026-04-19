@@ -1,8 +1,17 @@
+{{ $cid := .CallerID }}
+{{ $isHost := false }}
+{{ range .Players }}
+  {{ if and (eq .Initiative.Int32 0) (eq $cid .PlayerID) }}
+    {{ $isHost = true }}
+  {{ end }}
+{{ end }}
+{{ if $isHost }}
 <h2>Change Points</h2>
-<article class="action">
+<div class="actions">
   <button class="button" onclick="
     document.querySelectorAll('#points-dialog form').forEach(f => f.reset());
     document.getElementById('points-dialog').showModal()">
     Change Points
   </button>
-</article>
+</div>
+{{ end }}

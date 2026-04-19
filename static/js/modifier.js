@@ -6,15 +6,18 @@
   function getContent() {
     return document.getElementById("modifier-content");
   }
+  function getData() {
+    return document.getElementById("modifier-data");
+  }
 
   // after each htmx settle, check if modifier content was populated
   document.body.addEventListener("htmx:afterSettle", function () {
     var dialog = getDialog();
-    var content = getContent();
-    if (!content || !dialog) return;
+    var data = getData();
+    if (!data || !dialog) return;
     // dialog has content and a turn player set
-    var turnPlayer = content.dataset.turnPlayer;
-    if (!turnPlayer || !content.children.length) {
+    var turnPlayer = data.dataset.turnPlayer;
+    if (!turnPlayer || !data.children.length) {
       if (dialog.open) dialog.close();
       return;
     }
@@ -52,16 +55,16 @@
     e.preventDefault();
 
     var dialog = getDialog();
-    var content = getContent();
+    var data = getData();
     var action = btn.dataset.action;
     var cardId = btn.dataset.gameCardId;
     var url = action + "?game_card_id=" + cardId;
 
     // for clone/transfer, include target player
-    if (content) {
-      var effect = content.dataset.effect;
+    if (data) {
+      var effect = data.dataset.effect;
       if (effect === "clone" || effect === "transfer") {
-        var radio = content.querySelector(
+        var radio = data.querySelector(
           'input[name="target_player_id"]:checked'
         );
         if (!radio) {

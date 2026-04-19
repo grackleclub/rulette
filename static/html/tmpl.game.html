@@ -4,6 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Rulette | {{ .Game.Name }}</title>
+    <link rel="icon" type="image/svg+xml" href="/static/img/favicon.svg">
     <link rel="stylesheet" href="/static/css/style.css"> 
     <script src="/static/js/htmx.min.js"></script>
     <script src="/static/js/accuse.js" defer></script>
@@ -13,34 +14,34 @@
   <body>
     <!-- <script src="index.js"></script> -->
     
-    <article id="title">
+    <article id="title" class="stack">
       <h1>{{ .Game.Name }}</h1>
       <footer>Playing as {{ .CallerName }}</footer>
-      <section id="status-fetch" hx-get="/{{ .Game.ID }}/data/status" 
-        hx-target="#status" hx-trigger="load, every {{ .Config.refresh }}" hx-swap="innerHTML">
-        <footer id="status">{{ .Game.StateName }}</footer>
+      <section id="status-fetch" hx-get="/{{ .Game.ID }}/data/status"
+        hx-target="#status-fetch" hx-trigger="load, every {{ .Config.refresh }}" hx-swap="innerHTML">
+        <footer class="status">{{ .Game.StateName }}</footer>
         <footer>{{ .Game.StateDescription }}</footer>
       </section>
     </article>
     
-    <section id="players" hx-get="/{{ .Game.ID }}/data/players" 
-    hx-target="#players" hx-trigger="load, every {{ .Config.refresh }}" hx-swap="innerHTML">
-      <article id="loading-players">
+    <section id="players" class="panel" hx-get="/{{ .Game.ID }}/data/players"
+      hx-target="#players" hx-trigger="load, every {{ .Config.refresh }}" hx-swap="innerHTML">
+      <div class="loading">
         <p>loading players...</p>
-      </article>
+      </div>
     </section>
 
-    <section id="table" hx-get="/{{ .Game.ID }}/data/table" 
-    hx-target="#table" hx-trigger="load, refreshTable from:body, every {{ .Config.refresh }}" hx-swap="innerHTML">
-      <article id="loading-table">
+    <section id="table" class="panel" hx-get="/{{ .Game.ID }}/data/table"
+      hx-target="#table" hx-trigger="load, refreshTable from:body, every {{ .Config.refresh }}" hx-swap="innerHTML">
+      <div class="loading">
         <p>loading table...</p>
-      </article>
+      </div>
     </section>
 
     <div id="modifier-notice" hidden></div>
 
     <dialog id="hey-dialog">
-      <div id="accuse-content"
+      <div id="accuse-content" class="dialog-body stack"
         hx-get="/{{ .Game.ID }}/data/accuse"
         hx-trigger="loadAccuse from:body"
         hx-swap="innerHTML">
@@ -56,41 +57,43 @@
     </div>
 
     <dialog id="decide-dialog">
-      <p>Verdict</p>
-      <form hx-post="/{{ $.Game.ID }}/action/decide" hx-swap="none"
-        data-close-on-success="decide-dialog">
-        <input type="hidden" name="verdict" value="absolve">
-        <input class="infraction-id-input" type="hidden" name="infraction_id" value="">
-        <button type="submit" class="button">deny</button>
-      </form>
-      <button class="button" data-affirm>affirm</button>
+      <div class="dialog-body stack">
+        <p>Verdict</p>
+        <form hx-post="/{{ $.Game.ID }}/action/decide" hx-swap="none"
+          data-close-on-success="decide-dialog">
+          <input type="hidden" name="verdict" value="absolve">
+          <input class="infraction-id-input" type="hidden" name="infraction_id" value="">
+          <button type="submit" class="button">deny</button>
+        </form>
+        <button class="button" data-affirm>affirm</button>
+      </div>
     </dialog>
 
     <dialog id="modifier-dialog">
-      <div id="modifier-content"></div>
+      <div id="modifier-content" class="dialog-body"></div>
     </dialog>
 
     <dialog id="points-dialog">
-      <p>Penalty for the accused</p>
-      <form hx-post="/{{ $.Game.ID }}/action/decide" hx-swap="none"
-        data-close-on-success="points-dialog">
-        <input type="hidden" name="verdict" value="affirm">
-        <input class="infraction-id-input" type="hidden" name="infraction_id" value="">
-        <label for="points-amount">points</label>
-        <input id="points-amount" type="number" name="amount" value="0" min="-99" max="99">
-        <button type="submit" class="button">submit</button>
-      </form>
-      <button class="button" data-close-dialog="points-dialog">nevermind</button>
+      <div class="dialog-body stack">
+        <p>Penalty for the accused</p>
+        <form hx-post="/{{ $.Game.ID }}/action/decide" hx-swap="none"
+          data-close-on-success="points-dialog">
+          <input type="hidden" name="verdict" value="affirm">
+          <input class="infraction-id-input" type="hidden" name="infraction_id" value="">
+          <label for="points-amount">points</label>
+          <input id="points-amount" type="number" name="amount" value="0" min="-99" max="99">
+          <button type="submit" class="button">submit</button>
+        </form>
+        <button class="button" data-close-dialog="points-dialog">nevermind</button>
+      </div>
     </dialog>
 
-    <section id="points" hx-get="/{{ .Game.ID }}/data/points"
-    hx-target="#points" hx-trigger="load, every {{ .Config.refresh }}" hx-swap="innerHTML">
-    <article id="loading-points">
-      <p>loading points...</p>
-    </article>
-  </section>
-
-
+    <section id="points" class="panel" hx-get="/{{ .Game.ID }}/data/points"
+      hx-target="#points" hx-trigger="load, every {{ .Config.refresh }}" hx-swap="innerHTML">
+      <div class="loading">
+        <p>loading points...</p>
+      </div>
+    </section>
 
     <footer>
       <small>
