@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"net/url"
+	"os"
 	"strings"
 	"testing"
 
@@ -28,15 +29,43 @@ var users = []testuser{
 	{username: "Jeremy"},
 }
 
-func TestGame(t *testing.T) {
-	t.Log("setting up db")
+// testDBOpts returns PostgresOpts for the test database, reading from
+// RULETTE_PG_URL when available and falling back to safe defaults.
+// NewTestDB uses testcontainers, so these credentials are only used to
+// configure the ephemeral container, not to connect to any external database.
+func testDBOpts(t *testing.T) postgres.PostgresOpts {
+	t.Helper()
 	opts := postgres.PostgresOpts{
-		Host:     "localhost",
 		User:     "postgres",
-		Password: "devpass",
-		Port:     "5432",
+		Password: "testcontainer",
+		Name:     "rulette",
 		Sslmode:  "disable",
 	}
+	pgURL := os.Getenv("RULETTE_PG_URL")
+	if pgURL == "" {
+		return opts
+	}
+	u, err := url.Parse(pgURL)
+	if err != nil {
+		t.Fatalf("parse RULETTE_PG_URL: %v", err)
+	}
+	if u.User != nil {
+		if username := u.User.Username(); username != "" {
+			opts.User = username
+		}
+		if pass, ok := u.User.Password(); ok && pass != "" {
+			opts.Password = pass
+		}
+	}
+	if dbName := strings.Trim(u.Path, "/"); dbName != "" {
+		opts.Name = dbName
+	}
+	return opts
+}
+
+func TestGame(t *testing.T) {
+	t.Log("setting up db")
+	opts := testDBOpts(t)
 	ctx := context.Background()
 	db, teardown, err := postgres.NewTestDB(ctx, opts)
 	require.NoError(t, err)
