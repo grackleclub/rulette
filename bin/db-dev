@@ -21,10 +21,20 @@ fi
 # shellcheck source=/dev/null
 source "$ENV_FILE"
 
-PORT="${RULETTE_DB_PORT}"
-USER="${RULETTE_DB_USER}"
-PASS="${RULETTE_DB_PASS}"
-DB="${RULETTE_DB_NAME}"
+# parse components from RULETTE_PG_URL (postgres://user:pass@host:port/dbname)
+_url="${RULETTE_PG_URL#postgres://}"
+_userinfo="${_url%%@*}"
+_hostpath="${_url#*@}"
+USER="${_userinfo%%:*}"
+PASS="${_userinfo#*:}"
+_hostport="${_hostpath%%/*}"
+DB="${_hostpath#*/}"
+DB="${DB%%\?*}"
+DB="${DB%%/*}"
+HOST="${_hostport%%:*}"
+PORT="${_hostport#*:}"
+if [ "$PORT" = "$HOST" ]; then PORT="5432"; fi
+unset _url _userinfo _hostpath _hostport
 
 cleanup() {
   echo ""
