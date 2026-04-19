@@ -7,7 +7,9 @@ import (
 	"fmt"
 	"log/slog"
 	"net/http"
+	"net/url"
 	"os"
+	"strings"
 	"sync"
 	"time"
 
@@ -68,13 +70,28 @@ func main() {
 	mux.Handle("/{game_id}/action/{action}", logMW(rateMW(http.HandlerFunc(actionHandler))))
 
 	ctx := context.Background()
+	// RULETTE_PG_URL is a postgres connection string, e.g.:
+	// postgres://user@host/rulette or postgres://user:pass@host:5432/db?sslmode=require
+	// Port defaults to 5432; sslmode defaults to the driver default if omitted.
+	dbURL, err := url.Parse(envRequired("RULETTE_PG_URL"))
+	if err != nil {
+		panic(fmt.Sprintf("parse database URL: %v", err))
+	}
+	if dbURL.User == nil || dbURL.User.Username() == "" {
+		panic("database URL must include a username")
+	}
+	dbName := strings.Trim(dbURL.Path, "/")
+	if dbName == "" {
+		panic("database URL must include database name (e.g. /dbname)")
+	}
+	pass, _ := dbURL.User.Password()
 	opts := postgres.PostgresOpts{
-		Host:     envRequired("RULETTE_DB_HOST"),
-		User:     envRequired("RULETTE_DB_USER"),
-		Password: envRequired("RULETTE_DB_PASS"),
-		Name:     envRequired("RULETTE_DB_NAME"),
-		Port:     envRequired("RULETTE_DB_PORT"),
-		Sslmode:  envRequired("RULETTE_DB_SSL"),
+		Host:     dbURL.Hostname(),
+		User:     dbURL.User.Username(),
+		Password: pass,
+		Name:     dbName,
+		Port:     dbURL.Port(),
+		Sslmode:  dbURL.Query().Get("sslmode"),
 	}
 
 	db, err := postgres.NewDB(ctx, opts)
