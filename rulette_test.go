@@ -33,7 +33,7 @@ func TestGame(t *testing.T) {
 	opts := postgres.PostgresOpts{
 		Host:     "localhost",
 		User:     "postgres",
-		Password: "TODO:replace-temporary",
+		Password: "devpass",
 		Port:     "5432",
 		Sslmode:  "disable",
 	}
