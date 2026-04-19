@@ -1,5 +1,5 @@
 :root {
-  --color-bg: #e8e1d5;
+  --color-bg: #afafaf;
   --color-surface: #fdfaf5;
   --color-primary: #FFC1C1;
   --color-accent: #c77676;
@@ -8,16 +8,17 @@
   --color-shadow-soft: rgba(40, 30, 30, 0.15);
 }
 
+/* for testing */
+/* * {
+  outline: 1px dotted black;
+} */
+
 /* reset */
 *,
 *::before,
 *::after {
   box-sizing: border-box;
   margin: 0;
-}
-
-html {
-  font-size: 16px;
 }
 
 body {
@@ -38,6 +39,32 @@ ul,
 ol {
   list-style: none;
   padding: 0;
+}
+
+input,
+select,
+textarea {
+  background: var(--color-surface);
+  color: var(--color-text);
+  border: 1px solid var(--color-accent);
+  border-radius: .5em;
+  padding: .25em;
+  font: inherit;
+}
+
+button,
+input[type="submit"] {
+  background: var(--color-primary);
+  color: var(--color-text);
+  border: none;
+  border-radius: .5em;
+  padding: .5em .5em;
+  font: inherit;
+  cursor: pointer;
+}
+
+a {
+  color: var(--color-accent);
 }
 
 /* primitives */
@@ -71,7 +98,7 @@ ol {
   color: var(--color-text);
   border: none;
   border-radius: .5em;
-  padding: .75em 1.25em;
+  padding: .5em .5em;
   font: inherit;
   cursor: pointer;
   box-shadow: 0 .25em .5em var(--color-shadow-soft);
@@ -104,7 +131,7 @@ ol {
 }
 
 /* layout regions */
-footer {
+body > footer {
   margin-top: auto;
   text-align: center;
 }
@@ -138,7 +165,7 @@ footer {
 dialog {
   border: none;
   border-radius: .5em;
-  padding: 1.5em;
+  padding: 1em;
   background: var(--color-surface);
   color: var(--color-text);
   box-shadow: 0 .5em 1em var(--color-shadow);

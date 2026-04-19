@@ -1,4 +1,4 @@
-<section class="panel">
+<!-- <section class="panel"> -->
   {{ $cid := .CallerID }}
   {{ $gid := .Game.ID }}
   {{ $isHost := false }}
@@ -36,7 +36,7 @@
       </button>
     </div>
   {{ end }}
-</section>
+<!-- </section> -->
 {{ if eq .Game.StateName "pending" }}
   {{ range .Players }}
     {{ if eq .Initiative.Int32 $.Game.InitiativeCurrent.Int32 }}
@@ -48,7 +48,8 @@
           {{ $effect = .ModifierEffect.String }}
         {{ end }}
       {{ end }}
-      <div id="modifier-content" class="stack" hx-swap-oob="true"
+      <div hx-swap-oob="innerHTML:#modifier-content">
+      <div id="modifier-data" class="stack"
         data-turn-player="{{ $pname }}" data-effect="{{ $effect }}">
         <p>You drew a <strong>{{ $effect }}</strong> card!</p>
         <p>Choose a card to {{ $effect }}:</p>
@@ -77,8 +78,9 @@
           {{ end }}
         </div>
       </div>
+      </div>
     {{ end }}
   {{ end }}
 {{ else }}
-  <div id="modifier-content" hx-swap-oob="true"></div>
+  <div hx-swap-oob="innerHTML:#modifier-content"></div>
 {{ end }}
