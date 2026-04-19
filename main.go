@@ -70,37 +70,27 @@ func main() {
 
 	ctx := context.Background()
 	// RULETTE_PG_URL is a postgres connection string, e.g.:
-	// postgres://user:password@host:5432/rulette?sslmode=require
+	// postgres://user@host/rulette or postgres://user:pass@host:5432/db?sslmode=require
+	// Port defaults to 5432; sslmode defaults to the driver default if omitted.
 	dbURL, err := url.Parse(envRequired("RULETTE_PG_URL"))
 	if err != nil {
 		panic(fmt.Sprintf("parse database URL: %v", err))
 	}
-	if dbURL.User == nil {
-		panic("database URL must include user info (username:password)")
+	if dbURL.User == nil || dbURL.User.Username() == "" {
+		panic("database URL must include a username")
 	}
-	pass, _ := dbURL.User.Password()
-	if pass == "" {
-		panic("database URL must include password")
-	}
-	dbPort := dbURL.Port()
-	if dbPort == "" {
-		panic("database URL must include port (e.g. :5432)")
-	}
-	sslmode := dbURL.Query().Get("sslmode")
-	if sslmode == "" {
-		panic("database URL must include sslmode parameter (e.g. ?sslmode=require)")
-	}
-	dbName := strings.TrimPrefix(dbURL.Path, "/")
+	dbName := strings.Trim(dbURL.Path, "/")
 	if dbName == "" {
 		panic("database URL must include database name (e.g. /dbname)")
 	}
+	pass, _ := dbURL.User.Password()
 	opts := postgres.PostgresOpts{
 		Host:     dbURL.Hostname(),
 		User:     dbURL.User.Username(),
 		Password: pass,
 		Name:     dbName,
-		Port:     dbPort,
-		Sslmode:  sslmode,
+		Port:     dbURL.Port(),
+		Sslmode:  dbURL.Query().Get("sslmode"),
 	}
 
 	db, err := postgres.NewDB(ctx, opts)
