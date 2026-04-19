@@ -9,6 +9,7 @@ import (
 	"net/http"
 	"net/url"
 	"os"
+	"strings"
 	"sync"
 	"time"
 
@@ -74,14 +75,32 @@ func main() {
 	if err != nil {
 		panic(fmt.Sprintf("parse database URL: %v", err))
 	}
+	if dbURL.User == nil {
+		panic("database URL must include user info (username:password)")
+	}
 	pass, _ := dbURL.User.Password()
+	if pass == "" {
+		panic("database URL must include password")
+	}
+	dbPort := dbURL.Port()
+	if dbPort == "" {
+		panic("database URL must include port (e.g. :5432)")
+	}
+	sslmode := dbURL.Query().Get("sslmode")
+	if sslmode == "" {
+		panic("database URL must include sslmode parameter (e.g. ?sslmode=require)")
+	}
+	dbName := strings.TrimPrefix(dbURL.Path, "/")
+	if dbName == "" {
+		panic("database URL must include database name (e.g. /dbname)")
+	}
 	opts := postgres.PostgresOpts{
 		Host:     dbURL.Hostname(),
 		User:     dbURL.User.Username(),
 		Password: pass,
-		Name:     dbURL.Path[1:], // strip leading "/"
-		Port:     dbURL.Port(),
-		Sslmode:  dbURL.Query().Get("sslmode"),
+		Name:     dbName,
+		Port:     dbPort,
+		Sslmode:  sslmode,
 	}
 
 	db, err := postgres.NewDB(ctx, opts)
