@@ -204,6 +204,23 @@ func dataHandler(w http.ResponseWriter, r *http.Request) {
 				http.Error(w, "internal server error", http.StatusInternalServerError)
 			}
 			return
+		case "change-points":
+			filepath := path.Join("static", "html", "tmpl.change_points_dialog.html")
+			tmpl, err := readParse(static, filepath)
+			if err != nil {
+				log.Error(ErrReadParseTemplate.Error(), "filepath", filepath, "error", err)
+				http.Error(w, "internal server error", http.StatusInternalServerError)
+				return
+			}
+			err = tmpl.Execute(w, state)
+			if err != nil {
+				log.Error("execute template",
+					"error", err,
+					"template", filepath,
+				)
+				http.Error(w, "internal server error", http.StatusInternalServerError)
+			}
+			return
 		case "accuse":
 			filepath := path.Join("static", "html", "tmpl.accuse_dialog.html")
 			tmpl, err := readParse(static, filepath)
