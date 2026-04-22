@@ -88,6 +88,25 @@
       </div>
     </dialog>
 
+    <dialog id="change-points-dialog">
+      <div class="dialog-body stack">
+        <p>Change Points</p>
+        <form hx-post="/{{ $.Game.ID }}/action/points" hx-swap="none"
+          data-close-on-success="change-points-dialog">
+          <label for="change-points-player">player</label>
+          <select id="change-points-player" name="player_id" required>
+            {{ range .Players }}
+              <option value="{{ .PlayerID }}">{{ .Name }}</option>
+            {{ end }}
+          </select>
+          <label for="change-points-amount">points</label>
+          <input id="change-points-amount" type="number" name="amount" value="0" min="-99" max="99">
+          <button type="submit" class="button">submit</button>
+        </form>
+        <button class="button" data-close-dialog="change-points-dialog">nevermind</button>
+      </div>
+    </dialog>
+
     <section id="points" class="panel" hx-get="/{{ .Game.ID }}/data/points"
       hx-target="#points" hx-trigger="load, every {{ .Config.refresh }}" hx-swap="innerHTML">
       <div class="loading">
