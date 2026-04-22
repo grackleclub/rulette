@@ -205,6 +205,25 @@ func dataHandler(w http.ResponseWriter, r *http.Request) {
 			}
 			return
 		case "change-points":
+			if !state.isHost(cookieKey) {
+				name, err := state.callerName(cookieKey)
+				if err != nil {
+					log.Warn("change-points can't get player name",
+						"game", gameID,
+					)
+				}
+				id, err := state.callerID(cookieKey)
+				if err != nil {
+					log.Warn("change-points can't get player id", "game", gameID)
+				}
+				log.Info("change-points requested by non-host",
+					"caller_name", name,
+					"caller_id", id,
+					"game", gameID,
+				)
+				w.WriteHeader(http.StatusForbidden)
+				return
+			}
 			filepath := path.Join("static", "html", "tmpl.change_points_dialog.html")
 			tmpl, err := readParse(static, filepath)
 			if err != nil {
