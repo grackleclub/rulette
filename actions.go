@@ -142,10 +142,15 @@ func actionHandler(w http.ResponseWriter, r *http.Request) {
 				return
 			}
 			playerStr := r.FormValue("player_id")
+			if playerStr == "" {
+				log.Info("missing player_id", "game_id", gameID)
+				http.Error(w, "missing player_id", http.StatusBadRequest)
+				return
+			}
 			amountStr := r.FormValue("amount")
-			if playerStr == "" || amountStr == "" {
-				log.Info("missing player_id or amount", "game_id", gameID)
-				http.Error(w, "missing player_id or amount", http.StatusBadRequest)
+			if amountStr == "" {
+				log.Info("missing amount", "game_id", gameID)
+				http.Error(w, "missing amount", http.StatusBadRequest)
 				return
 			}
 			targetID, err := strconv.Atoi(playerStr)
