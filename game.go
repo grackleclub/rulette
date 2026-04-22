@@ -208,18 +208,16 @@ func dataHandler(w http.ResponseWriter, r *http.Request) {
 			if !state.isHost(cookieKey) {
 				name, err := state.callerName(cookieKey)
 				if err != nil {
-					log.Warn("change-points can't get player name",
-						"game", gameID,
-					)
+					log.Warn("change-points can't get player name", "game_id", gameID)
 				}
 				id, err := state.callerID(cookieKey)
 				if err != nil {
-					log.Warn("change-points can't get player id", "game", gameID)
+					log.Warn("change-points can't get player id", "game_id", gameID)
 				}
 				log.Info("change-points requested by non-host",
 					"caller_name", name,
 					"caller_id", id,
-					"game", gameID,
+					"game_id", gameID,
 				)
 				w.WriteHeader(http.StatusForbidden)
 				return
