@@ -1,17 +1,19 @@
 :root {
   --color-bg: #afafaf;
-  --color-surface: #fdfaf5;
-  --color-primary: #FFC1C1;
-  --color-accent: #c77676;
-  --color-text: #2b2623;
+  --color-card-bg: #00a0b8;
+  --color-loop-1: #ad204a;
+  --color-loop-2: #ff9b45;
+  --color-loop-3: #fed348;
+  --color-loop-4: #fee596;
+  --color-player-bg: #FEE596;
+  --color-player-border: #dd2330;
+  --color-button: #1b110f;
+  --color-button-hover: #383838;
+  --color-text-dark: #1b110f;
+  --color-text-light: #ffffff; 
   --color-shadow: rgba(40, 30, 30, 0.22);
-  --color-shadow-soft: rgba(40, 30, 30, 0.15);
 }
 
-/* for testing */
-/* * {
-  outline: 1px dotted black;
-} */
 
 /* reset */
 *,
@@ -28,11 +30,12 @@ body {
   min-height: 100vh;
   display: flex;
   flex-direction: column;
+  justify-content: center;
   align-items: center;
   padding: 1em;
   gap: 1em;
   background: var(--color-bg);
-  color: var(--color-text);
+  color: var(--color-text-light);
 }
 
 ul,
@@ -44,27 +47,36 @@ ol {
 input,
 select,
 textarea {
-  background: var(--color-surface);
-  color: var(--color-text);
-  border: 1px solid var(--color-accent);
-  border-radius: .5em;
-  padding: .25em;
+  background: white;
+  color: var(--color-text-dark);
+  border: 2px solid var(--color-text-dark);
+  border-radius: 2em;
+  padding: .5em 1em;
   font: inherit;
+}
+
+input::placeholder {
+  color: var(--color-text-dark);
+  opacity: .5;
 }
 
 button,
 input[type="submit"] {
-  background: var(--color-primary);
-  color: var(--color-text);
+  background: var(--color-button);
+  color: var(--color-text-light);
   border: none;
-  border-radius: .5em;
-  padding: .5em .5em;
+  border-radius: 2em;
+  padding: .6em 1.5em;
   font: inherit;
+  font-weight: bold;
+  text-transform: uppercase;
+  letter-spacing: .05em;
   cursor: pointer;
+  box-shadow: 0 .25em .5em var(--color-shadow);
 }
 
 a {
-  color: var(--color-accent);
+  color: var(--color-button-hover);
 }
 
 /* primitives */
@@ -82,9 +94,9 @@ a {
 }
 
 .surface {
-  background: var(--color-surface);
+  background: var(--color-card-bg);
   border-radius: .5em;
-  box-shadow: 0 .25em .5em var(--color-shadow-soft);
+  box-shadow: 0 .25em .5em var(--color-shadow);
 }
 
 .actions {
@@ -94,23 +106,27 @@ a {
 }
 
 .button {
-  background: var(--color-primary);
-  color: var(--color-text);
+  background: var(--color-button);
+  color: var(--color-text-light);
   border: none;
-  border-radius: .5em;
-  padding: .5em .5em;
+  border-radius: 2em;
+  padding: .6em 1.5em;
   font: inherit;
+  font-weight: bold;
+  text-transform: uppercase;
+  letter-spacing: .05em;
   cursor: pointer;
-  box-shadow: 0 .25em .5em var(--color-shadow-soft);
+  box-shadow: 0 .25em .5em var(--color-shadow);
 }
 
 .button:hover {
-  background: var(--color-accent);
-  color: var(--color-surface);
+  background: var(--color-button-hover);
+  color: var(--color-card-bg);
 }
 
 /* game card (the big rule card shown to players) */
 .card {
+  position: relative;
   display: flex;
   flex-direction: column;
   justify-content: center;
@@ -119,9 +135,23 @@ a {
   width: 20em;
   min-height: 35em;
   padding: 1em;
-  background: var(--color-surface);
-  border-radius: .5em;
+  background: var(--color-card-bg);
+  border-radius: 1.2em;
   box-shadow: 0 .5em .75em var(--color-shadow);
+  overflow: hidden;
+}
+
+.card::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: url('/static/img/card-bg.svg') center / cover no-repeat;
+  pointer-events: none;
+}
+
+.card > * {
+  position: relative;
+  z-index: 1;
 }
 
 .card-float {
@@ -159,15 +189,15 @@ body > footer {
 }
 
 .accuse-option:hover {
-  background: var(--color-primary);
+  background: var(--color-button);
 }
 
 dialog {
   border: none;
   border-radius: .5em;
   padding: 1em;
-  background: var(--color-surface);
-  color: var(--color-text);
+  background: var(--color-card-bg);
+  color: var(--color-text-dark);
   box-shadow: 0 .5em 1em var(--color-shadow);
 }
 
