@@ -204,6 +204,40 @@ func dataHandler(w http.ResponseWriter, r *http.Request) {
 				http.Error(w, "internal server error", http.StatusInternalServerError)
 			}
 			return
+		case "change-points":
+			if !state.isHost(cookieKey) {
+				name, err := state.callerName(cookieKey)
+				if err != nil {
+					log.Warn("change-points can't get player name", "game_id", gameID)
+				}
+				id, err := state.callerID(cookieKey)
+				if err != nil {
+					log.Warn("change-points can't get player id", "game_id", gameID)
+				}
+				log.Info("change-points requested by non-host",
+					"caller_name", name,
+					"caller_id", id,
+					"game_id", gameID,
+				)
+				w.WriteHeader(http.StatusForbidden)
+				return
+			}
+			filepath := path.Join("static", "html", "tmpl.change_points_dialog.html")
+			tmpl, err := readParse(static, filepath)
+			if err != nil {
+				log.Error(ErrReadParseTemplate.Error(), "filepath", filepath, "error", err)
+				http.Error(w, "internal server error", http.StatusInternalServerError)
+				return
+			}
+			err = tmpl.Execute(w, state)
+			if err != nil {
+				log.Error("execute template",
+					"error", err,
+					"template", filepath,
+				)
+				http.Error(w, "internal server error", http.StatusInternalServerError)
+			}
+			return
 		case "accuse":
 			filepath := path.Join("static", "html", "tmpl.accuse_dialog.html")
 			tmpl, err := readParse(static, filepath)

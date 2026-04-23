@@ -88,6 +88,14 @@
       </div>
     </dialog>
 
+    <dialog id="change-points-dialog">
+      <div class="dialog-body stack"
+        hx-get="/{{ .Game.ID }}/data/change-points"
+        hx-trigger="loadChangePoints from:body"
+        hx-swap="innerHTML">
+      </div>
+    </dialog>
+
     <section id="points" class="panel" hx-get="/{{ .Game.ID }}/data/points"
       hx-target="#points" hx-trigger="load, every {{ .Config.refresh }}" hx-swap="innerHTML">
       <div class="loading">

@@ -8,9 +8,7 @@
 {{ if $isHost }}
 <h2>Change Points</h2>
 <div class="actions">
-  <button class="button" onclick="
-    document.querySelectorAll('#points-dialog form').forEach(f => f.reset());
-    document.getElementById('points-dialog').showModal()">
+  <button class="button" data-open-dialog="change-points-dialog" data-fetch-event="loadChangePoints">
     Change Points
   </button>
 </div>
