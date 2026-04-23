@@ -1,0 +1,24 @@
+<svg width="394" height="714" viewBox="0 0 394 714" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <!-- vertical stripes -->
+  <rect x="127" y="0" width="20" height="714" fill="#FEE596"/>
+  <rect x="147" y="0" width="20" height="714" fill="#FED348"/>
+  <rect x="167" y="0" width="20" height="714" fill="#FF9B45"/>
+  <rect x="187" y="0" width="20" height="714" fill="#AD204A"/>
+  <rect x="207" y="0" width="20" height="714" fill="#FF9B45"/>
+  <rect x="227" y="0" width="20" height="714" fill="#FED348"/>
+  <rect x="247" y="0" width="20" height="714" fill="#FEE596"/>
+  <!-- top swirl -->
+  <circle cx="132" cy="245" r="65" stroke="#AD204A" stroke-width="20"/>
+  <circle cx="132" cy="245" r="45" stroke="#FF9B45" stroke-width="20"/>
+  <circle cx="132" cy="245" r="25" fill="#FEE596" stroke="#FED348" stroke-width="20"/>
+  <rect x="127" y="244" width="20" height="80" fill="#FEE596"/>
+  <rect x="147" y="245" width="20" height="75" fill="#FED348"/>
+  <rect x="167" y="244" width="20" height="70" fill="#FF9B45"/>
+  <!-- bottom swirl -->
+  <circle cx="262" cy="515" r="65" stroke="#AD204A" stroke-width="20"/>
+  <circle cx="262" cy="515" r="45" stroke="#FF9B45" stroke-width="20"/>
+  <circle cx="262" cy="515" r="25" fill="#FEE596" stroke="#FED348" stroke-width="20"/>
+  <rect x="247" y="436" width="20" height="80" fill="#FEE596"/>
+  <rect x="227" y="440" width="20" height="75" fill="#FED348"/>
+  <rect x="207" y="449" width="20" height="70" fill="#FF9B45"/>
+</svg>
