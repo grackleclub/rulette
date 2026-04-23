@@ -24,6 +24,16 @@ jobs:
       - name: Compute next tag
         id: tag
         run: |
+          # Reuse an existing v* tag on HEAD if present — makes reruns
+          # on the same commit idempotent (no orphan tags, no skipped
+          # versions).
+          existing=$(git tag --points-at HEAD --list 'v*' | sort -V | tail -n1)
+          if [ -n "$existing" ]; then
+            echo "next=$existing" >> "$GITHUB_OUTPUT"
+            echo "reuse=true" >> "$GITHUB_OUTPUT"
+            echo "Reusing existing tag: $existing"
+            exit 0
+          fi
           latest=$(git tag --list 'v*' --sort=-v:refname | head -n1)
           if [ -z "$latest" ]; then
             next="v0.0.1"
@@ -32,6 +42,7 @@ jobs:
             next="v${major}.${minor}.$((patch + 1))"
           fi
           echo "next=$next" >> "$GITHUB_OUTPUT"
+          echo "reuse=false" >> "$GITHUB_OUTPUT"
           echo "Next tag: $next"
 
       - name: Build binaries
@@ -52,6 +63,7 @@ jobs:
           ls -la dist
 
       - name: Create tag
+        if: steps.tag.outputs.reuse != 'true'
         env:
           TAG: ${{ steps.tag.outputs.next }}
         run: |
