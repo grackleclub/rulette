@@ -90,6 +90,7 @@ jobs:
               "service":  "rulette",
               "instance": "rulette",
               "env":      "prod",
-              "ref":      "${{ github.ref }}",
+              "ref":      "refs/tags/${{ steps.tag.outputs.next }}",
+              "tag":      "${{ steps.tag.outputs.next }}",
               "sha":      "${{ github.sha }}"
             }

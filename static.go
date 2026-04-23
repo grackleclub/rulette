@@ -4,7 +4,7 @@ import (
 	"embed"
 	"fmt"
 	"path/filepath"
-	"text/template"
+	"html/template"
 )
 
 // readParse reads a template file from an embedded filesystem,
