@@ -27,7 +27,7 @@ jobs:
     # sqlc-generated files must be committed alongside schema changes
     - name: Verify sqlc output is committed
       run: |
-        if ! git diff --exit-code; then
+        if [ -n "$(git status --porcelain)" ]; then
           echo "::error::sqlc produced uncommitted changes. Run ./bin/sqlc locally and commit the result."
           exit 1
         fi
