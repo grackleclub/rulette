@@ -25,9 +25,9 @@ var (
 	dbPool                 *pgxpool.Pool
 	cache                  sync.Map
 	log                    *slog.Logger
-	version                       = "dev" // set via -ldflags "-X main.version=..."
-	maxCacheAge                   = 500 * time.Millisecond
-	portDefault                   = 7777
+	version                = "dev" // set via -ldflags "-X main.version=..."
+	maxCacheAge            = 500 * time.Millisecond
+	portDefault            = 7777
 	defaultFrontendRefresh string = fmt.Sprintf("%dms", 500) // passed to templates; htmx-refresh
 )
 
