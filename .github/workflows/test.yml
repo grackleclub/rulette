@@ -24,8 +24,10 @@ jobs:
     - name: Test
       run: bin/test -v
 
-    # all updated sqlc definitions should be committed
-    - uses: actions/checkout@v4
-    - uses: stefanzweifel/git-auto-commit-action@v6
-      with:
-        commit_message: "automated sqlc updates"
+    # sqlc-generated files must be committed alongside schema changes
+    - name: Verify sqlc output is committed
+      run: |
+        if [ -n "$(git status --porcelain)" ]; then
+          echo "::error::sqlc produced uncommitted changes. Run ./bin/sqlc locally and commit the result."
+          exit 1
+        fi

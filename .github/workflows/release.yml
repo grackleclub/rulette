@@ -1,0 +1,80 @@
+name: Release
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [ "main" ]
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up Go
+        uses: actions/setup-go@v4
+        with:
+          go-version-file: go.mod
+
+      - name: Compute next tag
+        id: tag
+        run: |
+          # Reuse an existing v* tag on HEAD if present — makes reruns
+          # on the same commit idempotent (no orphan tags, no skipped
+          # versions).
+          existing=$(git tag --points-at HEAD --list 'v*' | sort -V | tail -n1)
+          if [ -n "$existing" ]; then
+            echo "next=$existing" >> "$GITHUB_OUTPUT"
+            echo "reuse=true" >> "$GITHUB_OUTPUT"
+            echo "Reusing existing tag: $existing"
+            exit 0
+          fi
+          latest=$(git tag --list 'v*' --sort=-v:refname | head -n1)
+          if [ -z "$latest" ]; then
+            next="v0.0.1"
+          else
+            IFS='.' read -r major minor patch <<< "${latest#v}"
+            next="v${major}.${minor}.$((patch + 1))"
+          fi
+          echo "next=$next" >> "$GITHUB_OUTPUT"
+          echo "reuse=false" >> "$GITHUB_OUTPUT"
+          echo "Next tag: $next"
+
+      - name: Build binaries
+        env:
+          VERSION: ${{ steps.tag.outputs.next }}
+        run: |
+          mkdir -p dist
+          for target in linux/amd64 linux/arm64 darwin/amd64 darwin/arm64; do
+            os="${target%/*}"
+            arch="${target#*/}"
+            out="dist/rulette_${VERSION}_${os}_${arch}"
+            echo "Building $out"
+            GOOS="$os" GOARCH="$arch" CGO_ENABLED=0 \
+              go build -trimpath -ldflags "-s -w -X main.version=${VERSION}" \
+              -o "$out" .
+          done
+          (cd dist && sha256sum rulette_* > checksums.txt)
+          ls -la dist
+
+      - name: Create tag
+        if: steps.tag.outputs.reuse != 'true'
+        env:
+          TAG: ${{ steps.tag.outputs.next }}
+        run: |
+          git tag "$TAG"
+          git push origin "$TAG"
+
+      - name: Create release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ steps.tag.outputs.next }}
+          generate_release_notes: true
+          files: |
+            dist/rulette_*
+            dist/checksums.txt
