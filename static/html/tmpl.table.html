@@ -53,7 +53,7 @@
       <div hx-swap-oob="innerHTML:#modifier-content">
       <div id="modifier-data" class="stack"
         data-turn-player="{{ $pname }}" data-effect="{{ $effect }}">
-        <h2><span class="script">{{ $effect }}</span> a card!</h2>
+        <h2><span class="script">{{ $effect }}</span>card!</h2>
         <p>Choose a card to {{ $effect }}:</p>
         {{ if or (eq $effect "clone") (eq $effect "transfer") }}
           <fieldset>

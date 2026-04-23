@@ -117,6 +117,7 @@ a {
   letter-spacing: .05em;
   cursor: pointer;
   box-shadow: 0 .25em .5em var(--color-shadow);
+  text-decoration: none;
 }
 
 .button:hover {
@@ -129,7 +130,7 @@ a {
   position: relative;
   display: flex;
   flex-direction: column;
-  justify-content: center;
+  justify-content: flex-start;
   align-items: center;
   gap: 1em;
   min-width: 20em;
@@ -152,6 +153,11 @@ a {
 .card > * {
   position: relative;
   z-index: 1;
+}
+
+.card > form {
+  margin-top: 5em;
+  margin-bottom: auto;
 }
 
 .card-float {
@@ -224,11 +230,12 @@ dialog fieldset {
   align-items: center;
 }
 
-#title h1 {
+#title h1, 
+h2 {
   background: var(--color-text-light);
   color: var(--color-text-dark);
-  border: .5em solid var(--color-text-dark);
-  border-radius: .9em;
+  border: .3em solid var(--color-text-dark);
+  border-radius: .7em;
   padding: .25em .75em;
   font-size: 2em;
   text-align: center;
@@ -446,6 +453,7 @@ dialog .button {
   text-transform: uppercase;
   cursor: pointer;
   box-shadow: 0 .25em .25em rgba(0, 0, 0, 0.25);
+  align-self: center;
 }
 
 .button-create:hover {
@@ -457,11 +465,11 @@ dialog .button {
   background: var(--color-text-dark);
   color: var(--color-text-light);
   font-family: var(--font-script);
-  font-size: 2em;
-  padding: .25em 1em;
+  font-size: 3em;
+  padding: 1.25em 1em .5em;
   border-radius: .5em;
   text-align: center;
-  box-shadow: 0 .25em .25em rgba(0, 0, 0, 0.25);
+  box-shadow: 0 .25em .25em var(--color-shadow);
 }
 
 .script {
