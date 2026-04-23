@@ -179,3 +179,12 @@ dialog fieldset {
   gap: .75em;
   margin-bottom: 1em;
 }
+
+.footer-version {
+  position: fixed;
+  bottom: 2px;
+  right: 6px;
+  font-size: 0.6rem;
+  opacity: 0.4;
+  pointer-events: none;
+}

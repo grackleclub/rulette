@@ -78,3 +78,19 @@ jobs:
           files: |
             dist/rulette_*
             dist/checksums.txt
+
+      - name: Trigger grackleclub/cloud deploy
+        uses: peter-evans/repository-dispatch@v3
+        with:
+          token: ${{ secrets.CLOUD_DISPATCH_TOKEN }}
+          repository: grackleclub/cloud
+          event-type: deploy-service
+          client-payload: |-
+            {
+              "service":  "rulette",
+              "instance": "rulette",
+              "env":      "prod",
+              "ref":      "refs/tags/${{ steps.tag.outputs.next }}",
+              "tag":      "${{ steps.tag.outputs.next }}",
+              "sha":      "${{ github.sha }}"
+            }

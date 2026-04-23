@@ -1,7 +1,6 @@
 package main
 
 import (
-	"bytes"
 	"crypto/rand"
 	"encoding/hex"
 	"fmt"
@@ -10,7 +9,6 @@ import (
 	"net/http"
 	"path"
 	"strings"
-	"time"
 
 	sqlc "github.com/grackleclub/rulette/db/sqlc"
 	"github.com/jackc/pgx/v5/pgtype"
@@ -44,12 +42,15 @@ func setCookieErr(w http.ResponseWriter, err error) {
 // from which a user can start a new game with a POST to /create.
 func rootHandler(w http.ResponseWriter, r *http.Request) {
 	indexPath := path.Join("static", "html", "index.html")
-	file, err := static.ReadFile(indexPath)
+	tmpl, err := readParse(static, indexPath)
 	if err != nil {
 		http.Error(w, "server error", http.StatusInternalServerError)
 		return
 	}
-	http.ServeContent(w, r, "index.html", time.Now(), bytes.NewReader(file))
+	if err := tmpl.Execute(w, nil); err != nil {
+		http.Error(w, "server error", http.StatusInternalServerError)
+		return
+	}
 }
 
 // createHandler handles the '/create' endpoint to make a new game with requester as host.
