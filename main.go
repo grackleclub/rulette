@@ -25,8 +25,9 @@ var (
 	dbPool                 *pgxpool.Pool
 	cache                  sync.Map
 	log                    *slog.Logger
-	maxCacheAge                   = 500 * time.Millisecond
-	portDefault                   = 7777
+	version                = "dev" // set via -ldflags "-X main.version=..."
+	maxCacheAge            = 500 * time.Millisecond
+	portDefault            = 7777
 	defaultFrontendRefresh string = fmt.Sprintf("%dms", 500) // passed to templates; htmx-refresh
 )
 
@@ -51,6 +52,7 @@ func init() {
 	if err != nil {
 		panic(fmt.Sprintf("create slog handler: %v", err))
 	}
+	log = log.With("service.version", version)
 }
 
 func main() {
