@@ -1,4 +1,3 @@
-<!-- <section class="panel"> -->
   {{ $cid := .CallerID }}
   {{ $gid := .Game.ID }}
   {{ $isHost := false }}
@@ -9,34 +8,37 @@
       {{ end }}
     {{ end }}
     {{ if $isHost }}
-      <div class="actions">
-        <button class="button"
+      <div class="action-popup">
+        <button class="button-teal"
           hx-post="/{{ $gid }}/action/start"
           hx-swap="none">
           Start Game
         </button>
       </div>
     {{ else }}
-      <p>waiting for host to start the game…</p>
+      <div class="action-popup">
+        <p>waiting for host to start the game…</p>
+      </div>
     {{ end }}
   {{ else }}
-    <div class="actions">
-      <button class="button"
-        hx-post="/{{ .Game.ID }}/action/spin"
-        hx-swap="none">
-        Spin
-      </button>
-      <button class="button" data-open-dialog="hey-dialog" data-fetch-event="loadAccuse">
-        hey!
-      </button>
-      <button class="button"
-        hx-post="/{{ .Game.ID }}/action/next"
-        hx-swap="none">
-        Next Turn
-      </button>
+    <div class="action-popup">
+      <div class="actions">
+        <button class="button-teal"
+          hx-post="/{{ .Game.ID }}/action/spin"
+          hx-swap="none">
+          spin
+        </button>
+        <button class="button" data-open-dialog="hey-dialog" data-fetch-event="loadAccuse">
+          hey!
+        </button>
+        <button class="button"
+          hx-post="/{{ .Game.ID }}/action/next"
+          hx-swap="none">
+          Next Turn
+        </button>
+      </div>
     </div>
   {{ end }}
-<!-- </section> -->
 {{ if eq .Game.StateName "pending" }}
   {{ range .Players }}
     {{ if eq .Initiative.Int32 $.Game.InitiativeCurrent.Int32 }}
@@ -51,7 +53,7 @@
       <div hx-swap-oob="innerHTML:#modifier-content">
       <div id="modifier-data" class="stack"
         data-turn-player="{{ $pname }}" data-effect="{{ $effect }}">
-        <p>You drew a <strong>{{ $effect }}</strong> card!</p>
+        <h2><span class="script">{{ $effect }}</span> a card!</h2>
         <p>Choose a card to {{ $effect }}:</p>
         {{ if or (eq $effect "clone") (eq $effect "transfer") }}
           <fieldset>
@@ -69,7 +71,7 @@
         <div class="actions">
           {{ range $.CardsPlayers }}
             {{ if and (eq .PlayerID.Int32 $pid) (eq .Type "rule") }}
-              <button class="button modifier-card-btn"
+              <button class="button-teal modifier-card-btn"
                 data-game-card-id="{{ .ID }}"
                 data-action="/{{ $.Game.ID }}/action/{{ $effect }}">
                 {{ .Content }}

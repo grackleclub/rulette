@@ -9,17 +9,15 @@
     <script src="/static/js/htmx.min.js"></script>
   </head>
   <body>
-    <article>
-      <h2>{{ .Name }}</h2>
-      <form action="/{{ .ID }}/join" method="POST">
-        <div id="join">
-          <!-- <label for="username">Enter a username to join '{{ .Name }}':</label> -->
-           <p>Game created. Enter your username.</p>
-          <input type="text" id="username" name="username" placeholder="Enter Name" autofocus required />
-          <input class="button" type="submit" value="Join Game" />
-        </div>
-      </form>
-    </article>
+    <div class="card-float">
+      <article class="card">
+        <h2>{{ .Name }}</h2>
+        <form class="stack" action="/{{ .ID }}/join" method="POST">
+          <input type="text" id="username" name="username" placeholder="enter name" autofocus required />
+          <input class="button-create" type="submit" value="JOIN GAME" />
+        </form>
+      </article>
+    </div>
     {{ template "footer" }}
   </body>
 </html>

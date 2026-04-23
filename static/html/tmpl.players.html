@@ -1,27 +1,28 @@
 {{ $cards := .CardsPlayers }}
-<div class="card-float">
-  <article class="card">
-    <section class="stack">
-      {{ range .Players }}
-        {{ $pid := .PlayerID }}
-        <article id="player-{{ .PlayerID }}" class="player stack">
-          <div>{{ .Name }}</div>
-          <div>points: {{ .Points.Value }}</div>
-          <div>{{ .Initiative }}</div>
-          <div class="stack">
-            {{ range $cards }}
-              {{ if eq .PlayerID.Int32 $pid }}
-                <div>{{ .Content }}</div>
-              {{ end }}
-            {{ end }}
-          </div>
-        </article>
+<section class="stack">
+  {{ range .Players }}
+    {{ $pid := .PlayerID }}
+    <article id="player-{{ .PlayerID }}" class="player">
+      <div class="player-header">
+        <span class="player-name">{{ .Name }}</span>
+        <span class="player-score">{{ .Points.Value }}</span>
+      </div>
+      {{ $rules := false }}
+      {{ range $cards }}
+        {{ if eq .PlayerID.Int32 $pid }}
+          {{ if not $rules }}
+            {{ $rules = true }}
+      <div class="player-rules"><ul>
+          {{ end }}
+            <li>{{ .Content }}</li>
+          {{ end }}
       {{ end }}
-      {{ if eq .Game.StateName "inviting" }}
-        <div class="invite">
-          <a href="/{{ .Game.ID }}/join" class="button">Invite Players</a>
-        </div>
-      {{ end }}
-    </section>
-  </article>
-</div>
+      {{ if $rules }}</ul></div>{{ end }}
+    </article>
+  {{ end }}
+  {{ if eq .Game.StateName "inviting" }}
+    <div class="invite">
+      <a href="/{{ .Game.ID }}/join" class="button card-action">Invite Players</a>
+    </div>
+  {{ end }}
+</section>

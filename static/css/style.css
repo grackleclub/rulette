@@ -1,3 +1,11 @@
+@import url('https://fonts.googleapis.com/css2?family=Secular+One&family=Borel&family=Roboto:wght@400;700&display=swap');
+
+@font-face {
+  font-family: 'DSEG7';
+  src: url('/static/fonts/DSEG7Classic-Bold.ttf') format('truetype');
+  font-display: swap;
+}
+
 :root {
   --color-bg: #afafaf;
   --color-card-bg: #00a0b8;
@@ -5,13 +13,18 @@
   --color-loop-2: #ff9b45;
   --color-loop-3: #fed348;
   --color-loop-4: #fee596;
-  --color-player-bg: #FEE596;
+  --color-player-bg: #fee596;
   --color-player-border: #dd2330;
   --color-button: #1b110f;
   --color-button-hover: #383838;
   --color-text-dark: #1b110f;
-  --color-text-light: #ffffff; 
+  --color-text-light: #ffffff;
   --color-shadow: rgba(40, 30, 30, 0.22);
+
+  --font-display: 'Secular One', sans-serif;
+  --font-script: 'Borel', cursive;
+  --font-score: 'DSEG7', monospace;
+  --font-body: 'Roboto', sans-serif;
 }
 
 
@@ -24,7 +37,7 @@
 }
 
 body {
-  font-family: 'Secular One', sans-serif;
+  font-family: var(--font-display);
   line-height: 1.4;
   -webkit-font-smoothing: antialiased;
   min-height: 100vh;
@@ -36,6 +49,8 @@ body {
   gap: 1em;
   background: var(--color-bg);
   color: var(--color-text-light);
+  max-width: 412px;
+  margin: 0 auto;
 }
 
 ul,
@@ -59,21 +74,6 @@ input::placeholder {
   color: var(--color-text-dark);
   opacity: .5;
 }
-
-/* button,
-input[type="submit"] {
-  background: var(--color-button);
-  color: var(--color-text-light);
-  border: none;
-  border-radius: 2em;
-  padding: .6em 1.5em;
-  font: inherit;
-  font-weight: bold;
-  text-transform: uppercase;
-  letter-spacing: .05em;
-  cursor: pointer;
-  box-shadow: 0 .25em .5em var(--color-shadow);
-} */
 
 a {
   color: var(--color-button-hover);
@@ -132,7 +132,7 @@ a {
   justify-content: center;
   align-items: center;
   gap: 1em;
-  width: 20em;
+  min-width: 20em;
   min-height: 35em;
   padding: 1em;
   background: var(--color-card-bg);
@@ -192,15 +192,6 @@ body > footer {
   background: var(--color-button);
 }
 
-dialog {
-  border: none;
-  border-radius: .5em;
-  padding: 1em;
-  background: var(--color-card-bg);
-  color: var(--color-text-dark);
-  box-shadow: 0 .5em 1em var(--color-shadow);
-}
-
 dialog fieldset {
   border: none;
   padding: 0;
@@ -217,4 +208,266 @@ dialog fieldset {
   font-size: 0.6rem;
   opacity: 0.4;
   pointer-events: none;
+}
+
+/* game card (in-game variant of .card) */
+.card-game {
+  justify-content: flex-start;
+  align-items: stretch;
+  padding-top: 1.5em;
+  overflow-y: auto;
+}
+
+/* game name header */
+#title {
+  width: 100%;
+  align-items: center;
+}
+
+#title h1 {
+  background: var(--color-text-light);
+  color: var(--color-text-dark);
+  border: .5em solid var(--color-text-dark);
+  border-radius: .9em;
+  padding: .25em .75em;
+  font-size: 2em;
+  text-align: center;
+  width: 100%;
+  max-width: 20.6em;
+}
+
+#title footer {
+  font-family: var(--font-body);
+  font-size: .875em;
+  opacity: .8;
+}
+
+/* player pill */
+.player {
+  position: relative;
+  background: var(--color-player-bg);
+  border: .9em solid var(--color-player-border);
+  border-radius: 4.375em;
+  padding: 1.25em 1em 1.25em 4em;
+  min-height: 6.25em;
+}
+
+.player-name {
+  position: absolute;
+  bottom: -.5em;
+  left: 50%;
+  transform: translateX(-50%);
+  background: var(--color-text-light);
+  color: var(--color-text-dark);
+  border: .2em solid var(--color-text-dark);
+  border-radius: .3em;
+  padding: 0 .5em;
+  font-size: .75em;
+  line-height: 1.8;
+  white-space: nowrap;
+  z-index: 2;
+}
+
+.player-score {
+  position: absolute;
+  top: -.5em;
+  left: 50%;
+  transform: translateX(-50%);
+  background: var(--color-text-dark);
+  border: .2em solid rgba(254, 211, 72, 0.83);
+  border-radius: .25em;
+  padding: 0 .5em;
+  font-family: var(--font-score);
+  font-size: 1em;
+  color: var(--color-player-border);
+  line-height: 1.75;
+  box-shadow: .125em .125em .125em rgba(0, 0, 0, 0.4);
+  z-index: 2;
+}
+
+.player-rules {
+  font-size: .875em;
+  color: var(--color-text-dark);
+  max-height: 4em;
+  overflow-y: auto;
+}
+
+.player-rules ul {
+  list-style: disc;
+  padding-left: 1.5em;
+}
+
+.player-hey {
+  position: absolute;
+  left: .5em;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 3.125em;
+  height: 3.125em;
+  border-radius: 50%;
+  border: none;
+  background: var(--color-loop-1);
+  color: var(--color-text-light);
+  font-family: var(--font-display);
+  font-size: 1em;
+  cursor: pointer;
+  box-shadow: .125em .125em .25em rgba(0, 0, 0, 0.3);
+  z-index: 1;
+}
+
+.player-hey:hover {
+  background: var(--color-loop-2);
+}
+
+/* action popup (spin, destroy, points, etc.) */
+.action-popup {
+  background: var(--color-text-light);
+  border: .625em solid var(--color-text-dark);
+  border-radius: 2.2em;
+  padding: 1.5em;
+  box-shadow: .25em .25em .25em rgba(0, 0, 0, 0.25);
+  text-align: center;
+  max-width: 15.7em;
+  margin: .75em auto;
+}
+
+.action-popup h2 {
+  color: var(--color-text-dark);
+  font-size: 1.5625em;
+  margin-bottom: .5em;
+}
+
+.action-popup .script {
+  font-family: var(--font-script);
+}
+
+.button-teal {
+  background: var(--color-card-bg);
+  color: var(--color-text-light);
+  border: none;
+  border-radius: .3em;
+  padding: .75em 2em;
+  font: inherit;
+  font-size: 1.25em;
+  font-weight: bold;
+  cursor: pointer;
+  box-shadow: .25em .25em .25em rgba(0, 0, 0, 0.25);
+}
+
+.button-teal:hover {
+  filter: brightness(1.1);
+}
+
+.button-danger {
+  background: var(--color-player-border);
+  color: var(--color-text-light);
+  border: none;
+  border-radius: .3em;
+  padding: .75em 1.5em;
+  font: inherit;
+  font-weight: bold;
+  cursor: pointer;
+  box-shadow: .25em .25em .25em rgba(0, 0, 0, 0.25);
+}
+
+/* points selector */
+.points-selector {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: .5em;
+}
+
+.points-selector .value {
+  font-family: var(--font-score);
+  font-size: 2em;
+  color: var(--color-text-dark);
+  min-width: 2em;
+  text-align: center;
+}
+
+.points-selector button {
+  background: var(--color-text-dark);
+  color: var(--color-text-light);
+  border: none;
+  border-radius: .3em;
+  width: 2.25em;
+  height: 2.25em;
+  font-size: 1.25em;
+  cursor: pointer;
+}
+
+/* dialogs */
+dialog {
+  border: .625em solid var(--color-text-dark);
+  border-radius: 2.2em;
+  padding: 1.5em;
+  background: var(--color-text-light);
+  color: var(--color-text-dark);
+  box-shadow: .25em .25em .25em rgba(0, 0, 0, 0.25);
+  max-width: 18.75em;
+}
+
+dialog::backdrop {
+  background: rgba(0, 0, 0, 0.5);
+}
+
+dialog h2 {
+  font-size: 1.5625em;
+  text-align: center;
+  margin-bottom: .75em;
+}
+
+dialog .button {
+  width: 100%;
+  text-align: center;
+}
+
+/* invite/start full-card states */
+.card-action {
+  font-size: 1.75em;
+  font-weight: bold;
+  text-transform: uppercase;
+  text-align: center;
+  color: var(--color-text-light);
+  text-shadow: .125em .125em .25em rgba(0, 0, 0, 0.3);
+}
+
+/* create game button (orange on dark) */
+.button-create {
+  background: var(--color-text-dark);
+  color: var(--color-loop-2);
+  border: none;
+  border-radius: .9em;
+  padding: .5em 1.5em;
+  font: inherit;
+  font-size: 1em;
+  font-weight: bold;
+  text-transform: uppercase;
+  cursor: pointer;
+  box-shadow: 0 .25em .25em rgba(0, 0, 0, 0.25);
+}
+
+.button-create:hover {
+  background: var(--color-button-hover);
+}
+
+/* card logo */
+.card-logo {
+  background: var(--color-text-dark);
+  color: var(--color-text-light);
+  font-family: var(--font-script);
+  font-size: 2em;
+  padding: .25em 1em;
+  border-radius: .5em;
+  text-align: center;
+  box-shadow: 0 .25em .25em rgba(0, 0, 0, 0.25);
+}
+
+.script {
+  font-family: var(--font-script);
+}
+
+.score-font {
+  font-family: var(--font-score);
 }
