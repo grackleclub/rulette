@@ -35,7 +35,10 @@
   --color-button-hover: #383838;
   --color-text-dark: #1b110f;
   --color-text-light: #ffffff;
-  --color-shadow: rgba(40, 30, 30, 0.22);
+  --color-score-glow: #FED348;
+  --color-shadow: rgba(0, 0, 0, 0.25);
+  --color-dim: rgba(0, 0, 0, 0.3);
+  --color-backdrop: rgba(0, 0, 0, 0.5);
 
   --font-display: 'Secular One', sans-serif;
   --font-script: 'Borel', cursive;
@@ -102,43 +105,70 @@ a {
   gap: .75em;
 }
 
-.panel {
-  display: flex;
-  flex-direction: column;
-  gap: .75em;
-  padding: .75em;
-}
-
-.surface {
-  background: var(--color-card-bg);
-  border-radius: .5em;
-  box-shadow: 0 .25em .5em var(--color-shadow);
-}
-
 .actions {
   display: flex;
   flex-wrap: wrap;
   gap: .75em;
 }
 
+/* buttons (shared base) */
+.button,
+.button-teal,
+.button-danger,
+.button-create {
+  border: none;
+  font: inherit;
+  font-weight: bold;
+  cursor: pointer;
+  box-shadow: 0 .25em .25em var(--color-shadow);
+}
+
 .button {
   background: var(--color-button);
   color: var(--color-text-light);
-  border: none;
   border-radius: 1em;
   padding: .6em 1em;
-  font: inherit;
-  font-weight: bold;
   text-transform: uppercase;
   letter-spacing: .05em;
-  cursor: pointer;
-  box-shadow: 0 .25em .5em var(--color-shadow);
   text-decoration: none;
 }
 
 .button:hover {
   background: var(--color-button-hover);
   color: var(--color-card-bg);
+}
+
+.button-teal {
+  background: var(--color-card-bg);
+  color: var(--color-text-light);
+  border-radius: .3em;
+  padding: .75em 2em;
+  font-size: 1.25em;
+}
+
+.button-teal:hover {
+  filter: brightness(1.1);
+}
+
+.button-danger {
+  background: var(--color-player-border);
+  color: var(--color-text-light);
+  border-radius: .3em;
+  padding: .75em 1.5em;
+}
+
+.button-create {
+  background: var(--color-text-dark);
+  color: var(--color-loop-2);
+  border-radius: .9em;
+  padding: .5em 1.5em;
+  font-size: 1em;
+  text-transform: uppercase;
+  align-self: center;
+}
+
+.button-create:hover {
+  background: var(--color-button-hover);
 }
 
 /* game card (the big rule card shown to players) */
@@ -182,6 +212,37 @@ a {
   flex: 1;
 }
 
+/* in-game variant of .card */
+.card-game {
+  justify-content: flex-start;
+  align-items: stretch;
+  padding: .25em;
+  padding-top: 1.5em;
+  overflow-y: auto;
+}
+
+.card-game::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: var(--color-dim);
+  border-radius: inherit;
+  z-index: 0;
+  pointer-events: none;
+}
+
+/* card logo */
+.card-logo {
+  background: var(--color-text-dark);
+  color: var(--color-text-light);
+  font-family: var(--font-script);
+  font-size: 3em;
+  padding: 1.25em 1em .5em;
+  border-radius: .5em;
+  text-align: center;
+  box-shadow: 0 .25em .25em var(--color-shadow);
+}
+
 /* layout regions */
 body > footer {
   margin-top: auto;
@@ -202,26 +263,12 @@ body > footer {
   pointer-events: auto;
 }
 
-/* accuse dialog */
-.accuse-option {
-  display: flex;
-  align-items: center;
-  gap: .5em;
-  padding: .5em;
-  cursor: pointer;
-}
-
-.accuse-option:hover {
-  background: var(--color-button);
-}
-
-dialog fieldset {
-  border: none;
-  padding: 0;
-  display: flex;
-  flex-direction: column;
-  gap: .75em;
-  margin-bottom: 1em;
+.card-action {
+  font-size: 1.75em;
+  font-weight: bold;
+  text-transform: uppercase;
+  text-align: center;
+  color: var(--color-text-light);
 }
 
 .footer-version {
@@ -233,22 +280,13 @@ dialog fieldset {
   pointer-events: none;
 }
 
-/* game card (in-game variant of .card) */
-.card-game {
-  justify-content: flex-start;
-  align-items: stretch;
-  padding: .25em;
-  padding-top: 1.5em;
-  overflow-y: auto;
-}
-
-/* game name header */
-#title {
+/* game title */
+.game-title {
   width: 100%;
   align-items: center;
 }
 
-#title h1 {
+.game-title h1 {
   background: var(--color-text-light);
   color: var(--color-text-dark);
   border: .3em solid var(--color-text-dark);
@@ -260,7 +298,7 @@ dialog fieldset {
   max-width: 20.6em;
 }
 
-#title footer {
+.game-title footer {
   font-family: var(--font-body);
   font-size: .875em;
   opacity: .8;
@@ -299,14 +337,14 @@ dialog fieldset {
   left: 50%;
   transform: translateX(-50%);
   background: var(--color-text-dark);
-  border: .2em solid rgba(254, 211, 72, 0.83);
+  border: .2em solid var(--color-score-glow);
   border-radius: .25em;
   padding: 0 .5em;
   font-family: var(--font-score);
   font-size: 1em;
   color: var(--color-player-border);
   line-height: 1.75;
-  box-shadow: .125em .125em .125em rgba(0, 0, 0, 0.4);
+  box-shadow: .125em .125em .125em var(--color-shadow);
   z-index: 2;
 }
 
@@ -336,7 +374,7 @@ dialog fieldset {
   font-family: var(--font-display);
   font-size: 1em;
   cursor: pointer;
-  box-shadow: .125em .125em .25em rgba(0, 0, 0, 0.3);
+  box-shadow: .125em .125em .25em var(--color-shadow);
   z-index: 1;
 }
 
@@ -350,7 +388,7 @@ dialog fieldset {
   border: .625em solid var(--color-text-dark);
   border-radius: 2.2em;
   padding: 1.5em;
-  box-shadow: .25em .25em .25em rgba(0, 0, 0, 0.25);
+  box-shadow: .25em .25em .25em var(--color-shadow);
   text-align: center;
   max-width: 15.7em;
   margin: .75em auto;
@@ -360,39 +398,6 @@ dialog fieldset {
   color: var(--color-text-dark);
   font-size: 1.5625em;
   margin-bottom: .5em;
-}
-
-.action-popup .script {
-  font-family: var(--font-script);
-}
-
-.button-teal {
-  background: var(--color-card-bg);
-  color: var(--color-text-light);
-  border: none;
-  border-radius: .3em;
-  padding: .75em 2em;
-  font: inherit;
-  font-size: 1.25em;
-  font-weight: bold;
-  cursor: pointer;
-  box-shadow: .25em .25em .25em rgba(0, 0, 0, 0.25);
-}
-
-.button-teal:hover {
-  filter: brightness(1.1);
-}
-
-.button-danger {
-  background: var(--color-player-border);
-  color: var(--color-text-light);
-  border: none;
-  border-radius: .3em;
-  padding: .75em 1.5em;
-  font: inherit;
-  font-weight: bold;
-  cursor: pointer;
-  box-shadow: .25em .25em .25em rgba(0, 0, 0, 0.25);
 }
 
 /* points selector */
@@ -429,12 +434,12 @@ dialog {
   padding: 1.5em;
   background: var(--color-text-light);
   color: var(--color-text-dark);
-  box-shadow: .25em .25em .25em rgba(0, 0, 0, 0.25);
+  box-shadow: .25em .25em .25em var(--color-shadow);
   max-width: 18.75em;
 }
 
 dialog::backdrop {
-  background: rgba(0, 0, 0, 0.5);
+  background: var(--color-backdrop);
 }
 
 dialog h2 {
@@ -448,45 +453,25 @@ dialog .button {
   text-align: center;
 }
 
-/* invite/start full-card states */
-.card-action {
-  font-size: 1.75em;
-  font-weight: bold;
-  text-transform: uppercase;
-  text-align: center;
-  color: var(--color-text-light);
-}
-
-/* create game button (orange on dark) */
-.button-create {
-  background: var(--color-text-dark);
-  color: var(--color-loop-2);
+dialog fieldset {
   border: none;
-  border-radius: .9em;
-  padding: .5em 1.5em;
-  font: inherit;
-  font-size: 1em;
-  font-weight: bold;
-  text-transform: uppercase;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: .75em;
+  margin-bottom: 1em;
+}
+
+.accuse-option {
+  display: flex;
+  align-items: center;
+  gap: .5em;
+  padding: .5em;
   cursor: pointer;
-  box-shadow: 0 .25em .25em rgba(0, 0, 0, 0.25);
-  align-self: center;
 }
 
-.button-create:hover {
-  background: var(--color-button-hover);
-}
-
-/* card logo */
-.card-logo {
-  background: var(--color-text-dark);
-  color: var(--color-text-light);
-  font-family: var(--font-script);
-  font-size: 3em;
-  padding: 1.25em 1em .5em;
-  border-radius: .5em;
-  text-align: center;
-  box-shadow: 0 .25em .25em var(--color-shadow);
+.accuse-option:hover {
+  background: var(--color-button);
 }
 
 /* table bar (outside card) */
@@ -498,11 +483,12 @@ dialog .button {
 }
 
 /* points section (centered in card) */
-#points {
+.game-points {
   align-items: center;
   margin-top: auto;
 }
 
+/* utility classes */
 .script {
   font-family: var(--font-script);
 }
