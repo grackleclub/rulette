@@ -1,17 +1,51 @@
-:root {
-  --color-bg: #afafaf;
-  --color-surface: #fdfaf5;
-  --color-primary: #FFC1C1;
-  --color-accent: #c77676;
-  --color-text: #2b2623;
-  --color-shadow: rgba(40, 30, 30, 0.22);
-  --color-shadow-soft: rgba(40, 30, 30, 0.15);
+@font-face {
+  font-family: 'Secular One';
+  src: url('/static/fonts/SecularOne-Regular.ttf') format('truetype');
+  font-display: swap;
 }
 
-/* for testing */
-/* * {
-  outline: 1px dotted black;
-} */
+@font-face {
+  font-family: 'Borel';
+  src: url('/static/fonts/Borel-Regular.ttf') format('truetype');
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'Roboto';
+  src: url('/static/fonts/Roboto-Regular.ttf') format('truetype');
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'DSEG7';
+  src: url('/static/fonts/DSEG7Classic-Bold.ttf') format('truetype');
+  font-display: swap;
+}
+
+:root {
+  --color-bg: #afafaf;
+  --color-card-bg: #00a0b8;
+  --color-loop-1: #ad204a;
+  --color-loop-2: #ff9b45;
+  --color-loop-3: #fed348;
+  --color-loop-4: #fee596;
+  --color-player-bg: #fee596;
+  --color-player-border: #dd2330;
+  --color-button: #1b110f;
+  --color-button-hover: #383838;
+  --color-text-dark: #1b110f;
+  --color-text-light: #ffffff;
+  --color-score-glow: #FED348;
+  --color-shadow: rgba(0, 0, 0, 0.25);
+  --color-dim: rgba(0, 0, 0, 0.3);
+  --color-backdrop: rgba(0, 0, 0, 0.5);
+
+  --font-display: 'Secular One', sans-serif;
+  --font-script: 'Borel', cursive;
+  --font-score: 'DSEG7', monospace;
+  --font-body: 'Roboto', sans-serif;
+}
+
 
 /* reset */
 *,
@@ -22,17 +56,20 @@
 }
 
 body {
-  font-family: 'Roboto', sans-serif;
+  font-family: var(--font-display);
   line-height: 1.4;
   -webkit-font-smoothing: antialiased;
   min-height: 100vh;
   display: flex;
   flex-direction: column;
+  justify-content: center;
   align-items: center;
   padding: 1em;
   gap: 1em;
   background: var(--color-bg);
-  color: var(--color-text);
+  color: var(--color-text-light);
+  max-width: 412px;
+  margin: 0 auto;
 }
 
 ul,
@@ -44,27 +81,21 @@ ol {
 input,
 select,
 textarea {
-  background: var(--color-surface);
-  color: var(--color-text);
-  border: 1px solid var(--color-accent);
-  border-radius: .5em;
-  padding: .25em;
+  background: var(--color-text-light);
+  color: var(--color-text-dark);
+  border: 4px solid var(--color-text-dark);
+  border-radius: 1em;
+  padding: .5em 1em;
   font: inherit;
 }
 
-button,
-input[type="submit"] {
-  background: var(--color-primary);
-  color: var(--color-text);
-  border: none;
-  border-radius: .5em;
-  padding: .5em .5em;
-  font: inherit;
-  cursor: pointer;
+input::placeholder {
+  color: var(--color-text-dark);
+  opacity: .5;
 }
 
 a {
-  color: var(--color-accent);
+  color: var(--color-button-hover);
 }
 
 /* primitives */
@@ -74,54 +105,105 @@ a {
   gap: .75em;
 }
 
-.panel {
-  display: flex;
-  flex-direction: column;
-  gap: .75em;
-  padding: .75em;
-}
-
-.surface {
-  background: var(--color-surface);
-  border-radius: .5em;
-  box-shadow: 0 .25em .5em var(--color-shadow-soft);
-}
-
 .actions {
   display: flex;
   flex-wrap: wrap;
   gap: .75em;
 }
 
-.button {
-  background: var(--color-primary);
-  color: var(--color-text);
+/* buttons (shared base) */
+.button,
+.button-teal,
+.button-danger,
+.button-create {
   border: none;
-  border-radius: .5em;
-  padding: .5em .5em;
   font: inherit;
+  font-weight: bold;
   cursor: pointer;
-  box-shadow: 0 .25em .5em var(--color-shadow-soft);
+  box-shadow: 0 .25em .25em var(--color-shadow);
+}
+
+.button {
+  background: var(--color-button);
+  color: var(--color-text-light);
+  border-radius: 1em;
+  padding: .6em 1em;
+  text-transform: uppercase;
+  letter-spacing: .05em;
+  text-decoration: none;
 }
 
 .button:hover {
-  background: var(--color-accent);
-  color: var(--color-surface);
+  background: var(--color-button-hover);
+  color: var(--color-card-bg);
+}
+
+.button-teal {
+  background: var(--color-card-bg);
+  color: var(--color-text-light);
+  border-radius: .3em;
+  padding: .75em 2em;
+  font-size: 1.25em;
+}
+
+.button-teal:hover {
+  filter: brightness(1.1);
+}
+
+.button-danger {
+  background: var(--color-player-border);
+  color: var(--color-text-light);
+  border-radius: .3em;
+  padding: .75em 1.5em;
+}
+
+.button-create {
+  background: var(--color-text-dark);
+  color: var(--color-loop-2);
+  border-radius: .9em;
+  padding: .5em 1.5em;
+  font-size: 1em;
+  text-transform: uppercase;
+  align-self: center;
+}
+
+.button-create:hover {
+  background: var(--color-button-hover);
 }
 
 /* game card (the big rule card shown to players) */
 .card {
+  position: relative;
   display: flex;
   flex-direction: column;
-  justify-content: center;
+  justify-content: flex-start;
   align-items: center;
   gap: 1em;
-  width: 20em;
+  min-width: 20em;
   min-height: 35em;
   padding: 1em;
-  background: var(--color-surface);
-  border-radius: .5em;
+  background: var(--color-card-bg);
+  border-radius: 1.2em;
   box-shadow: 0 .5em .75em var(--color-shadow);
+  overflow: hidden;
+}
+
+.card::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: url('/static/img/card-bg.svg') center / cover no-repeat;
+  pointer-events: none;
+}
+
+.card > * {
+  position: relative;
+  z-index: 1;
+}
+
+.card > form {
+  margin-top: 5em;
+  margin-bottom: auto;
 }
 
 .card-float {
@@ -130,10 +212,44 @@ a {
   flex: 1;
 }
 
+/* in-game variant of .card */
+.card-game {
+  justify-content: flex-start;
+  align-items: stretch;
+  padding: .25em;
+  padding-top: 1.5em;
+  overflow-y: auto;
+}
+
+.card-game::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: var(--color-dim);
+  border-radius: inherit;
+  z-index: 0;
+  pointer-events: none;
+}
+
+/* card logo */
+.card-logo {
+  background: var(--color-text-dark);
+  color: var(--color-text-light);
+  font-family: var(--font-script);
+  font-size: 3em;
+  padding: 1.25em 1em .5em;
+  border-radius: .5em;
+  text-align: center;
+  box-shadow: 0 .25em .25em var(--color-shadow);
+}
+
 /* layout regions */
 body > footer {
   margin-top: auto;
   text-align: center;
+  white-space: nowrap;
+  position: fixed;
+  bottom: .5em;
 }
 
 .invite {
@@ -145,30 +261,199 @@ body > footer {
   pointer-events: none;
 }
 
-.invite a {
+.invite a,
+.invite button {
   pointer-events: auto;
 }
 
-/* accuse dialog */
-.accuse-option {
+.card-action {
+  font-size: 1.75em;
+  font-weight: bold;
+  text-transform: uppercase;
+  text-align: center;
+  color: var(--color-text-light);
+}
+
+.footer-version {
+  position: fixed;
+  bottom: 2px;
+  right: 6px;
+  font-size: 0.6rem;
+  opacity: 0.4;
+  pointer-events: none;
+}
+
+/* game title */
+.game-title {
+  width: 100%;
+  align-items: center;
+}
+
+.game-title h1 {
+  background: var(--color-text-light);
+  color: var(--color-text-dark);
+  border: .3em solid var(--color-text-dark);
+  border-radius: .7em;
+  padding: .25em .75em;
+  font-size: 2em;
+  text-align: center;
+  width: 100%;
+  max-width: 20.6em;
+}
+
+.game-title footer {
+  font-family: var(--font-body);
+  font-size: .875em;
+  opacity: .8;
+}
+
+/* player pill */
+.player {
+  position: relative;
+  background: var(--color-player-bg);
+  border: .8em solid var(--color-player-border);
+  border-radius: 4.375em;
+  padding: 1.25em 1em 1.25em 4em;
+  min-height: 6.25em;
+  width: 100%;
+}
+
+.player .player-name {
+  position: absolute;
+  bottom: -.5em;
+  left: 50%;
+  transform: translateX(-50%);
+  background: var(--color-text-light);
+  color: var(--color-text-dark);
+  border: .2em solid var(--color-text-dark);
+  border-radius: .3em;
+  padding: 0 .5em;
+  font-size: .75em;
+  line-height: 1.8;
+  white-space: nowrap;
+  z-index: 2;
+}
+
+.player-score {
+  position: absolute;
+  top: -.5em;
+  left: 50%;
+  transform: translateX(-50%);
+  background: var(--color-text-dark);
+  border: .2em solid var(--color-score-glow);
+  border-radius: .25em;
+  padding: 0 .5em;
+  font-family: var(--font-score);
+  font-size: 1em;
+  color: var(--color-player-border);
+  line-height: 1.75;
+  box-shadow: .125em .125em .125em var(--color-shadow);
+  z-index: 2;
+}
+
+.player-rules {
+  font-size: .875em;
+  color: var(--color-text-dark);
+  max-height: 4em;
+  overflow-y: auto;
+}
+
+.player-rules ul {
+  list-style: disc;
+  padding-left: 1.5em;
+}
+
+.player-hey {
+  position: absolute;
+  left: .5em;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 3.125em;
+  height: 3.125em;
+  border-radius: 50%;
+  border: none;
+  background: var(--color-loop-1);
+  color: var(--color-text-light);
+  font-family: var(--font-display);
+  font-size: 1em;
+  cursor: pointer;
+  box-shadow: .125em .125em .25em var(--color-shadow);
+  z-index: 1;
+}
+
+.player-hey:hover {
+  background: var(--color-loop-2);
+}
+
+/* action popup (spin, destroy, points, etc.) */
+.action-popup {
+  background: var(--color-text-light);
+  border: .625em solid var(--color-text-dark);
+  border-radius: 2.2em;
+  padding: 1.5em;
+  box-shadow: .25em .25em .25em var(--color-shadow);
+  text-align: center;
+  max-width: 15.7em;
+  margin: .75em auto;
+}
+
+.action-popup h2 {
+  color: var(--color-text-dark);
+  font-size: 1.5625em;
+  margin-bottom: .5em;
+}
+
+/* points selector */
+.points-selector {
   display: flex;
   align-items: center;
+  justify-content: center;
   gap: .5em;
-  padding: .5em;
+}
+
+.points-selector .value {
+  font-family: var(--font-score);
+  font-size: 2em;
+  color: var(--color-text-dark);
+  min-width: 2em;
+  text-align: center;
+}
+
+.points-selector button {
+  background: var(--color-text-dark);
+  color: var(--color-text-light);
+  border: none;
+  border-radius: .3em;
+  width: 2.25em;
+  height: 2.25em;
+  font-size: 1.25em;
   cursor: pointer;
 }
 
-.accuse-option:hover {
-  background: var(--color-primary);
+/* dialogs */
+dialog {
+  border: .625em solid var(--color-text-dark);
+  border-radius: 2.2em;
+  padding: 1.5em;
+  background: var(--color-text-light);
+  color: var(--color-text-dark);
+  box-shadow: .25em .25em .25em var(--color-shadow);
+  max-width: 18.75em;
 }
 
-dialog {
-  border: none;
-  border-radius: .5em;
-  padding: 1em;
-  background: var(--color-surface);
-  color: var(--color-text);
-  box-shadow: 0 .5em 1em var(--color-shadow);
+dialog::backdrop {
+  background: var(--color-backdrop);
+}
+
+dialog h2 {
+  font-size: 1.5625em;
+  text-align: center;
+  margin-bottom: .75em;
+}
+
+dialog .button {
+  width: 100%;
+  text-align: center;
 }
 
 dialog fieldset {
@@ -180,11 +465,37 @@ dialog fieldset {
   margin-bottom: 1em;
 }
 
-.footer-version {
-  position: fixed;
-  bottom: 2px;
-  right: 6px;
-  font-size: 0.6rem;
-  opacity: 0.4;
-  pointer-events: none;
+.accuse-option {
+  display: flex;
+  align-items: center;
+  gap: .5em;
+  padding: .5em;
+  cursor: pointer;
+}
+
+.accuse-option:hover {
+  background: var(--color-button);
+}
+
+/* table bar (outside card) */
+.table-bar {
+  display: flex;
+  justify-content: center;
+  gap: .75em;
+  padding: .75em 0;
+}
+
+/* points section (centered in card) */
+.game-points {
+  align-items: center;
+  margin-top: auto;
+}
+
+/* utility classes */
+.script {
+  font-family: var(--font-script);
+}
+
+.score-font {
+  font-family: var(--font-score);
 }

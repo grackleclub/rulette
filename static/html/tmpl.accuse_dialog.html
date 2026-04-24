@@ -1,7 +1,7 @@
-<p>Which rule was broken?</p>
+<h2><span class="script">which</span> RULE?</h2>
 {{ range .Players }}
   <article class="stack">
-    <strong>{{ .Name }}</strong>
+    <span>{{ .Name }}</span>
     {{ $pid := .PlayerID }}
     {{ range $.CardsPlayers }}
       {{ if eq .PlayerID.Int32 $pid }}
@@ -11,7 +11,7 @@
           data-close-on-success="hey-dialog">
           <input type="hidden" name="defendant_id" value="{{ $pid }}">
           <input type="hidden" name="game_card_id" value="{{ .ID }}">
-          <button type="submit" class="button">{{ .Content }}</button>
+          <button type="submit" class="button-teal">{{ .Content }}</button>
         </form>
       {{ end }}
     {{ end }}
