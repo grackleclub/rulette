@@ -181,7 +181,8 @@ body > footer {
   pointer-events: none;
 }
 
-.invite a {
+.invite a,
+.invite button {
   pointer-events: auto;
 }
 
@@ -220,6 +221,7 @@ dialog fieldset {
 .card-game {
   justify-content: flex-start;
   align-items: stretch;
+  padding: .25em;
   padding-top: 1.5em;
   overflow-y: auto;
 }
@@ -253,10 +255,11 @@ h2 {
 .player {
   position: relative;
   background: var(--color-player-bg);
-  border: .9em solid var(--color-player-border);
+  border: .8em solid var(--color-player-border);
   border-radius: 4.375em;
   padding: 1.25em 1em 1.25em 4em;
   min-height: 6.25em;
+  width: 100%;
 }
 
 .player-name {
@@ -470,6 +473,20 @@ dialog .button {
   border-radius: .5em;
   text-align: center;
   box-shadow: 0 .25em .25em var(--color-shadow);
+}
+
+/* table bar (outside card) */
+.table-bar {
+  display: flex;
+  justify-content: center;
+  gap: .75em;
+  padding: .75em 0;
+}
+
+/* points section (centered in card) */
+#points {
+  align-items: center;
+  margin-top: auto;
 }
 
 .script {

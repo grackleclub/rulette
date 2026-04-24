@@ -1,42 +1,16 @@
-  {{ $cid := .CallerID }}
   {{ $gid := .Game.ID }}
-  {{ $isHost := false }}
-  {{ if eq .Game.StateName "inviting" }}
-    {{ range .Players }}
-      {{ if and (eq .Initiative.Int32 0) (eq $cid .PlayerID) }}
-        {{ $isHost = true }}
-      {{ end }}
-    {{ end }}
-    {{ if $isHost }}
-      <div class="action-popup">
-        <button class="button-teal"
-          hx-post="/{{ $gid }}/action/start"
-          hx-swap="none">
-          Start Game
-        </button>
-      </div>
-    {{ else }}
-      <div class="action-popup">
-        <p>waiting for host to start the game…</p>
-      </div>
-    {{ end }}
-  {{ else }}
-    <div class="action-popup">
-      <div class="actions">
-        <button class="button-teal"
-          hx-post="/{{ .Game.ID }}/action/spin"
-          hx-swap="none">
-          spin
-        </button>
-        <button class="button" data-open-dialog="hey-dialog" data-fetch-event="loadAccuse">
-          hey!
-        </button>
-        <button class="button"
-          hx-post="/{{ .Game.ID }}/action/next"
-          hx-swap="none">
-          Next Turn
-        </button>
-      </div>
+  {{ if ne .Game.StateName "inviting" }}
+    <div class="table-bar">
+      <button class="button-teal"
+        hx-post="/{{ $gid }}/action/spin"
+        hx-swap="none">
+        spin
+      </button>
+      <button class="button"
+        hx-post="/{{ $gid }}/action/next"
+        hx-swap="none">
+        Next Turn
+      </button>
     </div>
   {{ end }}
 {{ if eq .Game.StateName "pending" }}
