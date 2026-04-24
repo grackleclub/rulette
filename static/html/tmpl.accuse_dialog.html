@@ -1,7 +1,7 @@
 <h2><span class="script">which</span> RULE?</h2>
 {{ range .Players }}
   <article class="stack">
-    <span class="player-name">{{ .Name }}</span>
+    <span>{{ .Name }}</span>
     {{ $pid := .PlayerID }}
     {{ range $.CardsPlayers }}
       {{ if eq .PlayerID.Int32 $pid }}

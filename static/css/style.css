@@ -1,4 +1,20 @@
-@import url('https://fonts.googleapis.com/css2?family=Secular+One&family=Borel&family=Roboto:wght@400;700&display=swap');
+@font-face {
+  font-family: 'Secular One';
+  src: url('/static/fonts/SecularOne-Regular.ttf') format('truetype');
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'Borel';
+  src: url('/static/fonts/Borel-Regular.ttf') format('truetype');
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'Roboto';
+  src: url('/static/fonts/Roboto-Regular.ttf') format('truetype');
+  font-display: swap;
+}
 
 @font-face {
   font-family: 'DSEG7';
@@ -177,7 +193,7 @@ body > footer {
   top: 50%;
   left: 50%;
   transform: translate(-50%, -50%);
-  z-index: 3;
+  z-index: 10;
   pointer-events: none;
 }
 
@@ -226,24 +242,13 @@ dialog fieldset {
   overflow-y: auto;
 }
 
-.card-game::after {
-  content: '';
-  position: absolute;
-  inset: 0;
-  background: rgba(0, 0, 0, 0.3);
-  border-radius: inherit;
-  z-index: 0;
-  pointer-events: none;
-}
-
 /* game name header */
 #title {
   width: 100%;
   align-items: center;
 }
 
-#title h1, 
-h2 {
+#title h1 {
   background: var(--color-text-light);
   color: var(--color-text-dark);
   border: .3em solid var(--color-text-dark);
@@ -272,7 +277,7 @@ h2 {
   width: 100%;
 }
 
-.player-name {
+.player .player-name {
   position: absolute;
   bottom: -.5em;
   left: 50%;
@@ -450,7 +455,6 @@ dialog .button {
   text-transform: uppercase;
   text-align: center;
   color: var(--color-text-light);
-  text-shadow: .125em .125em .25em rgba(0, 0, 0, 0.3);
 }
 
 /* create game button (orange on dark) */

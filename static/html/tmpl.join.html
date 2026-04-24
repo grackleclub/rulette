@@ -6,12 +6,11 @@
     <title>Rulette | {{ .Name }}</title>
     <link rel="stylesheet" href="/static/css/style.css">
     <link rel="icon" type="image/svg+xml" href="/static/img/favicon.svg">
-    <script src="/static/js/htmx.min.js"></script>
   </head>
   <body>
     <div class="card-float">
       <article class="card">
-        <h2 class="game-name">{{ .Name }}</h2>
+        <h2>{{ .Name }}</h2>
         <form class="stack" action="/{{ .ID }}/join" method="POST">
           <input type="text" id="username" name="username" placeholder="enter name" autofocus required />
           <input class="button-create" type="submit" value="JOIN GAME" />
