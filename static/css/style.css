@@ -247,6 +247,9 @@ a {
 body > footer {
   margin-top: auto;
   text-align: center;
+  white-space: nowrap;
+  position: fixed;
+  bottom: .5em;
 }
 
 .invite {
