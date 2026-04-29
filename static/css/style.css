@@ -23,13 +23,12 @@
 }
 
 :root {
-  --color-bg: #afafaf;
   --color-card-bg: #00a0b8;
   --color-loop-1: #ad204a;
   --color-loop-2: #ff9b45;
   --color-loop-3: #fed348;
   --color-loop-4: #fee596;
-  --color-player-bg: #fee596;
+  --color-player-bg: var(--color-loop-4);
   --color-player-border: #dd2330;
   --color-button-hover: #383838;
   --color-text-dark: #1b110f;
@@ -60,7 +59,6 @@ body {
   min-height: 100vh;
   display: flex;
   flex-direction: column;
-  justify-content: flex-start;
   align-items: center;
   padding: 1em;
   gap: 1em;
@@ -87,7 +85,7 @@ select,
 textarea {
   background: var(--color-text-light);
   color: var(--color-text-dark);
-  border: 4px solid var(--color-text-dark);
+  border: .25em solid var(--color-text-dark);
   border-radius: 1em;
   padding: .5em 1em;
   font: inherit;
@@ -163,7 +161,6 @@ a {
   background: var(--color-text-dark);
   color: var(--color-loop-2);
   padding: .5em 1.5em;
-  font-size: 1em;
   text-transform: uppercase;
   align-self: center;
 }
@@ -174,19 +171,12 @@ a {
 
 /* game card (layout container, no visual chrome) */
 .card {
-  position: relative;
   display: flex;
   flex-direction: column;
-  justify-content: flex-start;
   align-items: center;
   gap: 1em;
   width: 100%;
   flex: 1;
-}
-
-.card > * {
-  position: relative;
-  z-index: 1;
 }
 
 .card > form {
@@ -202,11 +192,16 @@ a {
 
 /* in-game variant of .card */
 .card-game {
-  justify-content: flex-start;
+  position: relative;
   align-items: stretch;
   padding: .25em;
   padding-top: 1.5em;
   overflow-y: auto;
+}
+
+.card-game > * {
+  position: relative;
+  z-index: 1;
 }
 
 .card-game::after {
@@ -264,8 +259,8 @@ body > footer:not(.footer-version) {
 
 .footer-version {
   position: fixed;
-  bottom: 2px;
-  right: 6px;
+  bottom: .125em;
+  right: .375em;
   font-size: 0.6rem;
   opacity: 0.4;
   pointer-events: none;
@@ -306,7 +301,7 @@ body > footer:not(.footer-version) {
   width: 100%;
 }
 
-.player .player-name {
+.player-name {
   position: absolute;
   bottom: -.5em;
   left: 50%;
@@ -466,6 +461,7 @@ dialog fieldset {
 
 .accuse-option:hover {
   background: var(--color-text-dark);
+  color: var(--color-text-light);
 }
 
 /* table bar (outside card) */

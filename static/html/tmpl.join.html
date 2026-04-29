@@ -10,9 +10,9 @@
   <body>
     <div class="card-float">
       <article class="card">
-        <article class="stack game-title">
+        <div class="stack game-title">
           <h1>{{ .Name }}</h1>
-        </article>
+        </div>
         <form class="stack" action="/{{ .ID }}/join" method="POST">
           <input type="text" id="username" name="username" placeholder="enter name" autofocus required />
           <input class="button-create" type="submit" value="JOIN GAME" />

@@ -15,7 +15,7 @@
     <div class="card-float">
       <article class="card card-game">
 
-        <article id="title" class="stack game-title">
+        <div id="title" class="stack game-title">
           <h1>{{ .Game.Name }}</h1>
           <footer>Playing as {{ .CallerName }}</footer>
           <section id="status-fetch" hx-get="/{{ .Game.ID }}/data/status"
@@ -23,7 +23,7 @@
             <footer class="status">{{ .Game.StateName }}</footer>
             <footer>{{ .Game.StateDescription }}</footer>
           </section>
-        </article>
+        </div>
 
         <section id="players" class="stack" hx-get="/{{ .Game.ID }}/data/players"
           hx-target="#players" hx-trigger="load, every {{ .Config.refresh }}" hx-swap="innerHTML">
