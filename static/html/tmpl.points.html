@@ -5,7 +5,7 @@
     {{ $isHost = true }}
   {{ end }}
 {{ end }}
-{{ if $isHost }}
+{{ if and $isHost (ne .Game.StateName "inviting") }}
 <div class="actions">
   <button class="button" data-open-dialog="change-points-dialog" data-fetch-event="loadChangePoints">
     Change Points

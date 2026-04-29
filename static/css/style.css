@@ -66,8 +66,14 @@ body {
   gap: 1em;
   background: var(--color-card-bg) url('/static/img/card-bg.svg') center / auto 100% no-repeat;
   color: var(--color-text-light);
-  max-width: 85vw;
+  max-width: 75vw;
   margin: 0 auto;
+}
+
+@media (max-width: 500px) {
+  body {
+    max-width: 100%;
+  }
 }
 
 ul,
@@ -115,6 +121,7 @@ a {
 .button-danger,
 .button-create {
   border: none;
+  border-radius: 1em;
   font: inherit;
   font-weight: bold;
   cursor: pointer;
@@ -124,7 +131,6 @@ a {
 .button {
   background: var(--color-text-dark);
   color: var(--color-text-light);
-  border-radius: 1em;
   padding: .6em 1em;
   text-transform: uppercase;
   letter-spacing: .05em;
@@ -139,7 +145,6 @@ a {
 .button-teal {
   background: var(--color-card-bg);
   color: var(--color-text-light);
-  border-radius: .3em;
   padding: .75em 2em;
   font-size: 1.25em;
 }
@@ -151,14 +156,12 @@ a {
 .button-danger {
   background: var(--color-player-border);
   color: var(--color-text-light);
-  border-radius: .3em;
   padding: .75em 1.5em;
 }
 
 .button-create {
   background: var(--color-text-dark);
   color: var(--color-loop-2);
-  border-radius: .9em;
   padding: .5em 1.5em;
   font-size: 1em;
   text-transform: uppercase;
@@ -297,9 +300,9 @@ body > footer:not(.footer-version) {
   position: relative;
   background: var(--color-player-bg);
   border: .8em solid var(--color-player-border);
-  border-radius: 4.375em;
+  border-radius: 5em;
   padding: 1.25em 1em 1.25em 4em;
-  min-height: 6.25em;
+  min-height: 10em;
   width: 100%;
 }
 
@@ -464,6 +467,8 @@ dialog fieldset {
 
 /* table bar (outside card) */
 .table-bar {
+  position: relative;
+  z-index: 1;
   display: flex;
   justify-content: center;
   gap: .75em;
