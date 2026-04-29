@@ -105,6 +105,11 @@ a {
   gap: .75em;
 }
 
+.stack-centered {
+  align-items: center;
+  text-align: center;
+}
+
 .actions {
   display: flex;
   flex-wrap: wrap;

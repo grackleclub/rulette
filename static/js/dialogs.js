@@ -5,6 +5,29 @@
     if (btn) {
       var dialogId = btn.dataset.openDialog;
       var fetchEvent = btn.dataset.fetchEvent;
+      var inviteLink = btn.dataset.inviteLink;
+      var qrSrc = btn.dataset.qrSrc;
+      if (inviteLink || qrSrc) {
+        var dialog = document.getElementById(dialogId);
+        if (qrSrc) {
+          var img = dialog.querySelector("#invite-qr");
+          if (img) img.src = new URL(qrSrc, location.href).href;
+        }
+        if (inviteLink) {
+          var absLink = new URL(inviteLink, location.href).href;
+          var linkEl = dialog.querySelector("#invite-link");
+          if (linkEl) linkEl.textContent = absLink;
+          try {
+            navigator.clipboard.writeText(absLink).catch(function (err) {
+              console.error("clipboard write failed:", err);
+            });
+          } catch (err) {
+            console.error("clipboard unavailable:", err);
+          }
+        }
+        dialog.showModal();
+        return;
+      }
       if (fetchEvent) {
         // dispatch event to trigger htmx fetch, then open after load
         var dialog = document.getElementById(dialogId);

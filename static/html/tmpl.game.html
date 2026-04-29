@@ -96,6 +96,16 @@
       </div>
     </dialog>
 
+    <dialog id="invite-dialog">
+      <div class="dialog-body stack">
+        <h2>Invite players</h2>
+        <img id="invite-qr" alt="join QR code">
+        <p id="invite-link" class="invite-link"></p>
+        <small>copied to clipboard!</small>
+        <button class="button" data-close-dialog="invite-dialog">close</button>
+      </div>
+    </dialog>
+
     <dialog id="change-points-dialog">
       <div class="dialog-body stack"
         hx-get="/{{ .Game.ID }}/data/change-points"
