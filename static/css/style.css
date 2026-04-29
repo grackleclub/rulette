@@ -31,9 +31,11 @@
   --color-loop-4: #fee596;
   --color-player-bg: #fee596;
   --color-player-border: #dd2330;
+  --color-button: #1b110f;
   --color-button-hover: #383838;
   --color-text-dark: #1b110f;
   --color-text-light: #ffffff;
+  --color-score-glow: #FED348;
   --color-shadow: rgba(0, 0, 0, 0.25);
   --color-dim: rgba(0, 0, 0, 0.3);
   --color-backdrop: rgba(0, 0, 0, 0.5);
@@ -214,6 +216,37 @@ a {
   position: fixed;
   inset: 0;
   background: var(--color-dim);
+  z-index: 0;
+  pointer-events: none;
+}
+
+/* card logo */
+.card-logo {
+  background: var(--color-text-dark);
+  color: var(--color-text-light);
+  font-family: var(--font-script);
+  font-size: 3em;
+  padding: 1.25em 1em .5em;
+  border-radius: .5em;
+  text-align: center;
+  box-shadow: 0 .25em .25em var(--color-shadow);
+}
+
+/* in-game variant of .card */
+.card-game {
+  justify-content: flex-start;
+  align-items: stretch;
+  padding: .25em;
+  padding-top: 1.5em;
+  overflow-y: auto;
+}
+
+.card-game::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: var(--color-dim);
+  border-radius: inherit;
   z-index: 0;
   pointer-events: none;
 }
