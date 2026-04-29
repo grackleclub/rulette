@@ -31,11 +31,9 @@
   --color-loop-4: #fee596;
   --color-player-bg: #fee596;
   --color-player-border: #dd2330;
-  --color-button: #1b110f;
   --color-button-hover: #383838;
   --color-text-dark: #1b110f;
   --color-text-light: #ffffff;
-  --color-score-glow: #FED348;
   --color-shadow: rgba(0, 0, 0, 0.25);
   --color-dim: rgba(0, 0, 0, 0.3);
   --color-backdrop: rgba(0, 0, 0, 0.5);
@@ -62,13 +60,13 @@ body {
   min-height: 100vh;
   display: flex;
   flex-direction: column;
-  justify-content: center;
+  justify-content: flex-start;
   align-items: center;
   padding: 1em;
   gap: 1em;
-  background: var(--color-bg);
+  background: var(--color-card-bg) url('/static/img/card-bg.svg') center / auto 100% no-repeat;
   color: var(--color-text-light);
-  max-width: 412px;
+  max-width: 85vw;
   margin: 0 auto;
 }
 
@@ -124,7 +122,7 @@ a {
 }
 
 .button {
-  background: var(--color-button);
+  background: var(--color-text-dark);
   color: var(--color-text-light);
   border-radius: 1em;
   padding: .6em 1em;
@@ -171,7 +169,7 @@ a {
   background: var(--color-button-hover);
 }
 
-/* game card (the big rule card shown to players) */
+/* game card (layout container, no visual chrome) */
 .card {
   position: relative;
   display: flex;
@@ -179,21 +177,8 @@ a {
   justify-content: flex-start;
   align-items: center;
   gap: 1em;
-  min-width: 20em;
-  min-height: 35em;
-  padding: 1em;
-  background: var(--color-card-bg);
-  border-radius: 1.2em;
-  box-shadow: 0 .5em .75em var(--color-shadow);
-  overflow: hidden;
-}
-
-.card::before {
-  content: '';
-  position: absolute;
-  inset: 0;
-  background: url('/static/img/card-bg.svg') center / cover no-repeat;
-  pointer-events: none;
+  width: 100%;
+  flex: 1;
 }
 
 .card > * {
@@ -202,14 +187,14 @@ a {
 }
 
 .card > form {
-  margin-top: 5em;
+  margin-top: auto;
   margin-bottom: auto;
 }
 
 .card-float {
-  display: grid;
-  place-items: center;
+  width: 100%;
   flex: 1;
+  display: flex;
 }
 
 /* in-game variant of .card */
@@ -223,10 +208,9 @@ a {
 
 .card-game::after {
   content: '';
-  position: absolute;
+  position: fixed;
   inset: 0;
   background: var(--color-dim);
-  border-radius: inherit;
   z-index: 0;
   pointer-events: none;
 }
@@ -244,12 +228,13 @@ a {
 }
 
 /* layout regions */
-body > footer {
+body > footer:not(.footer-version) {
   margin-top: auto;
   text-align: center;
-  white-space: nowrap;
   position: fixed;
   bottom: .5em;
+  left: 1em;
+  right: 1em;
 }
 
 .invite {
@@ -340,7 +325,7 @@ body > footer {
   left: 50%;
   transform: translateX(-50%);
   background: var(--color-text-dark);
-  border: .2em solid var(--color-score-glow);
+  border: .2em solid var(--color-loop-3);
   border-radius: .25em;
   padding: 0 .5em;
   font-family: var(--font-score);
@@ -474,7 +459,7 @@ dialog fieldset {
 }
 
 .accuse-option:hover {
-  background: var(--color-button);
+  background: var(--color-text-dark);
 }
 
 /* table bar (outside card) */
