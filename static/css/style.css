@@ -172,7 +172,7 @@ a {
   background: var(--color-button-hover);
 }
 
-/* game card (layout container, no visual chrome) */
+/* game card (layout container) */
 .card {
   position: relative;
   display: flex;
