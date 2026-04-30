@@ -1,12 +1,14 @@
 <svg width="394" height="714" viewBox="0 0 394 714" fill="none" xmlns="http://www.w3.org/2000/svg">
   <!-- vertical stripes -->
-  <rect x="127" y="0" width="20" height="714" fill="#FEE596"/>
-  <rect x="147" y="0" width="20" height="714" fill="#FED348"/>
-  <rect x="167" y="0" width="20" height="714" fill="#FF9B45"/>
-  <rect x="187" y="0" width="20" height="714" fill="#AD204A"/>
-  <rect x="207" y="0" width="20" height="714" fill="#FF9B45"/>
-  <rect x="227" y="0" width="20" height="714" fill="#FED348"/>
-  <rect x="247" y="0" width="20" height="714" fill="#FEE596"/>
+  <g id="stripes" shape-rendering="crispEdges">
+    <rect x="127" y="0" width="20" height="714" fill="#FEE596"/>
+    <rect x="147" y="0" width="20" height="714" fill="#FED348"/>
+    <rect x="167" y="0" width="20" height="714" fill="#FF9B45"/>
+    <rect x="187" y="0" width="20" height="714" fill="#AD204A"/>
+    <rect x="207" y="0" width="20" height="714" fill="#FF9B45"/>
+    <rect x="227" y="0" width="20" height="714" fill="#FED348"/>
+    <rect x="247" y="0" width="20" height="714" fill="#FEE596"/>
+  </g>
   <!-- top swirl -->
   <circle cx="132" cy="245" r="65" stroke="#AD204A" stroke-width="20"/>
   <circle cx="132" cy="245" r="45" stroke="#FF9B45" stroke-width="20"/>
