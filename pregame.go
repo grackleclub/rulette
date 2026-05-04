@@ -104,6 +104,18 @@ func joinHandler(w http.ResponseWriter, r *http.Request) {
 	}
 	switch r.Method {
 	case http.MethodGet:
+		// if the visitor is already a player in this game, don't show them
+		// the join form — bounce them back to the game page.
+		if _, cookieKey, err := cookie(r); err == nil {
+			s, err := stateFromCacheOrDB(r.Context(), &cache, gameID)
+			if err == nil && s.isPlayerInGame(cookieKey) {
+				log.Warn("player attempted to rejoin, redirecting to game",
+					"game_id", gameID,
+				)
+				http.Redirect(w, r, fmt.Sprintf("/%s", gameID), http.StatusSeeOther)
+				return
+			}
+		}
 		w.Header().Set("Content-Type", "text/html")
 		templateFilepath := path.Join("static", "html", "tmpl.join.html")
 		tmpl, err := readParse(static, templateFilepath)
