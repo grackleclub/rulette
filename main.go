@@ -69,6 +69,7 @@ func main() {
 	mux.Handle("/{game_id}/join", logMW(rateMW(http.HandlerFunc(joinHandler))))
 	// game.go
 	mux.Handle("/{game_id}", logMW(rateMW(http.HandlerFunc(gameHandler))))
+	mux.Handle("/{game_id}/qr", logMW(rateMW(http.HandlerFunc(qrHandler))))
 	mux.Handle("/{game_id}/data/{topic}", logMW(rateMW(http.HandlerFunc(dataHandler))))
 	mux.Handle("/{game_id}/action/{action}", logMW(rateMW(http.HandlerFunc(actionHandler))))
 

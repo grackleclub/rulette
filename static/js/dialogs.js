@@ -5,6 +5,48 @@
     if (btn) {
       var dialogId = btn.dataset.openDialog;
       var fetchEvent = btn.dataset.fetchEvent;
+      var inviteLink = btn.dataset.inviteLink;
+      var qrSrc = btn.dataset.qrSrc;
+      if (inviteLink || qrSrc) {
+        var dialog = document.getElementById(dialogId);
+        if (!dialog) {
+          console.error("dialog not found:", dialogId);
+          return;
+        }
+        if (qrSrc) {
+          var img = dialog.querySelector("#invite-qr");
+          if (img) img.src = new URL(qrSrc, location.href).href;
+        }
+        var absLink;
+        if (inviteLink) {
+          absLink = new URL(inviteLink, location.href).href;
+          var linkEl = dialog.querySelector("#invite-link");
+          if (linkEl) {
+            linkEl.textContent = absLink;
+            linkEl.href = absLink;
+          }
+        }
+        dialog.showModal();
+        if (absLink) {
+          var successEl = dialog.querySelector("#invite-copy-success");
+          var failureEl = dialog.querySelector("#invite-copy-failure");
+          try {
+            navigator.clipboard.writeText(absLink).then(function () {
+              if (successEl) successEl.hidden = false;
+              if (failureEl) failureEl.hidden = true;
+            }).catch(function (err) {
+              console.error("clipboard write failed:", err);
+              if (failureEl) failureEl.hidden = false;
+              if (successEl) successEl.hidden = true;
+            });
+          } catch (err) {
+            console.error("clipboard unavailable:", err);
+            if (failureEl) failureEl.hidden = false;
+            if (successEl) successEl.hidden = true;
+          }
+        }
+        return;
+      }
       if (fetchEvent) {
         // dispatch event to trigger htmx fetch, then open after load
         var dialog = document.getElementById(dialogId);

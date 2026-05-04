@@ -23,7 +23,12 @@
   {{ end }}
   {{ if eq .Game.StateName "inviting" }}
     <div class="invite stack">
-      <a href="/{{ $gid }}/join" class="button card-action">Invite Players</a>
+      <button class="button card-action"
+        data-open-dialog="invite-dialog"
+        data-invite-link="/{{ $gid }}/join"
+        data-qr-src="/{{ $gid }}/qr">
+        Invite Players
+      </button>
       {{ $isHost := false }}
       {{ range .Players }}
         {{ if and (eq .Initiative.Int32 0) (eq $cid .PlayerID) }}

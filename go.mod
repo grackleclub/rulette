@@ -1,13 +1,15 @@
 module github.com/grackleclub/rulette
 
-go 1.24.3
+go 1.25.0
 
 require (
 	github.com/grackleclub/log v0.4.4
 	github.com/grackleclub/postgres v0.0.3
 	github.com/jackc/pgx/v5 v5.7.5
 	github.com/stretchr/testify v1.10.0
+	golang.org/x/image v0.39.0
 	golang.org/x/time v0.14.0
+	rsc.io/qr v0.2.0
 )
 
 require (
@@ -62,9 +64,9 @@ require (
 	go.opentelemetry.io/otel/metric v1.24.0 // indirect
 	go.opentelemetry.io/otel/trace v1.24.0 // indirect
 	golang.org/x/crypto v0.37.0 // indirect
-	golang.org/x/sync v0.13.0 // indirect
+	golang.org/x/sync v0.20.0 // indirect
 	golang.org/x/sys v0.32.0 // indirect
 	golang.org/x/term v0.31.0 // indirect
-	golang.org/x/text v0.24.0 // indirect
+	golang.org/x/text v0.36.0 // indirect
 	gopkg.in/yaml.v3 v3.0.1 // indirect
 )

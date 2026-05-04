@@ -109,6 +109,28 @@ a {
   gap: .75em;
 }
 
+.stack-centered {
+  align-items: center;
+  text-align: center;
+}
+
+#invite-dialog {
+  max-width: 90vw;
+}
+
+#invite-qr {
+  width: 100%;
+  max-width: 20em;
+  height: auto;
+}
+
+.invite-link {
+  word-break: break-all;
+  font-family: monospace;
+  font-size: .875em;
+  text-decoration: none;
+}
+
 .actions {
   display: flex;
   flex-wrap: wrap;
