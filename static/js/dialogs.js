@@ -9,6 +9,10 @@
       var qrSrc = btn.dataset.qrSrc;
       if (inviteLink || qrSrc) {
         var dialog = document.getElementById(dialogId);
+        if (!dialog) {
+          console.error("dialog not found:", dialogId);
+          return;
+        }
         if (qrSrc) {
           var img = dialog.querySelector("#invite-qr");
           if (img) img.src = new URL(qrSrc, location.href).href;

@@ -19,6 +19,8 @@ const (
 	padding      = 24
 	captionGap   = 16
 	fontSize     = 36
+	maxWidth     = 800
+	maxHeight    = 850
 )
 
 var captionFont = func() font.Face {
@@ -53,6 +55,12 @@ func Encode(text string, scale int) (*image.RGBA, error) {
 
 	if minScale := (textW + code.Size - 1) / code.Size; minScale > scale {
 		scale = minScale
+	}
+	if maxScaleW := (maxWidth - 2*padding) / code.Size; scale > maxScaleW {
+		scale = maxScaleW
+	}
+	if maxScaleH := (maxHeight - 2*padding - captionGap - textH) / code.Size; scale > maxScaleH {
+		scale = maxScaleH
 	}
 	qrSide := code.Size * scale
 

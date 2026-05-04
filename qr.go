@@ -62,6 +62,7 @@ func qrHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	w.Header().Set("Cache-Control", "no-store")
 	w.Header().Set("Content-Type", "image/png")
 	if _, err := w.Write(buf.Bytes()); err != nil {
 		log.Error("write response", "error", err)

@@ -166,6 +166,25 @@ func TestGame(t *testing.T) {
 		)
 	})
 
+	t.Run("GET /{game_id}/qr (inviting)", func(t *testing.T) {
+		mux := http.NewServeMux()
+		mux.HandleFunc("/{game_id}/qr", qrHandler)
+		path := fmt.Sprintf("/%s/qr", gameID)
+		req := httptest.NewRequest(http.MethodGet, path, nil)
+		w := httptest.NewRecorder()
+		mux.ServeHTTP(w, req)
+		require.Equal(t, http.StatusOK, w.Result().StatusCode)
+		require.Equal(t, "image/png", w.Result().Header.Get("Content-Type"))
+	})
+	t.Run("GET /{game_id}/qr (unknown game)", func(t *testing.T) {
+		mux := http.NewServeMux()
+		mux.HandleFunc("/{game_id}/qr", qrHandler)
+		req := httptest.NewRequest(http.MethodGet, "/000000/qr", nil)
+		w := httptest.NewRecorder()
+		mux.ServeHTTP(w, req)
+		require.Equal(t, http.StatusNotFound, w.Result().StatusCode)
+	})
+
 	t.Run("GET /{game_id}/data/status (expect inviting)", func(t *testing.T) {
 		path := fmt.Sprintf("/%s/data/status", gameID)
 		req := httptest.NewRequest(http.MethodGet, path, nil)
@@ -199,6 +218,16 @@ func TestGame(t *testing.T) {
 		w := httptest.NewRecorder()
 		actionHandler(w, req)
 		require.Equal(t, http.StatusOK, w.Result().StatusCode)
+	})
+	t.Run("GET /{game_id}/qr (not accepting invites)", func(t *testing.T) {
+		mux := http.NewServeMux()
+		mux.HandleFunc("/{game_id}/qr", qrHandler)
+		path := fmt.Sprintf("/%s/qr", gameID)
+		req := httptest.NewRequest(http.MethodGet, path, nil)
+		w := httptest.NewRecorder()
+		cache.Delete(gameID)
+		mux.ServeHTTP(w, req)
+		require.Equal(t, http.StatusConflict, w.Result().StatusCode)
 	})
 	t.Run("GET /{game_id}/data/status (expect=ready)", func(t *testing.T) {
 		path := fmt.Sprintf("/%s/data/status", gameID)
