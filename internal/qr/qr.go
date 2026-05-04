@@ -68,7 +68,13 @@ func Encode(text string, scale int) (*image.RGBA, error) {
 	if w := textW + 2*padding; w > canvasW {
 		canvasW = w
 	}
+	if canvasW > maxWidth {
+		canvasW = maxWidth
+	}
 	canvasH := qrSide + 2*padding + captionGap + textH
+	if canvasH > maxHeight {
+		canvasH = maxHeight
+	}
 
 	img := image.NewRGBA(image.Rect(0, 0, canvasW, canvasH))
 	draw.Draw(img, img.Bounds(), &image.Uniform{C: color.White}, image.Point{}, draw.Src)

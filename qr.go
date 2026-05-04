@@ -10,6 +10,8 @@ import (
 	"github.com/grackleclub/rulette/internal/qr"
 )
 
+const maxlenDNS = 253
+
 // qrHandler serves a PNG QR code for the game's join URL.
 // Only available while the game is in the invite (pre-game) state.
 func qrHandler(w http.ResponseWriter, r *http.Request) {
@@ -45,6 +47,10 @@ func qrHandler(w http.ResponseWriter, r *http.Request) {
 	scheme := "https"
 	if r.TLS == nil && !strings.EqualFold(r.Header.Get("X-Forwarded-Proto"), "https") {
 		scheme = "http"
+	}
+	if len(r.Host) > maxlenDNS {
+		http.Error(w, "bad request", http.StatusBadRequest)
+		return
 	}
 	joinURL := fmt.Sprintf("%s://%s/%s/join", scheme, r.Host, gameID)
 
