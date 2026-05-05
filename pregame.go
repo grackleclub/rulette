@@ -104,6 +104,28 @@ func joinHandler(w http.ResponseWriter, r *http.Request) {
 	}
 	switch r.Method {
 	case http.MethodGet:
+		// if the visitor is already a player in this game, don't show them
+		// the join form — bounce them back to the game page. Fail closed
+		// on state lookup errors: a cookied visitor reaching the form is
+		// the bug we're trying to prevent.
+		if _, cookieKey, err := cookie(r); err == nil {
+			s, err := stateFromCacheOrDB(r.Context(), &cache, gameID)
+			if err != nil {
+				log.Error("fetch game state for rejoin check",
+					"error", err,
+					"game_id", gameID,
+				)
+				http.Error(w, "internal server error", http.StatusInternalServerError)
+				return
+			}
+			if s.isPlayerInGame(cookieKey) {
+				log.Warn("player attempted to rejoin, redirecting to game",
+					"game_id", gameID,
+				)
+				http.Redirect(w, r, fmt.Sprintf("/%s", gameID), http.StatusSeeOther)
+				return
+			}
+		}
 		w.Header().Set("Content-Type", "text/html")
 		templateFilepath := path.Join("static", "html", "tmpl.join.html")
 		tmpl, err := readParse(static, templateFilepath)
@@ -133,6 +155,28 @@ func joinHandler(w http.ResponseWriter, r *http.Request) {
 		if username == "" {
 			http.Error(w, "missing required field: username", http.StatusBadRequest)
 			return
+		}
+
+		// reject rejoin: if the caller already has a session for this game,
+		// bounce to the game page rather than minting a new player/session
+		// (which would orphan the original identity and host initiative).
+		if _, cookieKey, err := cookie(r); err == nil {
+			s, err := stateFromCacheOrDB(r.Context(), &cache, gameID)
+			if err != nil {
+				log.Error("fetch game state for rejoin check",
+					"error", err,
+					"game_id", gameID,
+				)
+				http.Error(w, "internal server error", http.StatusInternalServerError)
+				return
+			}
+			if s.isPlayerInGame(cookieKey) {
+				log.Warn("POST rejoin blocked, redirecting to game",
+					"game_id", gameID,
+				)
+				http.Redirect(w, r, fmt.Sprintf("/%s", gameID), http.StatusSeeOther)
+				return
+			}
 		}
 
 		switch game.StateID {

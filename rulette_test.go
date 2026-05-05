@@ -166,6 +166,38 @@ func TestGame(t *testing.T) {
 		)
 	})
 
+	t.Run("GET /{game_id}/join (existing player)", func(t *testing.T) {
+		req := httptest.NewRequest(
+			http.MethodGet, fmt.Sprintf("/%s/join", gameID), nil,
+		)
+		req.AddCookie(users[0].cookie)
+		w := httptest.NewRecorder()
+		joinHandler(w, req)
+		require.Equal(t, http.StatusSeeOther, w.Result().StatusCode,
+			"existing player GET /join should redirect",
+		)
+		require.Equal(t, fmt.Sprintf("/%s", gameID),
+			w.Result().Header.Get("Location"),
+			"redirect target should be the game page",
+		)
+		for _, c := range w.Result().Cookies() {
+			require.NotEqual(t, "session", c.Name,
+				"existing-player redirect must not issue a new session cookie",
+			)
+		}
+	})
+
+	t.Run("GET /{game_id}/join (no cookie)", func(t *testing.T) {
+		req := httptest.NewRequest(
+			http.MethodGet, fmt.Sprintf("/%s/join", gameID), nil,
+		)
+		w := httptest.NewRecorder()
+		joinHandler(w, req)
+		require.Equal(t, http.StatusOK, w.Result().StatusCode,
+			"strangers without a cookie should still get the join form",
+		)
+	})
+
 	t.Run("GET /{game_id}/qr (inviting)", func(t *testing.T) {
 		mux := http.NewServeMux()
 		mux.HandleFunc("/{game_id}/qr", qrHandler)
