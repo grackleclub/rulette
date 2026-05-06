@@ -4,12 +4,12 @@
       <button class="button-teal"
         hx-post="/{{ $gid }}/action/spin"
         hx-swap="none">
-        spin
+        {{Tx "modifier.spin"}}
       </button>
       <button class="button"
         hx-post="/{{ $gid }}/action/next"
         hx-swap="none">
-        Next Turn
+        {{Tx "modifier.next_turn"}}
       </button>
     </div>
   {{ end }}
@@ -27,11 +27,11 @@
       <div hx-swap-oob="innerHTML:#modifier-content">
       <div id="modifier-data" class="stack"
         data-turn-player="{{ $pname }}" data-effect="{{ $effect }}">
-        <h2><span class="script">{{ $effect }}</span> card!</h2>
-        <p>Choose a card to {{ $effect }}:</p>
+        <h2><span class="script">{{ $effect }}</span> {{Tx "modifier.card_suffix"}}</h2>
+        <p>{{Tx "modifier.choose_label"}} {{ $effect }}:</p>
         {{ if or (eq $effect "clone") (eq $effect "transfer") }}
           <fieldset>
-            <legend>Target player:</legend>
+            <legend>{{Tx "modifier.target_legend"}}</legend>
             {{ range $.Players }}
               {{ if ne .PlayerID $pid }}
                 <label class="accuse-option">

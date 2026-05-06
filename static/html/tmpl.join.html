@@ -1,9 +1,9 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="{{locale}}">
   <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Rulette | {{ .Name }}</title>
+    <title>{{Tx "app.name"}} | {{ .Name }}</title>
     <link rel="stylesheet" href="/static/css/style.css">
     <link rel="icon" type="image/svg+xml" href="/static/img/favicon.svg">
   </head>
@@ -14,8 +14,8 @@
           <h1>{{ .Name }}</h1>
         </div>
         <form class="stack" action="/{{ .ID }}/join" method="POST">
-          <input type="text" id="username" name="username" placeholder="enter name" autofocus required />
-          <input class="button-create" type="submit" value="JOIN GAME" />
+          <input type="text" id="username" name="username" placeholder="{{Tx "join.username_placeholder"}}" autofocus required />
+          <input class="button-create" type="submit" value="{{Tx "join.submit"}}" />
         </form>
       </article>
     </div>

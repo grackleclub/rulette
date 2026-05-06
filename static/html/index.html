@@ -1,27 +1,28 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="{{locale}}">
   <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Rulette</title>
+    <title>{{Tx "app.name"}}</title>
     <link rel="stylesheet" href="/static/css/style.css">
     <link rel="icon" type="image/svg+xml" href="/static/img/favicon.svg">
   </head>
   <body>
+    {{ template "lang_picker" }}
 
     <div class="card-float">
       <article class="card">
-        <div class="card-logo">rulette</div>
+        <div class="card-logo">{{Tx "app.logo"}}</div>
         <form class="stack" action="/create" method="POST">
-          <input type="text" id="gamename" name="gamename" placeholder="name your game" autofocus required />
-          <input class="button-create" type="submit" value="CREATE GAME" />
+          <input type="text" id="gamename" name="gamename" placeholder="{{Tx "index.gamename_placeholder"}}" autofocus required />
+          <input class="button-create" type="submit" value="{{Tx "index.create_button"}}" />
         </form>
       </article>
     </div>
 
     <footer>
       <small>
-	A rule stacking game based on Season 7, Episode 7 of Game Changer on <a href="https://dropout.tv/">DropoutTV</a>.
+	{{Tx "footer.tagline_pre"}}<a href="https://dropout.tv/">{{Tx "footer.tagline_link"}}</a>.
       </small>
     </footer>
     {{ template "footer" }}

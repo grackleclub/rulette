@@ -46,6 +46,9 @@ var dbSchema string
 //go:embed static
 var static embed.FS
 
+//go:embed tx
+var translationsFS embed.FS
+
 func init() {
 	var err error
 	log, err = logger.New(slog.HandlerOptions{})
@@ -64,14 +67,16 @@ func main() {
 	mux.Handle("/static/img/", logMW(rateMW(http.FileServer(http.FS(static)))))
 	mux.Handle("/static/fonts/", logMW(rateMW(http.FileServer(http.FS(static)))))
 	// pregame.go
-	mux.Handle("/", logMW(rateMW(http.HandlerFunc(rootHandler))))
-	mux.Handle("/create", logMW(rateMW(http.HandlerFunc(createHandler))))
-	mux.Handle("/{game_id}/join", logMW(rateMW(http.HandlerFunc(joinHandler))))
+	mux.Handle("/", logMW(rateMW(i18nMW(http.HandlerFunc(rootHandler)))))
+	mux.Handle("/create", logMW(rateMW(i18nMW(http.HandlerFunc(createHandler)))))
+	mux.Handle("/{game_id}/join", logMW(rateMW(i18nMW(http.HandlerFunc(joinHandler)))))
+	// lang.go — locale toggle; no i18nMW (it sets the locale source).
+	mux.Handle("/lang", logMW(rateMW(http.HandlerFunc(langHandler))))
 	// game.go
-	mux.Handle("/{game_id}", logMW(rateMW(http.HandlerFunc(gameHandler))))
-	mux.Handle("/{game_id}/qr", logMW(rateMW(http.HandlerFunc(qrHandler))))
-	mux.Handle("/{game_id}/data/{topic}", logMW(rateMW(http.HandlerFunc(dataHandler))))
-	mux.Handle("/{game_id}/action/{action}", logMW(rateMW(http.HandlerFunc(actionHandler))))
+	mux.Handle("/{game_id}", logMW(rateMW(i18nMW(http.HandlerFunc(gameHandler)))))
+	mux.Handle("/{game_id}/qr", logMW(rateMW(i18nMW(http.HandlerFunc(qrHandler)))))
+	mux.Handle("/{game_id}/data/{topic}", logMW(rateMW(i18nMW(http.HandlerFunc(dataHandler)))))
+	mux.Handle("/{game_id}/action/{action}", logMW(rateMW(i18nMW(http.HandlerFunc(actionHandler)))))
 
 	ctx := context.Background()
 	// RULETTE_PG_URL is a postgres connection string, e.g.:

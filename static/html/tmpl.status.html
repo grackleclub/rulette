@@ -2,10 +2,10 @@
 <footer>{{ .Game.StateDescription }}</footer>
 {{ if .Game.InitiativeCurrent.Valid }}
   <footer class="initiative">
-    Turn {{ .Game.InitiativeCurrent.Int32 }} of {{ .Game.PlayerCount }}
+    {{Tx "status.turn_label"}} {{ .Game.InitiativeCurrent.Int32 }} {{Tx "status.turn_of"}} {{ .Game.PlayerCount }}
     {{ range .Players }}
       {{ if eq .Initiative.Int32 $.Game.InitiativeCurrent.Int32 }}
-        — {{ .Name }}'s turn
+        {{Tx "status.turn_dash"}} {{ .Name }}{{Tx "status.turn_owner_suffix"}}
       {{ end }}
     {{ end }}
   </footer>

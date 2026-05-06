@@ -9,6 +9,15 @@ import (
 	"golang.org/x/time/rate"
 )
 
+// i18nMW resolves the request locale (cookie > Accept-Language > default)
+// and stashes it on the request context for handlers and templates.
+func i18nMW(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		ctx := WithLocale(r.Context(), detectLocale(r))
+		next.ServeHTTP(w, r.WithContext(ctx))
+	})
+}
+
 // logMW logs every incoming request.
 func logMW(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {

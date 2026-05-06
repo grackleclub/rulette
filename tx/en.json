@@ -1,0 +1,62 @@
+{
+  "app.name": "Rulette",
+  "app.logo": "rulette",
+
+  "index.gamename_placeholder": "name your game",
+  "index.create_button": "CREATE GAME",
+
+  "footer.tagline_pre": "A rule stacking game based on Season 7, Episode 7 of Game Changer on ",
+  "footer.tagline_link": "DropoutTV",
+  "footer.lang_label": "Language",
+  "footer.lang_submit": "Save",
+
+  "join.username_placeholder": "enter name",
+  "join.submit": "JOIN GAME",
+
+  "game.playing_as": "Playing as",
+  "game.loading_players": "loading players...",
+  "game.loading_points": "loading points...",
+  "game.loading_dialog": "Loading...",
+
+  "verdict.title": "Verdict",
+  "verdict.deny": "deny",
+  "verdict.affirm": "affirm",
+
+  "penalty.title": "Penalty for the accused",
+  "penalty.points_label": "points",
+  "penalty.submit": "submit",
+  "penalty.cancel": "nevermind",
+
+  "invite.title": "Invite players",
+  "invite.qr_alt": "join QR code",
+  "invite.copied": "copied to clipboard!",
+  "invite.copy_failed": "could not copy to clipboard.",
+  "invite.close": "close",
+  "invite.invite_players_button": "Invite Players",
+  "invite.start_game": "Start Game",
+
+  "status.turn_label": "Turn",
+  "status.turn_of": "of",
+  "status.turn_dash": "—",
+  "status.turn_owner_suffix": "'s turn",
+
+  "points.change_button": "Change Points",
+
+  "modifier.spin": "spin",
+  "modifier.next_turn": "Next Turn",
+  "modifier.card_suffix": "card!",
+  "modifier.choose_label": "Choose a card to",
+  "modifier.target_legend": "Target player:",
+
+  "change_points.title": "Change Points",
+  "change_points.player_label": "player",
+  "change_points.points_label": "points",
+  "change_points.submit": "submit",
+  "change_points.cancel": "nevermind",
+
+  "accuse.heading_which": "which",
+  "accuse.heading_rule": "RULE?",
+  "accuse.close": "close",
+
+  "player.hey": "hey!"
+}
