@@ -1,23 +1,24 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="{{locale}}">
   <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Rulette | {{ .Game.Name }}</title>
+    <title>{{Tx "app.name"}} | {{ .Game.Name }}</title>
     <link rel="icon" type="image/svg+xml" href="/static/img/favicon.svg">
-    <link rel="stylesheet" href="/static/css/style.css"> 
+    <link rel="stylesheet" href="/static/css/style.css">
     <script src="/static/js/htmx.min.js"></script>
     <script src="/static/js/accuse.js" defer></script>
     <script src="/static/js/dialogs.js" defer></script>
     <script src="/static/js/modifier.js" defer></script>
   </head>
   <body>
+    {{ template "lang_picker" }}
     <div class="card-float">
       <article class="card card-game">
 
         <div id="title" class="stack game-title">
           <h1>{{ .Game.Name }}</h1>
-          <footer>Playing as {{ .CallerName }}</footer>
+          <footer>{{Tx "game.playing_as"}} {{ .CallerName }}</footer>
           <section id="status-fetch" hx-get="/{{ .Game.ID }}/data/status"
             hx-target="#status-fetch" hx-trigger="load, every {{ .Config.refresh }}" hx-swap="innerHTML">
             <footer class="status">{{ .Game.StateName }}</footer>
@@ -28,7 +29,7 @@
         <section id="players" class="stack" hx-get="/{{ .Game.ID }}/data/players"
           hx-target="#players" hx-trigger="load, every {{ .Config.refresh }}" hx-swap="innerHTML">
           <div class="loading">
-            <p>loading players...</p>
+            <p>{{Tx "game.loading_players"}}</p>
           </div>
         </section>
 
@@ -37,7 +38,7 @@
         <section id="points" class="stack game-points" hx-get="/{{ .Game.ID }}/data/points"
           hx-target="#points" hx-trigger="load, every {{ .Config.refresh }}" hx-swap="innerHTML">
           <div class="loading">
-            <p>loading points...</p>
+            <p>{{Tx "game.loading_points"}}</p>
           </div>
         </section>
 
@@ -53,7 +54,7 @@
         hx-get="/{{ .Game.ID }}/data/accuse"
         hx-trigger="loadAccuse from:body"
         hx-swap="innerHTML">
-        <p>Loading...</p>
+        <p>{{Tx "game.loading_dialog"}}</p>
       </div>
     </dialog>
 
@@ -66,14 +67,14 @@
 
     <dialog id="decide-dialog">
       <div class="dialog-body stack">
-        <h2>Verdict</h2>
+        <h2>{{Tx "verdict.title"}}</h2>
         <form hx-post="/{{ $.Game.ID }}/action/decide" hx-swap="none"
           data-close-on-success="decide-dialog">
           <input type="hidden" name="verdict" value="absolve">
           <input class="infraction-id-input" type="hidden" name="infraction_id" value="">
-          <button type="submit" class="button-danger">deny</button>
+          <button type="submit" class="button-danger">{{Tx "verdict.deny"}}</button>
         </form>
-        <button class="button-teal" data-affirm>affirm</button>
+        <button class="button-teal" data-affirm>{{Tx "verdict.affirm"}}</button>
       </div>
     </dialog>
 
@@ -83,27 +84,27 @@
 
     <dialog id="points-dialog">
       <div class="dialog-body stack">
-        <h2>Penalty for the accused</h2>
+        <h2>{{Tx "penalty.title"}}</h2>
         <form hx-post="/{{ $.Game.ID }}/action/decide" hx-swap="none"
           data-close-on-success="points-dialog">
           <input type="hidden" name="verdict" value="affirm">
           <input class="infraction-id-input" type="hidden" name="infraction_id" value="">
-          <label for="points-amount">points</label>
+          <label for="points-amount">{{Tx "penalty.points_label"}}</label>
           <input id="points-amount" type="number" name="amount" value="0" min="-99" max="99">
-          <button type="submit" class="button-teal">submit</button>
+          <button type="submit" class="button-teal">{{Tx "penalty.submit"}}</button>
         </form>
-        <button class="button" data-close-dialog="points-dialog">nevermind</button>
+        <button class="button" data-close-dialog="points-dialog">{{Tx "penalty.cancel"}}</button>
       </div>
     </dialog>
 
     <dialog id="invite-dialog">
       <div class="dialog-body stack stack-centered">
-        <h2>Invite players</h2>
-        <img id="invite-qr" alt="join QR code">
+        <h2>{{Tx "invite.title"}}</h2>
+        <img id="invite-qr" alt="{{Tx "invite.qr_alt"}}">
         <a id="invite-link" class="invite-link" href="" target="_blank" rel="noopener"></a>
-        <small id="invite-copy-success" aria-live="polite" hidden>copied to clipboard!</small>
-        <small id="invite-copy-failure" aria-live="polite" hidden>could not copy to clipboard.</small>
-        <button class="button" data-close-dialog="invite-dialog">close</button>
+        <small id="invite-copy-success" aria-live="polite" hidden>{{Tx "invite.copied"}}</small>
+        <small id="invite-copy-failure" aria-live="polite" hidden>{{Tx "invite.copy_failed"}}</small>
+        <button class="button" data-close-dialog="invite-dialog">{{Tx "invite.close"}}</button>
       </div>
     </dialog>
 
@@ -117,7 +118,7 @@
 
     <footer>
       <small>
-        A rule stacking game based on Season 7, Episode 7 of Game Changer on <a href="https://dropout.tv">DropoutTV</a>.
+        {{Tx "footer.tagline_pre"}}<a href="https://dropout.tv">{{Tx "footer.tagline_link"}}</a>.
       </small>
     </footer>
     {{ template "footer" }}

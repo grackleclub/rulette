@@ -8,7 +8,7 @@
 {{ if and $isHost (ne .Game.StateName "inviting") }}
 <div class="actions">
   <button class="button" data-open-dialog="change-points-dialog" data-fetch-event="loadChangePoints">
-    Change Points
+    {{Tx "points.change_button"}}
   </button>
 </div>
 {{ end }}

@@ -1,14 +1,14 @@
-<h2>Change Points</h2>
+<h2>{{Tx "change_points.title"}}</h2>
 <form class="stack" hx-post="/{{ $.Game.ID }}/action/points" hx-swap="none"
   data-close-on-success="change-points-dialog">
-  <label for="change-points-player">player</label>
+  <label for="change-points-player">{{Tx "change_points.player_label"}}</label>
   <select id="change-points-player" name="player_id" required>
     {{ range .Players }}
       <option value="{{ .PlayerID }}">{{ .Name }}</option>
     {{ end }}
   </select>
-  <label for="change-points-amount">points</label>
+  <label for="change-points-amount">{{Tx "change_points.points_label"}}</label>
   <input id="change-points-amount" type="number" name="amount" value="0" min="-99" max="99" required>
-  <button type="submit" class="button-teal">submit</button>
+  <button type="submit" class="button-teal">{{Tx "change_points.submit"}}</button>
 </form>
-<button class="button" data-close-dialog="change-points-dialog">nevermind</button>
+<button class="button" data-close-dialog="change-points-dialog">{{Tx "change_points.cancel"}}</button>

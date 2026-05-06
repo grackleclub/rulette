@@ -1,1 +1,12 @@
 {{define "footer"}}<footer class="footer-version">{{version}}</footer>{{end}}
+
+{{define "lang_picker"}}<form class="lang-picker" method="POST" action="/lang">
+  <label for="lang-select">{{Tx "footer.lang_label"}}</label>
+  <select id="lang-select" name="lang" onchange="this.form.submit()">
+    {{ $current := locale }}
+    {{ range locales }}
+      <option value="{{.}}"{{if eq . $current}} selected{{end}}>{{.}}</option>
+    {{ end }}
+  </select>
+  <noscript><button type="submit">{{Tx "footer.lang_submit"}}</button></noscript>
+</form>{{end}}

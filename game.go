@@ -53,7 +53,7 @@ func gameHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	filepath := path.Join("static", "html", "tmpl.game.html")
-	tmpl, err := readParse(static, filepath)
+	tmpl, err := readParse(static, filepath, LocaleFromContext(r.Context()))
 	if err != nil {
 		log.Error("read and parse template",
 			"error", err,
@@ -131,7 +131,7 @@ func dataHandler(w http.ResponseWriter, r *http.Request) {
 		switch topic {
 		case "players":
 			filepath := path.Join("static", "html", "tmpl.players.html")
-			tmpl, err := readParse(static, filepath)
+			tmpl, err := readParse(static, filepath, LocaleFromContext(r.Context()))
 			if err != nil {
 				log.Error(ErrReadParseTemplate.Error(), "filepath", filepath, "error", err)
 				http.Error(w, "internal server error", http.StatusInternalServerError)
@@ -148,7 +148,7 @@ func dataHandler(w http.ResponseWriter, r *http.Request) {
 			return
 		case "table":
 			filepath := path.Join("static", "html", "tmpl.table.html")
-			tmpl, err := readParse(static, filepath)
+			tmpl, err := readParse(static, filepath, LocaleFromContext(r.Context()))
 			if err != nil {
 				log.Error(ErrReadParseTemplate.Error(), "filepath", filepath, "error", err)
 				http.Error(w, "internal server error", http.StatusInternalServerError)
@@ -166,7 +166,7 @@ func dataHandler(w http.ResponseWriter, r *http.Request) {
 			return
 		case "status":
 			filepath := path.Join("static", "html", "tmpl.status.html")
-			tmpl, err := readParse(static, filepath)
+			tmpl, err := readParse(static, filepath, LocaleFromContext(r.Context()))
 			if err != nil {
 				log.Error(ErrReadParseTemplate.Error(), "filepath", filepath, "error", err)
 				http.Error(w, "internal server error", http.StatusInternalServerError)
@@ -189,7 +189,7 @@ func dataHandler(w http.ResponseWriter, r *http.Request) {
 			}
 		case "points":
 			filepath := path.Join("static", "html", "tmpl.points.html")
-			tmpl, err := readParse(static, filepath)
+			tmpl, err := readParse(static, filepath, LocaleFromContext(r.Context()))
 			if err != nil {
 				log.Error(ErrReadParseTemplate.Error(), "filepath", filepath, "error", err)
 				http.Error(w, "internal server error", http.StatusInternalServerError)
@@ -223,7 +223,7 @@ func dataHandler(w http.ResponseWriter, r *http.Request) {
 				return
 			}
 			filepath := path.Join("static", "html", "tmpl.change_points_dialog.html")
-			tmpl, err := readParse(static, filepath)
+			tmpl, err := readParse(static, filepath, LocaleFromContext(r.Context()))
 			if err != nil {
 				log.Error(ErrReadParseTemplate.Error(), "filepath", filepath, "error", err)
 				http.Error(w, "internal server error", http.StatusInternalServerError)
@@ -240,7 +240,7 @@ func dataHandler(w http.ResponseWriter, r *http.Request) {
 			return
 		case "accuse":
 			filepath := path.Join("static", "html", "tmpl.accuse_dialog.html")
-			tmpl, err := readParse(static, filepath)
+			tmpl, err := readParse(static, filepath, LocaleFromContext(r.Context()))
 			if err != nil {
 				log.Error(ErrReadParseTemplate.Error(), "filepath", filepath, "error", err)
 				http.Error(w, "internal server error", http.StatusInternalServerError)
