@@ -99,7 +99,7 @@ input::placeholder {
 }
 
 a {
-  color: var(--color-loop-3);
+  color: var(--color-loop-1);
 }
 
 /* primitives */
@@ -168,7 +168,6 @@ a {
   background: var(--color-card-bg);
   color: var(--color-text-light);
   padding: .75em 2em;
-  font-size: 1.25em;
 }
 
 .button-teal:hover {
@@ -451,6 +450,7 @@ dialog {
   color: var(--color-text-dark);
   box-shadow: .25em .25em .25em var(--color-shadow);
   max-width: 18.75em;
+  margin: auto;
 }
 
 dialog::backdrop {
@@ -463,9 +463,15 @@ dialog h2 {
   margin-bottom: .75em;
 }
 
-dialog .button {
+dialog .button,
+dialog .button-teal,
+dialog .button-danger {
   width: 100%;
   text-align: center;
+}
+
+#points-amount {
+  margin-bottom: .75em;
 }
 
 dialog fieldset {
