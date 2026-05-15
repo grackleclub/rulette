@@ -27,7 +27,7 @@
         data-open-dialog="invite-dialog"
         data-invite-link="/{{ $gid }}/join"
         data-qr-src="/{{ $gid }}/qr">
-        Invite Players
+        Invite<br>Players
       </button>
       {{ $isHost := false }}
       {{ range .Players }}
@@ -36,10 +36,10 @@
         {{ end }}
       {{ end }}
       {{ if $isHost }}
-        <button class="button card-action"
+        <button id="start" class="button card-action"
           hx-post="/{{ $gid }}/action/start"
           hx-swap="none">
-          Start Game
+          Start<br>Game
         </button>
       {{ end }}
     </div>

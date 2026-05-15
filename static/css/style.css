@@ -102,6 +102,15 @@ a {
   color: var(--color-loop-1);
 }
 
+/* utility classes */
+.script {
+  font-family: var(--font-script);
+}
+
+.score-font {
+  font-family: var(--font-score);
+}
+
 /* primitives */
 .stack {
   display: flex;
@@ -161,7 +170,7 @@ a {
 
 .button:hover {
   background: var(--color-button-hover);
-  color: var(--color-card-bg);
+  color: var(--color-text-light);
 }
 
 .button-teal {
@@ -280,6 +289,15 @@ body > footer:not(.footer-version) {
   font-weight: bold;
   text-transform: uppercase;
   text-align: center;
+  color: var(--color-loop-2);
+  padding: 1.5em;
+}
+
+#start {
+  color: var(--color-card-bg);
+}
+
+#start:hover {
   color: var(--color-text-light);
 }
 
@@ -511,11 +529,4 @@ dialog fieldset {
   margin-top: auto;
 }
 
-/* utility classes */
-.script {
-  font-family: var(--font-script);
-}
 
-.score-font {
-  font-family: var(--font-score);
-}
