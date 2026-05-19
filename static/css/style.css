@@ -93,13 +93,6 @@ textarea {
   font: inherit;
 }
 
-select {
-  appearance: auto;
-  -webkit-appearance: menulist;
-  position: relative;
-  z-index: 1;
-}
-
 input::placeholder {
   color: var(--color-text-dark);
   opacity: .5;
