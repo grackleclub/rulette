@@ -88,6 +88,8 @@ CREATE TABLE IF NOT EXISTS cards (
 		OR (type != 'modifier' AND modifier_effect IS NULL)
 	)
 );
+DELETE FROM cards a USING cards b
+WHERE a.id > b.id AND a.front = b.front;
 CREATE UNIQUE INDEX IF NOT EXISTS cards_front_unique ON cards (front);
 
 INSERT INTO cards (type, front, back, creator, created, generic, modifier_effect)
@@ -122,6 +124,7 @@ ON CONFLICT (front) DO UPDATE SET
 	generic = EXCLUDED.generic,
 	modifier_effect = EXCLUDED.modifier_effect;
 
+-- this list must match the INSERT VALUES above
 DELETE FROM cards WHERE generic = TRUE AND front NOT IN (
 	'flip any of your own cards',
 	'shred any of your own cards',
