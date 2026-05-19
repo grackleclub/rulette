@@ -27,18 +27,32 @@ func logMW(next http.Handler) http.Handler {
 }
 
 var (
-	ipLimiters = make(map[string]*rate.Limiter)
-	mu         sync.Mutex
-	rateLimit  = rate.Every(50 * time.Millisecond)
-	burst      = 50
+	sessionLimiters = make(map[string]*rate.Limiter)
+	ipLimiters      = make(map[string]*rate.Limiter)
+	mu              sync.Mutex
+	sessionRate     = rate.Every(25 * time.Millisecond) // 40/s per session
+	sessionBurst    = 80
+	ipRate          = rate.Every(100 * time.Millisecond) // 10/s per IP
+	ipBurst         = 30
 )
 
-func getLimiter(ip string) *rate.Limiter {
+func getSessionLimiter(key string) *rate.Limiter {
+	mu.Lock()
+	defer mu.Unlock()
+	limiter, exists := sessionLimiters[key]
+	if !exists {
+		limiter = rate.NewLimiter(sessionRate, sessionBurst)
+		sessionLimiters[key] = limiter
+	}
+	return limiter
+}
+
+func getIPLimiter(ip string) *rate.Limiter {
 	mu.Lock()
 	defer mu.Unlock()
 	limiter, exists := ipLimiters[ip]
 	if !exists {
-		limiter = rate.NewLimiter(rateLimit, burst)
+		limiter = rate.NewLimiter(ipRate, ipBurst)
 		ipLimiters[ip] = limiter
 	}
 	return limiter
@@ -46,14 +60,18 @@ func getLimiter(ip string) *rate.Limiter {
 
 func rateMW(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		ip := r.RemoteAddr
-		host, _, err := net.SplitHostPort(r.RemoteAddr)
-		if err == nil {
-			ip = host
+		var limiter *rate.Limiter
+		if c, err := r.Cookie(sessionCookieName); err == nil && c.Value != "" {
+			limiter = getSessionLimiter(c.Value)
+		} else {
+			ip := r.RemoteAddr
+			if host, _, err := net.SplitHostPort(r.RemoteAddr); err == nil {
+				ip = host
+			}
+			limiter = getIPLimiter(ip)
 		}
-		limiter := getLimiter(ip)
 		if !limiter.Allow() {
-			log.Warn("rate limit exceeded", "ip", ip, "path", r.URL.Path)
+			log.Warn("rate limit exceeded", "path", r.URL.Path)
 			http.Error(w, "Too Many Requests", http.StatusTooManyRequests)
 			return
 		}
