@@ -75,7 +75,7 @@ ON CONFLICT DO NOTHING;
 CREATE TABLE IF NOT EXISTS cards (
 	id SERIAL PRIMARY KEY,
 	type TEXT NOT NULL,
-	front TEXT NOT NULL,
+	front TEXT NOT NULL UNIQUE,
 	back TEXT,
 	creator INTEGER,
 	created TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
@@ -88,6 +88,10 @@ CREATE TABLE IF NOT EXISTS cards (
 		OR (type != 'modifier' AND modifier_effect IS NULL)
 	)
 );
+CREATE UNIQUE INDEX IF NOT EXISTS cards_front_unique ON cards (front);
+
+-- TODO: Don't
+DELETE FROM cards WHERE generic = TRUE;
 
 INSERT INTO cards (type, front, back, creator, created, generic, modifier_effect)
 VALUES
@@ -103,10 +107,10 @@ VALUES
 	('rule', 'while singing', 'in a monotone', 0, CURRENT_TIMESTAMP, TRUE, NULL),
 	('rule', 'in your best Shakespearian english', 'using all the contemporary slang you can', 0, CURRENT_TIMESTAMP, TRUE, NULL),
 	('rule', 'never saying "um"', 'saying "um" every other word', 0, CURRENT_TIMESTAMP, TRUE, NULL),
-	('rule', 'never using your hands', 'vogueing', 0, CURRENT_TIMESTAMP, TRUE, NULL),
+	-- ('rule', 'never using your hands', 'vogueing', 0, CURRENT_TIMESTAMP, TRUE, NULL),
 	('rule', 'doing your best Matthew McConaughey impersonation', 'doing your worst Jack Nicholson impersonation', 0, CURRENT_TIMESTAMP, TRUE, NULL),
-	('rule', 'without smiling', 'always smiling', 0, CURRENT_TIMESTAMP, TRUE, NULL),
-	('rule', 'with your eyes closed', 'staring intently', 0, CURRENT_TIMESTAMP, TRUE, NULL),
+	-- ('rule', 'without smiling', 'always smiling', 0, CURRENT_TIMESTAMP, TRUE, NULL),
+	-- ('rule', 'with your eyes closed', 'staring intently', 0, CURRENT_TIMESTAMP, TRUE, NULL),
 	('rule', 'as if everything is juicy gossip', 'as if everything is really boring', 0, CURRENT_TIMESTAMP, TRUE, NULL),
 	('rule', 'while trying to incite a revolution', 'while trying to calm everyone down', 0, CURRENT_TIMESTAMP, TRUE, NULL),
 	('rule', 'like your mouth is full of marshmallows', 'like you have horrible cottonmouth', 0, CURRENT_TIMESTAMP, TRUE, NULL),
@@ -118,7 +122,7 @@ VALUES
 	('rule', 'assigning superlatives to the other players', 'assigning superlatives to yourself', 0, CURRENT_TIMESTAMP, TRUE, NULL),
 	('rule', 'as if everything is a question', 'as if everything is a definite answer', 0, CURRENT_TIMESTAMP, TRUE, NULL),
 	('rule', 'with vocal fry', 'over-enunciating', 0, CURRENT_TIMESTAMP, TRUE, NULL)
-ON CONFLICT DO NOTHING;
+ON CONFLICT (front) DO NOTHING;
 
 -- card_id lacks primary key to allow cloning within a game,
 CREATE TABLE IF NOT EXISTS game_cards (
