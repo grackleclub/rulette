@@ -7,11 +7,12 @@
     <link rel="icon" type="image/svg+xml" href="/static/img/favicon.svg">
     <link rel="stylesheet" href="/static/css/style.css"> 
     <script src="/static/js/htmx.min.js"></script>
+    <script src="/static/js/idiomorph-ext.min.js"></script>
     <script src="/static/js/accuse.js" defer></script>
     <script src="/static/js/dialogs.js" defer></script>
     <script src="/static/js/modifier.js" defer></script>
   </head>
-  <body>
+  <body hx-ext="morph">
     <div class="card-float">
       <article class="card card-game">
 
@@ -19,14 +20,26 @@
           <h1>{{ .Game.Name }}</h1>
           <footer>playing as <span id="self">{{ .CallerName }}</span></footer>
           <section id="status-fetch" hx-get="/{{ .Game.ID }}/data/status"
-            hx-target="#status-fetch" hx-trigger="load, every {{ .Config.refresh }}" hx-swap="innerHTML">
+            hx-target="#status-fetch" hx-trigger="load, every {{ .Config.refresh }}" hx-swap="morph:innerHTML">
             <!-- <footer class="status">{{ .Game.StateName }}</footer> -->
             <footer>{{ .Game.StateDescription }}</footer>
           </section>
         </div>
 
+        <section id="table" hx-get="/{{ .Game.ID }}/data/table"
+          hx-target="#table" hx-trigger="load, refreshTable from:body, every {{ .Config.refresh }}" hx-swap="morph:innerHTML">
+        </section>
+
+        <dialog id="change-points-dialog">
+          <div class="dialog-body stack"
+            hx-get="/{{ .Game.ID }}/data/change-points"
+            hx-trigger="loadChangePoints from:body"
+            hx-swap="morph:innerHTML">
+          </div>
+        </dialog>
+
         <section id="players" class="stack" hx-get="/{{ .Game.ID }}/data/players"
-          hx-target="#players" hx-trigger="load, every {{ .Config.refresh }}" hx-swap="innerHTML">
+          hx-target="#players" hx-trigger="load, every {{ .Config.refresh }}" hx-swap="morph:innerHTML">
           <div class="loading">
             <p>loading players...</p>
           </div>
@@ -35,7 +48,7 @@
         <div id="modifier-notice" hidden></div>
 
         <section id="points" class="stack game-points" hx-get="/{{ .Game.ID }}/data/points"
-          hx-target="#points" hx-trigger="load, every {{ .Config.refresh }}" hx-swap="innerHTML">
+          hx-target="#points" hx-trigger="load, every {{ .Config.refresh }}" hx-swap="morph:innerHTML">
           <div class="loading">
             <p>loading points...</p>
           </div>
@@ -44,15 +57,11 @@
       </article>
     </div>
 
-    <section id="table" hx-get="/{{ .Game.ID }}/data/table"
-      hx-target="#table" hx-trigger="load, refreshTable from:body, every {{ .Config.refresh }}" hx-swap="innerHTML">
-    </section>
-
     <dialog id="hey-dialog">
       <div id="accuse-content" class="dialog-body stack"
         hx-get="/{{ .Game.ID }}/data/accuse"
         hx-trigger="loadAccuse from:body"
-        hx-swap="innerHTML">
+        hx-swap="morph:innerHTML">
         <p>Loading...</p>
       </div>
     </dialog>
@@ -104,14 +113,6 @@
         <small id="invite-copy-success" aria-live="polite" hidden>copied to clipboard!</small>
         <small id="invite-copy-failure" aria-live="polite" hidden>could not copy to clipboard.</small>
         <button class="button" data-close-dialog="invite-dialog">close</button>
-      </div>
-    </dialog>
-
-    <dialog id="change-points-dialog">
-      <div class="dialog-body stack"
-        hx-get="/{{ .Game.ID }}/data/change-points"
-        hx-trigger="loadChangePoints from:body"
-        hx-swap="innerHTML">
       </div>
     </dialog>
 

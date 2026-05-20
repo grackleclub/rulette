@@ -1,5 +1,12 @@
   {{ $gid := .Game.ID }}
   {{ if ne .Game.StateName "inviting" }}
+    {{ $cid := .CallerID }}
+    {{ $isHost := false }}
+    {{ range .Players }}
+      {{ if and (eq .Initiative.Int32 0) (eq $cid .PlayerID) }}
+        {{ $isHost = true }}
+      {{ end }}
+    {{ end }}
     <div class="table-bar">
       <button class="button-teal"
         hx-post="/{{ $gid }}/action/spin"
@@ -12,6 +19,13 @@
         Next Turn
       </button>
     </div>
+    {{ if $isHost }}
+      <div class="table-bar">
+        <button class="button" data-open-dialog="change-points-dialog" data-fetch-event="loadChangePoints">
+          Change Points
+        </button>
+      </div>
+    {{ end }}
   {{ end }}
 {{ if eq .Game.StateName "pending" }}
   {{ range .Players }}
