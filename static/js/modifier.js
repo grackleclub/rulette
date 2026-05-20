@@ -42,7 +42,7 @@
     clearTimeout(notice._timer);
     notice._timer = setTimeout(function () {
       notice.hidden = true;
-    }, 5000);
+    }, 15000);
   }
   // listen for both camelCase and kebab-case (htmx dispatches both)
   document.body.addEventListener("modifierShredded", showShredNotice);
