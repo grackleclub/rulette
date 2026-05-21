@@ -1,5 +1,4 @@
 <footer class="status">{{ .Game.StateName }}</footer>
-<footer>{{ .Game.StateDescription }}</footer>
 {{ if .Game.InitiativeCurrent.Valid }}
   <footer class="initiative">
     Turn {{ .Game.InitiativeCurrent.Int32 }} of {{ .Game.PlayerCount }}

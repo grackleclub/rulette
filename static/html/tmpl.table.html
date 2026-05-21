@@ -8,16 +8,22 @@
       {{ end }}
     {{ end }}
     <div class="table-bar">
-      <button class="button-teal"
-        hx-post="/{{ $gid }}/action/spin"
-        hx-swap="none">
-        spin
-      </button>
-      <button class="button"
-        hx-post="/{{ $gid }}/action/next"
-        hx-swap="none">
-        Next Turn
-      </button>
+      {{ if eq $.Game.StateName "ready" }}
+        <button class="button-teal" disabled>spin</button>
+      {{ else }}
+        <button class="button-teal"
+          hx-post="/{{ $gid }}/action/spin"
+          hx-swap="none">
+          spin
+        </button>
+      {{ end }}
+      {{ if $isHost }}
+        <button class="button"
+          hx-post="/{{ $gid }}/action/pause"
+          hx-swap="none">
+          {{ if eq $.Game.StateName "ready" }}Resume{{ else }}Pause{{ end }}
+        </button>
+      {{ end }}
     </div>
     {{ if $isHost }}
       <div class="table-bar">

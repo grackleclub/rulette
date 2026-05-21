@@ -401,16 +401,12 @@ func TestGame(t *testing.T) {
 				}
 			}
 
-			// host advances initiative via action handler
-			cache.Delete(gameID)
-			nextPath := fmt.Sprintf("/%s/action/next", gameID)
-			nextReq := httptest.NewRequest(http.MethodPost, nextPath, nil)
-			nextReq.AddCookie(cookieByInitiative[0]) // host
-			nextW := httptest.NewRecorder()
-			actionHandler(nextW, nextReq)
-			require.Equal(t, http.StatusOK, nextW.Result().StatusCode,
-				"next failed on spin %d", i,
-			)
+			// non-modifier spins auto-advance; shredded modifiers do not
+			trigger := w.Header().Get("HX-Trigger")
+			if strings.Contains(trigger, "modifierShredded") {
+				err := queries.InitiativeAdvance(ctx, gameID)
+				require.NoError(t, err, "advance after shredded modifier on spin %d", i)
+			}
 			current = (current % maxInit) + 1
 		}
 		require.True(t, exhausted, "deck not exhausted within %d spins", maxSpins)

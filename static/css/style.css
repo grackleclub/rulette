@@ -328,10 +328,26 @@ body > footer:not(.footer-version) {
   max-width: 20.6em;
 }
 
-.game-title footer {
-  font-family: var(--font-body);
+.game-subtitle {
+  background: var(--color-text-light);
+  color: var(--color-text-dark);
+  border: .5em solid var(--color-text-dark);
+  border-radius: .9em;
+  padding: .5em .75em;
+  text-align: center;
+  width: auto;
+  max-width: 20.6em;
+}
+
+.game-subtitle footer {
   font-size: .875em;
-  opacity: .8;
+  font-weight: bold;
+}
+
+.game-subtitle footer.playing-as {
+  font-family: var(--font-script);
+  font-size: 1.15em;
+  font-weight: bold;
 }
 
 /* player pill */

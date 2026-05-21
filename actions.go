@@ -344,32 +344,56 @@ func actionHandler(w http.ResponseWriter, r *http.Request) {
 					http.Error(w, "server error", http.StatusInternalServerError)
 					return
 				}
+			} else {
+				err = queries.InitiativeAdvance(r.Context(), gameID)
+				if err != nil {
+					log.Error("advance initiative after spin",
+						"error", err,
+						"game_id", gameID,
+					)
+					http.Error(w, "server error", http.StatusInternalServerError)
+					return
+				}
 			}
 
 			cache.Delete(gameID)
 			w.Header().Set("HX-Trigger", "refreshTable")
 			w.WriteHeader(http.StatusOK)
 
-		case "next":
-			if state.Game.StateID != 3 {
-				log.Info("next requires turn state",
+		case "pause":
+			if !state.isHost(cookieKey) {
+				log.Info("prohibiting non-host from pausing")
+				http.Error(w, "only host can pause", http.StatusForbidden)
+				return
+			}
+			var target int32
+			switch state.Game.StateID {
+			case 3: // turn → paused
+				target = 2
+			case 2: // paused → turn
+				target = 3
+			default:
+				log.Info("pause requires turn or ready state",
 					"game_id", gameID,
 					"state_id", state.Game.StateID,
 				)
-				http.Error(w, "cannot advance in current state", http.StatusConflict)
+				http.Error(w, "cannot pause in current state", http.StatusConflict)
 				return
 			}
-			if !state.isHost(cookieKey) {
-				log.Info("prohibiting non-host from advancing initiative")
-				http.Error(w, "only host can advance initiative", http.StatusForbidden)
-				return
-			}
-			err := queries.InitiativeAdvance(r.Context(), gameID)
+			err := queries.GameUpdate(r.Context(), sqlc.GameUpdateParams{
+				ID:      gameID,
+				StateID: target,
+				InitiativeCurrent: pgtype.Int4{
+					Int32: state.Game.InitiativeCurrent.Int32,
+					Valid: true,
+				},
+			})
 			if err != nil {
-				log.Error("fail to advance initiative", "error", err)
+				log.Error("toggle pause", "error", err, "game_id", gameID)
 				http.Error(w, "server error", http.StatusInternalServerError)
 				return
 			}
+			log.Info("pause toggled", "game_id", gameID, "state_id", target)
 			cache.Delete(gameID)
 			w.Header().Set("HX-Trigger", "refreshTable")
 			w.WriteHeader(http.StatusOK)

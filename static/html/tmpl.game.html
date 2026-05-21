@@ -18,12 +18,13 @@
 
         <div id="title" class="stack game-title">
           <h1>{{ .Game.Name }}</h1>
-          <footer>playing as <span id="self">{{ .CallerName }}</span></footer>
-          <section id="status-fetch" hx-get="/{{ .Game.ID }}/data/status"
-            hx-target="#status-fetch" hx-trigger="load, every {{ .Config.refresh }}" hx-swap="morph:innerHTML">
-            <!-- <footer class="status">{{ .Game.StateName }}</footer> -->
-            <footer>{{ .Game.StateDescription }}</footer>
-          </section>
+          <div class="game-subtitle">
+            <footer class="playing-as">playing as <span id="self">{{ .CallerName }}</span></footer>
+            <section id="status-fetch" hx-get="/{{ .Game.ID }}/data/status"
+              hx-target="#status-fetch" hx-trigger="load, every {{ .Config.refresh }}" hx-swap="morph:innerHTML">
+              <footer class="status">{{ .Game.StateName }}</footer>
+            </section>
+          </div>
         </div>
 
         <section id="table" hx-get="/{{ .Game.ID }}/data/table"
