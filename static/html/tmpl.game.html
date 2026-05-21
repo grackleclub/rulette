@@ -48,11 +48,7 @@
 
         <div id="modifier-notice" hidden></div>
 
-        <section id="points" class="stack game-points" hx-get="/{{ .Game.ID }}/data/points"
-          hx-target="#points" hx-trigger="load, every {{ .Config.refresh }}" hx-swap="morph:innerHTML">
-          <div class="loading">
-            <p>loading points...</p>
-          </div>
+        <section id="points" class="stack game-points">
         </section>
 
       </article>
