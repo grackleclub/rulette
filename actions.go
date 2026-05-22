@@ -287,89 +287,143 @@ func actionHandler(w http.ResponseWriter, r *http.Request) {
 				http.Error(w, "server error", http.StatusInternalServerError)
 				return
 			}
-			if lastSpin.ModifierEffect.Valid {
-				// check if player has any rule cards to target
-				var hasRuleCards bool
-				for _, c := range state.CardsPlayers {
-					if c.PlayerID.Int32 == int32(id) && c.Type == "rule" {
-						hasRuleCards = true
-						break
-					}
-				}
-				if !hasRuleCards {
-					err = queries.GameCardShred(r.Context(), sqlc.GameCardShredParams{
-						ID:     gcID,
-						GameID: gameID,
-					})
-					if err != nil {
-						log.Error("shred unresolvable modifier",
-							"error", err,
-							"game_id", gameID,
-							"game_card_id", gcID,
-						)
-						http.Error(w, "server error", http.StatusInternalServerError)
-						return
-					}
-					log.Info("modifier drawn but player has no rule cards, shredded and skipping pending",
-						"game_id", gameID,
-						"effect", lastSpin.ModifierEffect.String,
-						"player_id", id,
-						"game_card_id", gcID,
-					)
-					cache.Delete(gameID)
-					w.Header().Set("HX-Trigger",
-						`{"refreshTable":null,"modifierShredded":"`+lastSpin.ModifierEffect.String+`"}`)
-					w.WriteHeader(http.StatusOK)
-					return
-				}
-
-				log.Info("modifier drawn, entering pending state",
-					"game_id", gameID,
-					"effect", lastSpin.ModifierEffect.String,
-					"player_id", id,
-				)
-				err = queries.GameUpdate(r.Context(), sqlc.GameUpdateParams{
-					ID:      gameID,
-					StateID: 4, // pending
-					InitiativeCurrent: pgtype.Int4{
-						Int32: state.Game.InitiativeCurrent.Int32,
-						Valid: true,
-					},
-				})
+			if !lastSpin.ModifierEffect.Valid {
+				err = queries.InitiativeAdvance(r.Context(), gameID)
 				if err != nil {
-					log.Error("transition to pending",
+					log.Error("advance initiative after spin",
 						"error", err,
 						"game_id", gameID,
 					)
 					http.Error(w, "server error", http.StatusInternalServerError)
 					return
 				}
+				cache.Delete(gameID)
+				w.Header().Set("HX-Trigger", "refreshTable")
+				w.WriteHeader(http.StatusOK)
+				return
 			}
 
+			// check if player has any rule cards to target
+			var hasRuleCards bool
+			for _, c := range state.CardsPlayers {
+				if c.PlayerID.Int32 == int32(id) && c.Type == "rule" {
+					hasRuleCards = true
+					break
+				}
+			}
+			if !hasRuleCards {
+				err = queries.GameCardShred(r.Context(), sqlc.GameCardShredParams{
+					ID:     gcID,
+					GameID: gameID,
+				})
+				if err != nil {
+					log.Error("shred unresolvable modifier",
+						"error", err,
+						"game_id", gameID,
+						"game_card_id", gcID,
+					)
+					http.Error(w, "server error", http.StatusInternalServerError)
+					return
+				}
+				log.Info("modifier drawn but player has no rule cards, shredded and skipping pending",
+					"game_id", gameID,
+					"effect", lastSpin.ModifierEffect.String,
+					"player_id", id,
+					"game_card_id", gcID,
+				)
+				cache.Delete(gameID)
+				w.Header().Set("HX-Trigger",
+					`{"refreshTable":null,"modifierShredded":"`+lastSpin.ModifierEffect.String+`"}`)
+				w.WriteHeader(http.StatusOK)
+				return
+			}
+
+			log.Info("modifier drawn, entering pending state",
+				"game_id", gameID,
+				"effect", lastSpin.ModifierEffect.String,
+				"player_id", id,
+			)
+			err = queries.GameUpdate(r.Context(), sqlc.GameUpdateParams{
+				ID:      gameID,
+				StateID: 4, // pending
+				InitiativeCurrent: pgtype.Int4{
+					Int32: state.Game.InitiativeCurrent.Int32,
+					Valid: true,
+				},
+			})
+			if err != nil {
+				log.Error("transition to pending",
+					"error", err,
+					"game_id", gameID,
+				)
+				http.Error(w, "server error", http.StatusInternalServerError)
+				return
+			}
 			cache.Delete(gameID)
 			w.Header().Set("HX-Trigger", "refreshTable")
 			w.WriteHeader(http.StatusOK)
 
-		case "next":
+		case "pause":
+			if !state.isHost(cookieKey) {
+				log.Info("prohibiting non-host from pausing")
+				http.Error(w, "only host can pause", http.StatusForbidden)
+				return
+			}
 			if state.Game.StateID != 3 {
-				log.Info("next requires turn state",
+				log.Info("pause requires turn state",
 					"game_id", gameID,
 					"state_id", state.Game.StateID,
 				)
-				http.Error(w, "cannot advance in current state", http.StatusConflict)
+				http.Error(w, "cannot pause in current state", http.StatusConflict)
 				return
 			}
-			if !state.isHost(cookieKey) {
-				log.Info("prohibiting non-host from advancing initiative")
-				http.Error(w, "only host can advance initiative", http.StatusForbidden)
-				return
-			}
-			err := queries.InitiativeAdvance(r.Context(), gameID)
+			err := queries.GameUpdate(r.Context(), sqlc.GameUpdateParams{
+				ID:      gameID,
+				StateID: 2,
+				InitiativeCurrent: pgtype.Int4{
+					Int32: state.Game.InitiativeCurrent.Int32,
+					Valid: true,
+				},
+			})
 			if err != nil {
-				log.Error("fail to advance initiative", "error", err)
+				log.Error("pause game", "error", err, "game_id", gameID)
 				http.Error(w, "server error", http.StatusInternalServerError)
 				return
 			}
+			log.Info("game paused", "game_id", gameID)
+			cache.Delete(gameID)
+			w.Header().Set("HX-Trigger", "refreshTable")
+			w.WriteHeader(http.StatusOK)
+			return
+
+		case "resume":
+			if !state.isHost(cookieKey) {
+				log.Info("prohibiting non-host from resuming")
+				http.Error(w, "only host can resume", http.StatusForbidden)
+				return
+			}
+			if state.Game.StateID != 2 {
+				log.Info("resume requires ready state",
+					"game_id", gameID,
+					"state_id", state.Game.StateID,
+				)
+				http.Error(w, "cannot resume in current state", http.StatusConflict)
+				return
+			}
+			err := queries.GameUpdate(r.Context(), sqlc.GameUpdateParams{
+				ID:      gameID,
+				StateID: 3,
+				InitiativeCurrent: pgtype.Int4{
+					Int32: state.Game.InitiativeCurrent.Int32,
+					Valid: true,
+				},
+			})
+			if err != nil {
+				log.Error("resume game", "error", err, "game_id", gameID)
+				http.Error(w, "server error", http.StatusInternalServerError)
+				return
+			}
+			log.Info("game resumed", "game_id", gameID)
 			cache.Delete(gameID)
 			w.Header().Set("HX-Trigger", "refreshTable")
 			w.WriteHeader(http.StatusOK)

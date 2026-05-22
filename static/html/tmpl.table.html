@@ -1,17 +1,45 @@
   {{ $gid := .Game.ID }}
   {{ if ne .Game.StateName "inviting" }}
+    {{ $cid := .CallerID }}
+    {{ $isHost := false }}
+    {{ range .Players }}
+      {{ if and (eq .Initiative.Int32 0) (eq $cid .PlayerID) }}
+        {{ $isHost = true }}
+      {{ end }}
+    {{ end }}
     <div class="table-bar">
-      <button class="button-teal"
-        hx-post="/{{ $gid }}/action/spin"
-        hx-swap="none">
-        spin
-      </button>
-      <button class="button"
-        hx-post="/{{ $gid }}/action/next"
-        hx-swap="none">
-        Next Turn
-      </button>
+      {{ if eq $.Game.StateName "ready" }}
+        <button class="button-teal" disabled>spin</button>
+      {{ else }}
+        <button class="button-teal"
+          hx-post="/{{ $gid }}/action/spin"
+          hx-swap="none">
+          spin
+        </button>
+      {{ end }}
+      {{ if $isHost }}
+        {{ if eq $.Game.StateName "ready" }}
+          <button class="button"
+            hx-post="/{{ $gid }}/action/resume"
+            hx-swap="none">
+            Resume
+          </button>
+        {{ else if eq $.Game.StateName "turn" }}
+          <button class="button"
+            hx-post="/{{ $gid }}/action/pause"
+            hx-swap="none">
+            Pause
+          </button>
+        {{ end }}
+      {{ end }}
     </div>
+    {{ if $isHost }}
+      <div class="table-bar">
+        <button class="button" data-open-dialog="change-points-dialog" data-fetch-event="loadChangePoints">
+          Change Points
+        </button>
+      </div>
+    {{ end }}
   {{ end }}
 {{ if eq .Game.StateName "pending" }}
   {{ range .Players }}

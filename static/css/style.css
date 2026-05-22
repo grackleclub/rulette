@@ -328,21 +328,40 @@ body > footer:not(.footer-version) {
   max-width: 20.6em;
 }
 
-.game-title footer {
-  font-family: var(--font-body);
+.game-subtitle {
+  background: var(--color-text-light);
+  color: var(--color-text-dark);
+  border: .5em solid var(--color-text-dark);
+  border-radius: .9em;
+  padding: .5em .75em;
+  text-align: center;
+  width: auto;
+  max-width: 20.6em;
+}
+
+.game-subtitle footer {
   font-size: .875em;
-  opacity: .8;
+  font-weight: bold;
+}
+
+.game-subtitle footer.playing-as {
+  font-family: var(--font-script);
+  font-size: 1.15em;
+  font-weight: bold;
 }
 
 /* player pill */
 .player {
   position: relative;
-  background: var(--color-player-bg);
+  background: var(--color-loop-2);
   border: .8em solid var(--color-player-border);
   border-radius: 5em;
   padding: 1.25em 1em 1.25em 4em;
   min-height: 10em;
   width: 100%;
+}
+.player.active-turn {
+  background: var(--color-player-bg);
 }
 
 .player .player-name {
@@ -411,7 +430,7 @@ body > footer:not(.footer-version) {
 }
 
 .player-hey:hover {
-  background: var(--color-loop-2);
+  background: var(--color-loop-3);
 }
 
 /* action popup (spin, destroy, points, etc.) */
