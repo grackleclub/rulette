@@ -401,12 +401,12 @@ func TestGame(t *testing.T) {
 				}
 			}
 
-			// non-modifier spins auto-advance; shredded modifiers do not
+			// shredded modifiers don't advance; same player spins again
 			trigger := w.Header().Get("HX-Trigger")
 			if strings.Contains(trigger, "modifierShredded") {
-				err := queries.InitiativeAdvance(ctx, gameID)
-				require.NoError(t, err, "advance after shredded modifier on spin %d", i)
+				continue
 			}
+			// non-modifier spins auto-advance
 			current = (current % maxInit) + 1
 		}
 		require.True(t, exhausted, "deck not exhausted within %d spins", maxSpins)
