@@ -24,7 +24,7 @@
             hx-swap="none">
             Resume
           </button>
-        {{ else }}
+        {{ else if eq $.Game.StateName "turn" }}
           <button class="button"
             hx-post="/{{ $gid }}/action/pause"
             hx-swap="none">
