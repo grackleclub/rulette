@@ -369,14 +369,8 @@ func actionHandler(w http.ResponseWriter, r *http.Request) {
 				http.Error(w, "only host can pause", http.StatusForbidden)
 				return
 			}
-			var target int32
-			switch state.Game.StateID {
-			case 3: // turn → paused
-				target = 2
-			case 2: // paused → turn
-				target = 3
-			default:
-				log.Info("pause requires turn or ready state",
+			if state.Game.StateID != 3 {
+				log.Info("pause requires turn state",
 					"game_id", gameID,
 					"state_id", state.Game.StateID,
 				)
@@ -385,18 +379,51 @@ func actionHandler(w http.ResponseWriter, r *http.Request) {
 			}
 			err := queries.GameUpdate(r.Context(), sqlc.GameUpdateParams{
 				ID:      gameID,
-				StateID: target,
+				StateID: 2,
 				InitiativeCurrent: pgtype.Int4{
 					Int32: state.Game.InitiativeCurrent.Int32,
 					Valid: true,
 				},
 			})
 			if err != nil {
-				log.Error("toggle pause", "error", err, "game_id", gameID)
+				log.Error("pause game", "error", err, "game_id", gameID)
 				http.Error(w, "server error", http.StatusInternalServerError)
 				return
 			}
-			log.Info("pause toggled", "game_id", gameID, "state_id", target)
+			log.Info("game paused", "game_id", gameID)
+			cache.Delete(gameID)
+			w.Header().Set("HX-Trigger", "refreshTable")
+			w.WriteHeader(http.StatusOK)
+			return
+
+		case "resume":
+			if !state.isHost(cookieKey) {
+				log.Info("prohibiting non-host from resuming")
+				http.Error(w, "only host can resume", http.StatusForbidden)
+				return
+			}
+			if state.Game.StateID != 2 {
+				log.Info("resume requires ready state",
+					"game_id", gameID,
+					"state_id", state.Game.StateID,
+				)
+				http.Error(w, "cannot resume in current state", http.StatusConflict)
+				return
+			}
+			err := queries.GameUpdate(r.Context(), sqlc.GameUpdateParams{
+				ID:      gameID,
+				StateID: 3,
+				InitiativeCurrent: pgtype.Int4{
+					Int32: state.Game.InitiativeCurrent.Int32,
+					Valid: true,
+				},
+			})
+			if err != nil {
+				log.Error("resume game", "error", err, "game_id", gameID)
+				http.Error(w, "server error", http.StatusInternalServerError)
+				return
+			}
+			log.Info("game resumed", "game_id", gameID)
 			cache.Delete(gameID)
 			w.Header().Set("HX-Trigger", "refreshTable")
 			w.WriteHeader(http.StatusOK)

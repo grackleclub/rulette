@@ -18,11 +18,19 @@
         </button>
       {{ end }}
       {{ if $isHost }}
-        <button class="button"
-          hx-post="/{{ $gid }}/action/pause"
-          hx-swap="none">
-          {{ if eq $.Game.StateName "ready" }}Resume{{ else }}Pause{{ end }}
-        </button>
+        {{ if eq $.Game.StateName "ready" }}
+          <button class="button"
+            hx-post="/{{ $gid }}/action/resume"
+            hx-swap="none">
+            Resume
+          </button>
+        {{ else }}
+          <button class="button"
+            hx-post="/{{ $gid }}/action/pause"
+            hx-swap="none">
+            Pause
+          </button>
+        {{ end }}
       {{ end }}
     </div>
     {{ if $isHost }}
