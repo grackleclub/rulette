@@ -64,6 +64,7 @@ func testDBOpts(t *testing.T) postgres.PostgresOpts {
 }
 
 func TestGame(t *testing.T) {
+	initLogger(nil)
 	t.Log("setting up db")
 	opts := testDBOpts(t)
 	ctx := context.Background()

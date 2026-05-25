@@ -6,12 +6,16 @@ import (
 	"net/http"
 	"path"
 	"strings"
+
+	"go.opentelemetry.io/otel/trace"
 )
 
 // gameHandler handles the '/{game_id}' endpoint
 // This endpoint serves as a lobby pregame, and for primary play.
 func gameHandler(w http.ResponseWriter, r *http.Request) {
 	gameID := strings.Replace(r.URL.Path, "/", "", 1)
+	span := trace.SpanFromContext(r.Context())
+	span.SetAttributes(attrGameID.String(gameID))
 	log.With("handler", "gameHandler", "game_id", gameID)
 
 	if r.Method != http.MethodGet {
@@ -25,6 +29,7 @@ func gameHandler(w http.ResponseWriter, r *http.Request) {
 		setCookieErr(w, err)
 		return
 	}
+	span.SetAttributes(attrPlayerID.String(cookieID))
 
 	state, err := stateFromCacheOrDB(r.Context(), &cache, gameID)
 	if err != nil {
@@ -51,6 +56,10 @@ func gameHandler(w http.ResponseWriter, r *http.Request) {
 		log.Error("populate caller info", "error", err)
 		http.Error(w, "server error", http.StatusInternalServerError)
 	}
+	span.SetAttributes(
+		attrStateID.Int(int(state.Game.StateID)),
+		attrCallerName.String(state.CallerName),
+	)
 
 	filepath := path.Join("static", "html", "tmpl.game.html")
 	tmpl, err := readParse(static, filepath)
@@ -84,6 +93,11 @@ func dataHandler(w http.ResponseWriter, r *http.Request) {
 	}
 	gameID := parts[0]
 	topic := parts[2]
+	span := trace.SpanFromContext(r.Context())
+	span.SetAttributes(
+		attrGameID.String(gameID),
+		attrTopic.String(topic),
+	)
 	log := log.With("handler", "dataHandler", "game_id", gameID, "topic", topic)
 	log.Debug("dataHandler called")
 	if r.Method != http.MethodGet {
@@ -96,6 +110,7 @@ func dataHandler(w http.ResponseWriter, r *http.Request) {
 		setCookieErr(w, err)
 		return
 	}
+	span.SetAttributes(attrPlayerID.String(cookieID))
 	state, err := stateFromCacheOrDB(r.Context(), &cache, gameID)
 	if err != nil {
 		if err == ErrStateNoGame {
@@ -121,6 +136,10 @@ func dataHandler(w http.ResponseWriter, r *http.Request) {
 		log.Error("populate caller info", "error", err)
 		http.Error(w, "server error", http.StatusInternalServerError)
 	}
+	span.SetAttributes(
+		attrStateID.Int(int(state.Game.StateID)),
+		attrCallerName.String(state.CallerName),
+	)
 
 	switch state.Game.StateID {
 	case 6: // game over

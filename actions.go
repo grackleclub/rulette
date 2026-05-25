@@ -10,6 +10,7 @@ import (
 	sqlc "github.com/grackleclub/rulette/db/sqlc"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgtype"
+	"go.opentelemetry.io/otel/trace"
 )
 
 func actionHandler(w http.ResponseWriter, r *http.Request) {
@@ -21,6 +22,11 @@ func actionHandler(w http.ResponseWriter, r *http.Request) {
 	}
 	gameID := parts[0]
 	action := parts[2]
+	span := trace.SpanFromContext(r.Context())
+	span.SetAttributes(
+		attrGameID.String(gameID),
+		attrAction.String(action),
+	)
 	log := log.With(
 		"handler", "actionHandler",
 		"game_id", gameID,
@@ -32,6 +38,7 @@ func actionHandler(w http.ResponseWriter, r *http.Request) {
 		setCookieErr(w, err)
 		return
 	}
+	span.SetAttributes(attrPlayerID.String(cookieID))
 	state, err := stateFromCacheOrDB(r.Context(), &cache, gameID)
 	if err != nil {
 		if err == ErrStateNoGame {
@@ -48,6 +55,10 @@ func actionHandler(w http.ResponseWriter, r *http.Request) {
 		log.Error("populate caller info", "error", err)
 		http.Error(w, "server error", http.StatusInternalServerError)
 	}
+	span.SetAttributes(
+		attrStateID.Int(int(state.Game.StateID)),
+		attrCallerName.String(state.CallerName),
+	)
 	if !state.isPlayerInGame(cookieKey) {
 		log.Info(
 			"prohibiting unauthorized player access",

@@ -12,6 +12,7 @@ import (
 
 	sqlc "github.com/grackleclub/rulette/db/sqlc"
 	"github.com/jackc/pgx/v5/pgtype"
+	"go.opentelemetry.io/otel/trace"
 )
 
 const (
@@ -93,6 +94,9 @@ func joinHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	gameID := parts[0]
+	trace.SpanFromContext(r.Context()).SetAttributes(
+		attrGameID.String(gameID),
+	)
 	log.With("handler", "joinHandler", "game_id", gameID, "method", r.Method)
 
 	// fetch game state

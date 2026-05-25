@@ -8,6 +8,7 @@ import (
 
 	"go.opentelemetry.io/contrib/bridges/otelslog"
 	"go.opentelemetry.io/otel"
+	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/exporters/otlp/otlplog/otlploghttp"
 	"go.opentelemetry.io/otel/exporters/otlp/otlpmetric/otlpmetrichttp"
 	"go.opentelemetry.io/otel/exporters/otlp/otlptrace/otlptracehttp"
@@ -17,6 +18,15 @@ import (
 	"go.opentelemetry.io/otel/sdk/resource"
 	sdktrace "go.opentelemetry.io/otel/sdk/trace"
 	semconv "go.opentelemetry.io/otel/semconv/v1.24.0"
+)
+
+var (
+	attrGameID     = attribute.Key("game.id")
+	attrPlayerID   = attribute.Key("game.player_id")
+	attrAction     = attribute.Key("game.action")
+	attrTopic      = attribute.Key("game.topic")
+	attrStateID    = attribute.Key("game.state_id")
+	attrCallerName = attribute.Key("game.caller_name")
 )
 
 func otelResource(ctx context.Context) (*resource.Resource, error) {
