@@ -14,6 +14,7 @@ import (
 	"time"
 
 	logger "github.com/grackleclub/log"
+	"go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp"
 
 	"github.com/grackleclub/postgres"
 	sqlc "github.com/grackleclub/rulette/db/sqlc"
@@ -46,9 +47,15 @@ var dbSchema string
 //go:embed static
 var static embed.FS
 
-func init() {
+func initLogger(otelHandler slog.Handler) {
 	var err error
-	log, err = logger.New(slog.HandlerOptions{})
+	if otelHandler != nil {
+		log, err = logger.NewWithHandlers(
+			slog.HandlerOptions{}, otelHandler,
+		)
+	} else {
+		log, err = logger.New(slog.HandlerOptions{})
+	}
 	if err != nil {
 		panic(fmt.Sprintf("create slog handler: %v", err))
 	}
@@ -56,6 +63,20 @@ func init() {
 }
 
 func main() {
+	ctx := context.Background()
+
+	otelShutdown, otelLogHandler, err := initOtel(ctx)
+	if err != nil {
+		panic(fmt.Sprintf("init otel: %v", err))
+	}
+	defer func() {
+		if err := otelShutdown(ctx); err != nil {
+			slog.Error("otel shutdown", "error", err)
+		}
+	}()
+
+	initLogger(otelLogHandler)
+
 	mux := http.NewServeMux()
 	// static embed.FS
 	mux.Handle("/static/html/", logMW(rateMW(http.FileServer(http.FS(static)))))
@@ -73,7 +94,6 @@ func main() {
 	mux.Handle("/{game_id}/data/{topic}", logMW(rateMW(http.HandlerFunc(dataHandler))))
 	mux.Handle("/{game_id}/action/{action}", logMW(rateMW(http.HandlerFunc(actionHandler))))
 
-	ctx := context.Background()
 	// RULETTE_PG_URL is a postgres connection string, e.g.:
 	// postgres://user@host/rulette or postgres://user:pass@host:5432/db?sslmode=require
 	// Port defaults to 5432; sslmode defaults to the driver default if omitted.
@@ -136,7 +156,8 @@ func main() {
 		port = fmt.Sprintf("%d", portDefault)
 	}
 	log.Info("starting server", "port", port)
-	if err := http.ListenAndServe(fmt.Sprintf(":%v", port), mux); err != nil {
+	handler := otelhttp.NewHandler(mux, "rulette")
+	if err := http.ListenAndServe(fmt.Sprintf(":%v", port), handler); err != nil {
 		log.Error("server failed", "error", err)
 		panic(fmt.Sprintf("server failed: %v", err))
 	}
