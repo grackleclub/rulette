@@ -17,7 +17,7 @@ import (
 	sdkmetric "go.opentelemetry.io/otel/sdk/metric"
 	"go.opentelemetry.io/otel/sdk/resource"
 	sdktrace "go.opentelemetry.io/otel/sdk/trace"
-	semconv "go.opentelemetry.io/otel/semconv/v1.24.0"
+	semconv "go.opentelemetry.io/otel/semconv/v1.40.0"
 )
 
 var (
@@ -40,6 +40,12 @@ func otelResource(ctx context.Context) (*resource.Resource, error) {
 	)
 }
 
+// initOtel configures OpenTelemetry trace, metric, and log providers
+// using OTLP/HTTP exporters. Returns a noop shutdown and nil handler
+// when OTEL_EXPORTER_OTLP_ENDPOINT is unset. When set, the standard
+// OTEL_EXPORTER_OTLP_* env vars (HEADERS, CERTIFICATE, etc.) are
+// passed through to the OTLP exporters. The returned slog.Handler
+// bridges log records to the OTel log provider via otelslog.
 func initOtel(
 	ctx context.Context,
 ) (shutdown func(context.Context) error, logHandler slog.Handler, err error) {
@@ -54,7 +60,6 @@ func initOtel(
 		return noop, nil, fmt.Errorf("otel resource: %w", err)
 	}
 
-	// traces
 	traceExp, err := otlptracehttp.New(ctx)
 	if err != nil {
 		return noop, nil, fmt.Errorf("otel trace exporter: %w", err)
@@ -65,7 +70,6 @@ func initOtel(
 	)
 	otel.SetTracerProvider(tp)
 
-	// metrics
 	metricExp, err := otlpmetrichttp.New(ctx)
 	if err != nil {
 		return noop, nil, fmt.Errorf("otel metric exporter: %w", err)
@@ -78,7 +82,6 @@ func initOtel(
 	)
 	otel.SetMeterProvider(mp)
 
-	// logs
 	logExp, err := otlploghttp.New(ctx)
 	if err != nil {
 		return noop, nil, fmt.Errorf("otel log exporter: %w", err)
