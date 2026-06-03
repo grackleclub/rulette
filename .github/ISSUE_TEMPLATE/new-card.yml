@@ -6,6 +6,8 @@ body:
   - type: markdown
     attributes:
       value: |
+        # guidelines
+        
         ## voice only
         - no props
         - no gestures
@@ -17,7 +19,7 @@ body:
   - type: input
     id: front
     attributes:
-      label: Front
+      label: Front text
       description: The initial rule on the front of the card.
       placeholder: "no filler words"
     validations:
@@ -26,8 +28,8 @@ body:
   - type: input
     id: back
     attributes:
-      label: Back
-      description: The contrasting or opposite rule on the back of the card.
+      label: Back text
+      description: The contrasting or opposite rule on the back of the card, shown if flipped.
       placeholder: "mostly filler words"
 
     validations:
