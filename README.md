@@ -1,5 +1,6 @@
 # rulette
 [![Test](https://github.com/grackleclub/rulette/actions/workflows/test.yml/badge.svg)](https://github.com/grackleclub/rulette/actions/workflows/test.yml)
+[![suggest a new rule](https://img.shields.io/badge/suggest_a_new_rule-blue)](https://github.com/grackleclub/rulette/issues/new?template=new-card.yml) 
 
 rule stacking game based on [dropout.tv](https://dropout.tv)'s [_Rulette_ (S7E7)](https://www.dropout.tv/game-changer/season:7/videos/rulette)
 
