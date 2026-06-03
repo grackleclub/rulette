@@ -1,0 +1,34 @@
+name: New rule
+description: Propose a new rule card for the rulette deck.
+title: "[rule]: "
+labels: ["rule"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        ## voice only
+        - no props
+        - no gestures
+        - no costumes
+
+        ## be nice
+        - no hate
+
+  - type: input
+    id: front
+    attributes:
+      label: Front
+      description: The initial rule on the front of the card.
+      placeholder: "no filler words"
+    validations:
+      required: true
+
+  - type: input
+    id: back
+    attributes:
+      label: Back
+      description: The contrasting or opposite rule on the back of the card.
+      placeholder: "mostly filler words"
+
+    validations:
+      required: true
