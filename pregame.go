@@ -12,6 +12,7 @@ import (
 
 	sqlc "github.com/grackleclub/rulette/db/sqlc"
 	"github.com/jackc/pgx/v5/pgtype"
+	"go.opentelemetry.io/otel/trace"
 )
 
 const (
@@ -42,12 +43,7 @@ func setCookieErr(w http.ResponseWriter, err error) {
 // from which a user can start a new game with a POST to /create.
 func rootHandler(w http.ResponseWriter, r *http.Request) {
 	indexPath := path.Join("static", "html", "index.html")
-	tmpl, err := readParse(static, indexPath)
-	if err != nil {
-		http.Error(w, "server error", http.StatusInternalServerError)
-		return
-	}
-	if err := tmpl.Execute(w, nil); err != nil {
+	if err := renderTemplate(r.Context(), w, indexPath, nil); err != nil {
 		http.Error(w, "server error", http.StatusInternalServerError)
 		return
 	}
@@ -93,7 +89,10 @@ func joinHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	gameID := parts[0]
-	log.With("handler", "joinHandler", "game_id", gameID, "method", r.Method)
+	trace.SpanFromContext(r.Context()).SetAttributes(
+		attrGameID.String(gameID),
+	)
+	log := log.With("handler", "joinHandler", "game_id", gameID, "method", r.Method)
 
 	// fetch game state
 	game, err := queries.GameState(r.Context(), gameID)
@@ -128,20 +127,8 @@ func joinHandler(w http.ResponseWriter, r *http.Request) {
 		}
 		w.Header().Set("Content-Type", "text/html")
 		templateFilepath := path.Join("static", "html", "tmpl.join.html")
-		tmpl, err := readParse(static, templateFilepath)
-		if err != nil {
-			log.Error("read parse",
-				"error", err,
-				"template", templateFilepath,
-				"game_id", gameID,
-			)
-			http.Error(w, "internal server error", http.StatusInternalServerError)
-			return
-
-		}
-		err = tmpl.Execute(w, game)
-		if err != nil {
-			log.Error("execute template",
+		if err := renderTemplate(r.Context(), w, templateFilepath, game); err != nil {
+			log.Error("render template",
 				"error", err,
 				"template", templateFilepath,
 				"game_id", gameID,

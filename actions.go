@@ -10,6 +10,7 @@ import (
 	sqlc "github.com/grackleclub/rulette/db/sqlc"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgtype"
+	"go.opentelemetry.io/otel/trace"
 )
 
 func actionHandler(w http.ResponseWriter, r *http.Request) {
@@ -21,6 +22,11 @@ func actionHandler(w http.ResponseWriter, r *http.Request) {
 	}
 	gameID := parts[0]
 	action := parts[2]
+	span := trace.SpanFromContext(r.Context())
+	span.SetAttributes(
+		attrGameID.String(gameID),
+		attrAction.String(action),
+	)
 	log := log.With(
 		"handler", "actionHandler",
 		"game_id", gameID,
@@ -32,6 +38,7 @@ func actionHandler(w http.ResponseWriter, r *http.Request) {
 		setCookieErr(w, err)
 		return
 	}
+	span.SetAttributes(attrPlayerID.String(cookieID))
 	state, err := stateFromCacheOrDB(r.Context(), &cache, gameID)
 	if err != nil {
 		if err == ErrStateNoGame {
@@ -43,11 +50,6 @@ func actionHandler(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "server error", http.StatusInternalServerError)
 		return
 	}
-	err = state.callerInfo(cookieKey)
-	if err != nil {
-		log.Error("populate caller info", "error", err)
-		http.Error(w, "server error", http.StatusInternalServerError)
-	}
 	if !state.isPlayerInGame(cookieKey) {
 		log.Info(
 			"prohibiting unauthorized player access",
@@ -57,6 +59,16 @@ func actionHandler(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "player not in game", http.StatusForbidden)
 		return
 	}
+	err = state.callerInfo(cookieKey)
+	if err != nil {
+		log.Error("populate caller info", "error", err)
+		http.Error(w, "server error", http.StatusInternalServerError)
+		return
+	}
+	span.SetAttributes(
+		attrStateID.Int(int(state.Game.StateID)),
+		attrCallerName.String(state.CallerName),
+	)
 	switch state.Game.StateID {
 	case 6: // game over
 		log.Info("request to ended game", "game_id", gameID)

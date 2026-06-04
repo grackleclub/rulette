@@ -6,13 +6,17 @@ import (
 	"net/http"
 	"path"
 	"strings"
+
+	"go.opentelemetry.io/otel/trace"
 )
 
 // gameHandler handles the '/{game_id}' endpoint
 // This endpoint serves as a lobby pregame, and for primary play.
 func gameHandler(w http.ResponseWriter, r *http.Request) {
 	gameID := strings.Replace(r.URL.Path, "/", "", 1)
-	log.With("handler", "gameHandler", "game_id", gameID)
+	span := trace.SpanFromContext(r.Context())
+	span.SetAttributes(attrGameID.String(gameID))
+	log := log.With("handler", "gameHandler", "game_id", gameID)
 
 	if r.Method != http.MethodGet {
 		log.Debug("unsupported method", "method", r.Method)
@@ -25,6 +29,7 @@ func gameHandler(w http.ResponseWriter, r *http.Request) {
 		setCookieErr(w, err)
 		return
 	}
+	span.SetAttributes(attrPlayerID.String(cookieID))
 
 	state, err := stateFromCacheOrDB(r.Context(), &cache, gameID)
 	if err != nil {
@@ -50,21 +55,16 @@ func gameHandler(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		log.Error("populate caller info", "error", err)
 		http.Error(w, "server error", http.StatusInternalServerError)
-	}
-
-	filepath := path.Join("static", "html", "tmpl.game.html")
-	tmpl, err := readParse(static, filepath)
-	if err != nil {
-		log.Error("read and parse template",
-			"error", err,
-			"template", filepath,
-		)
-		http.Error(w, "internal server error", http.StatusInternalServerError)
 		return
 	}
-	err = tmpl.Execute(w, state)
-	if err != nil {
-		log.Error("execute template",
+	span.SetAttributes(
+		attrStateID.Int(int(state.Game.StateID)),
+		attrCallerName.String(state.CallerName),
+	)
+
+	filepath := path.Join("static", "html", "tmpl.game.html")
+	if err := renderTemplate(r.Context(), w, filepath, state); err != nil {
+		log.Error("render template",
 			"error", err,
 			"template", filepath,
 			"game_id", gameID,
@@ -84,6 +84,11 @@ func dataHandler(w http.ResponseWriter, r *http.Request) {
 	}
 	gameID := parts[0]
 	topic := parts[2]
+	span := trace.SpanFromContext(r.Context())
+	span.SetAttributes(
+		attrGameID.String(gameID),
+		attrTopic.String(topic),
+	)
 	log := log.With("handler", "dataHandler", "game_id", gameID, "topic", topic)
 	log.Debug("dataHandler called")
 	if r.Method != http.MethodGet {
@@ -96,6 +101,7 @@ func dataHandler(w http.ResponseWriter, r *http.Request) {
 		setCookieErr(w, err)
 		return
 	}
+	span.SetAttributes(attrPlayerID.String(cookieID))
 	state, err := stateFromCacheOrDB(r.Context(), &cache, gameID)
 	if err != nil {
 		if err == ErrStateNoGame {
@@ -120,7 +126,12 @@ func dataHandler(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		log.Error("populate caller info", "error", err)
 		http.Error(w, "server error", http.StatusInternalServerError)
+		return
 	}
+	span.SetAttributes(
+		attrStateID.Int(int(state.Game.StateID)),
+		attrCallerName.String(state.CallerName),
+	)
 
 	switch state.Game.StateID {
 	case 6: // game over
@@ -131,50 +142,22 @@ func dataHandler(w http.ResponseWriter, r *http.Request) {
 		switch topic {
 		case "players":
 			filepath := path.Join("static", "html", "tmpl.players.html")
-			tmpl, err := readParse(static, filepath)
-			if err != nil {
-				log.Error(ErrReadParseTemplate.Error(), "filepath", filepath, "error", err)
-				http.Error(w, "internal server error", http.StatusInternalServerError)
-				return
-			}
-			err = tmpl.Execute(w, state)
-			if err != nil {
-				log.Error("execute template",
-					"error", err,
-					"template", filepath,
-				)
+			if err := renderTemplate(r.Context(), w, filepath, state); err != nil {
+				log.Error("render template", "error", err, "template", filepath)
 				http.Error(w, "internal server error", http.StatusInternalServerError)
 			}
 			return
 		case "table":
 			filepath := path.Join("static", "html", "tmpl.table.html")
-			tmpl, err := readParse(static, filepath)
-			if err != nil {
-				log.Error(ErrReadParseTemplate.Error(), "filepath", filepath, "error", err)
-				http.Error(w, "internal server error", http.StatusInternalServerError)
-				return
-			}
-
-			err = tmpl.Execute(w, state)
-			if err != nil {
-				log.Error("execute template",
-					"error", err,
-					"template", filepath,
-				)
+			if err := renderTemplate(r.Context(), w, filepath, state); err != nil {
+				log.Error("render template", "error", err, "template", filepath)
 				http.Error(w, "internal server error", http.StatusInternalServerError)
 			}
 			return
 		case "status":
 			filepath := path.Join("static", "html", "tmpl.status.html")
-			tmpl, err := readParse(static, filepath)
-			if err != nil {
-				log.Error(ErrReadParseTemplate.Error(), "filepath", filepath, "error", err)
-				http.Error(w, "internal server error", http.StatusInternalServerError)
-				return
-			}
-			err = tmpl.Execute(w, state)
-			if err != nil {
-				log.Error("execute template", "error", err, "template", filepath)
+			if err := renderTemplate(r.Context(), w, filepath, state); err != nil {
+				log.Error("render template", "error", err, "template", filepath)
 				http.Error(w, "internal server error", http.StatusInternalServerError)
 			}
 			return
@@ -189,18 +172,8 @@ func dataHandler(w http.ResponseWriter, r *http.Request) {
 			}
 		case "points":
 			filepath := path.Join("static", "html", "tmpl.points.html")
-			tmpl, err := readParse(static, filepath)
-			if err != nil {
-				log.Error(ErrReadParseTemplate.Error(), "filepath", filepath, "error", err)
-				http.Error(w, "internal server error", http.StatusInternalServerError)
-				return
-			}
-			err = tmpl.Execute(w, state)
-			if err != nil {
-				log.Error("execute template",
-					"error", err,
-					"template", filepath,
-				)
+			if err := renderTemplate(r.Context(), w, filepath, state); err != nil {
+				log.Error("render template", "error", err, "template", filepath)
 				http.Error(w, "internal server error", http.StatusInternalServerError)
 			}
 			return
@@ -223,35 +196,15 @@ func dataHandler(w http.ResponseWriter, r *http.Request) {
 				return
 			}
 			filepath := path.Join("static", "html", "tmpl.change_points_dialog.html")
-			tmpl, err := readParse(static, filepath)
-			if err != nil {
-				log.Error(ErrReadParseTemplate.Error(), "filepath", filepath, "error", err)
-				http.Error(w, "internal server error", http.StatusInternalServerError)
-				return
-			}
-			err = tmpl.Execute(w, state)
-			if err != nil {
-				log.Error("execute template",
-					"error", err,
-					"template", filepath,
-				)
+			if err := renderTemplate(r.Context(), w, filepath, state); err != nil {
+				log.Error("render template", "error", err, "template", filepath)
 				http.Error(w, "internal server error", http.StatusInternalServerError)
 			}
 			return
 		case "accuse":
 			filepath := path.Join("static", "html", "tmpl.accuse_dialog.html")
-			tmpl, err := readParse(static, filepath)
-			if err != nil {
-				log.Error(ErrReadParseTemplate.Error(), "filepath", filepath, "error", err)
-				http.Error(w, "internal server error", http.StatusInternalServerError)
-				return
-			}
-			err = tmpl.Execute(w, state)
-			if err != nil {
-				log.Error("execute template",
-					"error", err,
-					"template", filepath,
-				)
+			if err := renderTemplate(r.Context(), w, filepath, state); err != nil {
+				log.Error("render template", "error", err, "template", filepath)
 				http.Error(w, "internal server error", http.StatusInternalServerError)
 			}
 			return

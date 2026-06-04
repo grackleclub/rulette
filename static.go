@@ -1,11 +1,34 @@
 package main
 
 import (
+	"context"
 	"embed"
 	"fmt"
-	"path/filepath"
 	"html/template"
+	"io"
+	"path/filepath"
+
+	"go.opentelemetry.io/otel"
+	"go.opentelemetry.io/otel/attribute"
 )
+
+// renderTemplate parses the named template (with shared footer) and
+// executes it against data, writing to w. Wraps the parse+execute in
+// a "template.render" span tagged with the template path so handler
+// traces show template time as a child span.
+func renderTemplate(ctx context.Context, w io.Writer, path string, data any) error {
+	_, span := otel.Tracer(otelScope).Start(ctx, "template.render")
+	defer span.End()
+	span.SetAttributes(attribute.String("template", path))
+	tmpl, err := readParse(static, path)
+	if err != nil {
+		return fmt.Errorf("read parse %q: %w", path, err)
+	}
+	if err := tmpl.Execute(w, data); err != nil {
+		return fmt.Errorf("execute %q: %w", path, err)
+	}
+	return nil
+}
 
 // readParse reads a template file from an embedded filesystem,
 // parses it together with the shared footer, and returns the
