@@ -30,7 +30,7 @@ body:
     id: steps
     attributes:
       label: Steps to reproduce
-      description: How can someone else trigger this?
+      description: How can someone else trigger this? Video or screenshots welcome, where helpful.
       placeholder: |
         1. create a game
         2. ...
