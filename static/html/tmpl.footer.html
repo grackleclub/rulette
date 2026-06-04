@@ -1,1 +1,44 @@
-{{define "footer"}}<footer class="footer-version">{{version}}</footer>{{end}}
+{{define "footer"}}<footer class="site-footer">
+  <small class="site-footer-meta">
+    <button type="button" class="site-footer-link" data-open-dialog="about-dialog" aria-haspopup="dialog" aria-controls="about-dialog">❓ help</button>
+    ·
+    <a href="https://github.com/grackleclub/rulette/issues/new?template=new-rule.yml" target="_blank" rel="noopener">💡 suggest a rule</a>
+    ·
+    <a href="https://github.com/grackleclub/rulette/issues/new?template=bug.yml&amp;version={{version}}" target="_blank" rel="noopener">🐛 report a bug</a>
+  </small>
+  <small class="site-footer-version">{{version}}</small>
+</footer>
+
+<dialog id="about-dialog" aria-labelledby="about-dialog-title">
+  <div class="dialog-body stack">
+    <h2 id="about-dialog-title">rulette</h2>
+    <h3>about</h3>
+    <p>
+      A rule stacking game based on S7E7 and S8E2 of Game Changer on <a href="https://dropout.tv">DropoutTV</a>.
+    </p>
+    <p>
+      Sign up for <a href="https://www.kickstarter.com/projects/dropout/game-changer-home-edition" target="_blank" rel="noopener">Home Edition</a> on Kickstarter.
+    </p>
+    <h3>getting started</h3>
+    <ul>
+      <li>Whoever names and creates the game will be host.</li>
+      <li>Scan QR code or click shared link to join as player.</li>
+      <li>Nobody can join after the game starts.</li>
+    </ul>
+    <h3>rules</h3>
+    <ul>
+      <li>Players start with 20 points.</li>
+      <li>Spin on your turn to acquire rules.</li>
+      <li>Click <button type="button" class="player-hey player-hey-inline" disabled>hey!</button> to accuse another player of breaking theirs.</li>
+      <li>Host decides how many points to deduct (if any).</li>
+    </ul>
+
+    <h3>disclaimer</h3>
+    <p>
+      This project is completely unaffiliated with DropoutTV. Be cool, Sam!
+    </p>
+    <button type="button" class="button" data-close-dialog="about-dialog">close</button>
+  </div>
+</dialog>
+
+<script src="/static/js/dialogs.js" defer></script>{{end}}
