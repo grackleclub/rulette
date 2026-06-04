@@ -2,10 +2,8 @@ module github.com/grackleclub/rulette
 
 go 1.25.0
 
-replace github.com/grackleclub/log => ../log
-
 require (
-	github.com/grackleclub/log v0.4.4
+	github.com/grackleclub/log v1.2.0
 	github.com/grackleclub/postgres v0.0.3
 	github.com/jackc/pgx/v5 v5.7.5
 	github.com/stretchr/testify v1.11.1
