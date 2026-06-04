@@ -7,37 +7,54 @@ body:
     id: game-url
     attributes:
       label: Game URL
-      description: The full URL of the game where the bug occurred.
+      description: The game URL where this happened.
       placeholder: https://rulette.grackle.club/abc123
     validations:
       required: true
 
-  - type: textarea
-    id: what-happened
+  - type: dropdown
+    id: os
     attributes:
-      label: What happened?
-      description: What did you see? What did you expect to see?
+      label: Operating system
+      options:
+        - Windows
+        - macOS
+        - Linux
+        - Android
+        - iOS
+        - Other
     validations:
       required: true
 
-  - type: textarea
-    id: steps
-    attributes:
-      label: Steps to reproduce
-      description: How can someone else trigger this?
-      placeholder: |
-        1. create a game
-        2. ...
-        3. ...
-
-  - type: input
+  - type: dropdown
     id: browser
     attributes:
-      label: Browser / device
-      placeholder: Firefox on Android, Safari on iPhone, etc.
+      label: Browser
+      options:
+        - Firefox
+        - Chrome
+        - Chromium
+        - Brave
+        - Safari
+        - Opera
+    validations:
+      required: true
 
   - type: input
     id: version
     attributes:
       label: Version
-      description: Auto-filled from the footer link.
+      description: Build version (in footer, may autopopulate)
+
+  - type: textarea
+    id: what-happened
+    attributes:
+      label: What happened?
+      description: What did you see? What did you expect to see? Include steps to reproduce so someone else can trigger it. Video or screenshots welcome.
+      placeholder: |
+        1. create a game
+        2. ...
+        3. ...
+    validations:
+      required: true
+
