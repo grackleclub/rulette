@@ -16,7 +16,7 @@ func gameHandler(w http.ResponseWriter, r *http.Request) {
 	gameID := strings.Replace(r.URL.Path, "/", "", 1)
 	span := trace.SpanFromContext(r.Context())
 	span.SetAttributes(attrGameID.String(gameID))
-	log.With("handler", "gameHandler", "game_id", gameID)
+	log := log.With("handler", "gameHandler", "game_id", gameID)
 
 	if r.Method != http.MethodGet {
 		log.Debug("unsupported method", "method", r.Method)

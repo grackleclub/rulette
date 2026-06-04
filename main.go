@@ -72,8 +72,18 @@ func main() {
 		panic(fmt.Sprintf("init otel: %v", err))
 	}
 	defer func() {
-		if err := otelShutdown(ctx); err != nil {
-			slog.Error("otel shutdown", "error", err)
+		shutdownCtx, cancel := context.WithTimeout(
+			context.Background(), 5*time.Second,
+		)
+		defer cancel()
+		if err := otelShutdown(shutdownCtx); err != nil {
+			// log may be nil if shutdown runs after a panic in
+			// initOtel (before initLogger ran).
+			if log != nil {
+				log.Error("otel shutdown", "error", err)
+			} else {
+				slog.Error("otel shutdown", "error", err)
+			}
 		}
 	}()
 

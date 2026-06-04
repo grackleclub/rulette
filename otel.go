@@ -90,16 +90,31 @@ func otelResource(ctx context.Context) (*resource.Resource, error) {
 
 // initOtel configures OpenTelemetry trace, metric, and log providers
 // using OTLP/HTTP exporters. Returns a noop shutdown and nil handler
-// when OTEL_EXPORTER_OTLP_ENDPOINT is unset. When set, the standard
-// OTEL_EXPORTER_OTLP_* env vars (HEADERS, CERTIFICATE, etc.) are
-// passed through to the OTLP exporters. The returned slog.Handler
-// bridges log records to the OTel log provider via otelslog.
+// unless one of OTEL_EXPORTER_OTLP_ENDPOINT or any of the per-signal
+// endpoint env vars (OTEL_EXPORTER_OTLP_TRACES_ENDPOINT,
+// OTEL_EXPORTER_OTLP_METRICS_ENDPOINT, OTEL_EXPORTER_OTLP_LOGS_ENDPOINT)
+// is set. When set, the standard OTEL_EXPORTER_OTLP_* env vars
+// (HEADERS, CERTIFICATE, etc.) are passed through to the OTLP exporters.
+// The returned slog.Handler bridges log records to the OTel log
+// provider via otelslog.
 func initOtel(
 	ctx context.Context,
 ) (shutdown func(context.Context) error, logHandler slog.Handler, err error) {
 	noop := func(context.Context) error { return nil }
 
-	if os.Getenv("OTEL_EXPORTER_OTLP_ENDPOINT") == "" {
+	otelEnabled := false
+	for _, env := range []string{
+		"OTEL_EXPORTER_OTLP_ENDPOINT",
+		"OTEL_EXPORTER_OTLP_TRACES_ENDPOINT",
+		"OTEL_EXPORTER_OTLP_METRICS_ENDPOINT",
+		"OTEL_EXPORTER_OTLP_LOGS_ENDPOINT",
+	} {
+		if os.Getenv(env) != "" {
+			otelEnabled = true
+			break
+		}
+	}
+	if !otelEnabled {
 		return noop, nil, nil
 	}
 

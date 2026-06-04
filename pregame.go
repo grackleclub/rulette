@@ -92,7 +92,7 @@ func joinHandler(w http.ResponseWriter, r *http.Request) {
 	trace.SpanFromContext(r.Context()).SetAttributes(
 		attrGameID.String(gameID),
 	)
-	log.With("handler", "joinHandler", "game_id", gameID, "method", r.Method)
+	log := log.With("handler", "joinHandler", "game_id", gameID, "method", r.Method)
 
 	// fetch game state
 	game, err := queries.GameState(r.Context(), gameID)
