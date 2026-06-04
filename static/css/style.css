@@ -270,6 +270,8 @@ a {
 
 /* layout regions */
 .site-footer {
+  position: relative;
+  z-index: 1;
   width: 100%;
   text-align: center;
   color: var(--color-text-light);
@@ -473,6 +475,8 @@ a {
   color: var(--color-text-dark);
   max-height: 4em;
   overflow-y: auto;
+  padding-left: 2.5em;
+  margin-top: 1em;
 }
 
 .player-rules ul {
