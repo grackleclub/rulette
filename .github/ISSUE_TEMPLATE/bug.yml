@@ -7,10 +7,16 @@ body:
     id: game-url
     attributes:
       label: Game URL
-      description: The full URL of the game where the bug occurred.
+      description: The game URL where this happened.
       placeholder: https://rulette.grackle.club/abc123
     validations:
       required: true
+
+  - type: input
+    id: version
+    attributes:
+      label: Version
+      description: Build version (in footer, may autopopulate)
 
   - type: textarea
     id: what-happened
@@ -36,8 +42,3 @@ body:
       label: Browser / device
       placeholder: Firefox on Android, Safari on iPhone, etc.
 
-  - type: input
-    id: version
-    attributes:
-      label: Version
-      description: Auto-filled from the footer link.
