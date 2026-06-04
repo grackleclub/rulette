@@ -34,6 +34,7 @@
   --color-button-hover: #383838;
   --color-text-dark: #1b110f;
   --color-text-light: #ffffff;
+  --color-text-muted: #f0f0f0;
   --color-shadow: rgba(0, 0, 0, 0.25);
   --color-dim: rgba(0, 0, 0, 0.3);
   --color-backdrop: rgba(0, 0, 0, 0.5);
@@ -261,13 +262,65 @@ a {
 }
 
 /* layout regions */
-body > footer:not(.footer-version) {
-  margin-top: auto;
+.site-footer {
+  width: 100%;
   text-align: center;
-  position: fixed;
-  bottom: .5em;
-  left: 1em;
-  right: 1em;
+  color: var(--color-text-light);
+  padding: 0 1em;
+  margin-top: auto;
+}
+
+.site-footer-meta {
+  display: block;
+  font-size: 0.9rem;
+  opacity: 0.8;
+}
+
+#about-dialog {
+  max-width: 32em;
+}
+
+#about-dialog ul {
+  list-style: none;
+  padding-left: 1.25em;
+}
+
+#about-dialog li {
+  position: relative;
+  margin: .35em 0;
+}
+
+#about-dialog li::before {
+  content: "§";
+  position: absolute;
+  left: -1.25em;
+  color: var(--color-loop-1);
+}
+
+.player-hey.player-hey-inline {
+  position: static;
+  transform: none;
+  width: 2.25em;
+  height: 2.25em;
+  font-size: 0.85em;
+  padding: 0;
+  vertical-align: middle;
+  cursor: default;
+}
+
+.site-footer a,
+.site-footer a:visited,
+.site-footer-link {
+  color: var(--color-text-muted);
+}
+
+.site-footer-link {
+  background: none;
+  border: none;
+  padding: 0;
+  font: inherit;
+  cursor: pointer;
+  text-decoration: underline;
 }
 
 .invite {
@@ -301,14 +354,6 @@ body > footer:not(.footer-version) {
   color: var(--color-text-light);
 }
 
-.footer-version {
-  position: fixed;
-  bottom: 2px;
-  right: 6px;
-  font-size: 0.6rem;
-  opacity: 0.4;
-  pointer-events: none;
-}
 
 /* game title */
 .game-title {

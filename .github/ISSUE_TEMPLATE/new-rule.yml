@@ -34,3 +34,9 @@ body:
 
     validations:
       required: true
+
+  - type: input
+    id: version
+    attributes:
+      label: Version
+      description: Auto-filled from the footer link.

@@ -1,0 +1,43 @@
+name: Bug report
+description: Report something broken or behaving unexpectedly.
+title: "[bug]: "
+labels: ["bug"]
+body:
+  - type: input
+    id: game-url
+    attributes:
+      label: Game URL
+      description: The full URL of the game where the bug occurred.
+      placeholder: https://rulette.grackle.club/abc123
+    validations:
+      required: true
+
+  - type: textarea
+    id: what-happened
+    attributes:
+      label: What happened?
+      description: What did you see? What did you expect to see?
+    validations:
+      required: true
+
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to reproduce
+      description: How can someone else trigger this?
+      placeholder: |
+        1. create a game
+        2. ...
+        3. ...
+
+  - type: input
+    id: browser
+    attributes:
+      label: Browser / device
+      placeholder: Firefox on Android, Safari on iPhone, etc.
+
+  - type: input
+    id: version
+    attributes:
+      label: Version
+      description: Auto-filled from the footer link.
