@@ -23,6 +23,8 @@ body:
         - Android
         - iOS
         - Other
+    validations:
+      required: true
 
   - type: dropdown
     id: browser
@@ -35,6 +37,8 @@ body:
         - Brave
         - Safari
         - Opera
+    validations:
+      required: true
 
   - type: input
     id: version
