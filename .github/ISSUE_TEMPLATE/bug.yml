@@ -12,6 +12,30 @@ body:
     validations:
       required: true
 
+  - type: dropdown
+    id: os
+    attributes:
+      label: Operating system
+      options:
+        - Windows
+        - macOS
+        - Linux
+        - Android
+        - iOS
+        - Other
+
+  - type: dropdown
+    id: browser
+    attributes:
+      label: Browser
+      options:
+        - Firefox
+        - Chrome
+        - Chromium
+        - Brave
+        - Safari
+        - Opera
+
   - type: input
     id: version
     attributes:
@@ -35,28 +59,4 @@ body:
         1. create a game
         2. ...
         3. ...
-
-  - type: checkboxes
-    id: os
-    attributes:
-      label: Operating system
-      options:
-        - label: Windows
-        - label: macOS
-        - label: Linux
-        - label: Android
-        - label: iOS
-        - label: Other
-
-  - type: checkboxes
-    id: browser
-    attributes:
-      label: Browser
-      options:
-        - label: Firefox
-        - label: Chrome
-        - label: Chromium
-        - label: Brave
-        - label: Safari
-        - label: Opera
 
