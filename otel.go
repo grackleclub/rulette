@@ -22,6 +22,11 @@ import (
 	semconv "go.opentelemetry.io/otel/semconv/v1.40.0"
 )
 
+// otelScope is the instrumentation scope name applied to tracers,
+// meters, and the slog bridge. OTel convention is the fully-qualified
+// import path of the instrumented code.
+const otelScope = "github.com/grackleclub/rulette"
+
 var (
 	attrGameID     = attribute.Key("game.id")
 	attrPlayerID   = attribute.Key("game.player_id")
@@ -40,7 +45,7 @@ var (
 // Safe to call when OTEL is disabled — the noop provider returns
 // noop instruments. Must be called after the cache var exists.
 func initMetrics(cache *sync.Map) error {
-	m := otel.Meter("rulette")
+	m := otel.Meter(otelScope)
 	var err error
 	cacheHits, err = m.Int64Counter("cache.hits",
 		metric.WithDescription("Game state cache hits"),
@@ -133,7 +138,7 @@ func initOtel(
 		sdklog.WithProcessor(sdklog.NewBatchProcessor(logExp)),
 		sdklog.WithResource(res),
 	)
-	handler := otelslog.NewHandler("rulette",
+	handler := otelslog.NewHandler(otelScope,
 		otelslog.WithLoggerProvider(lp),
 	)
 

@@ -5,11 +5,17 @@ import (
 	"fmt"
 	"sync"
 	"time"
+
+	"go.opentelemetry.io/otel"
+	"go.opentelemetry.io/otel/attribute"
 )
 
 // stateFromCacheOrDB returns the current state of the game specified by gameID,
 // drawing from cache if newer than maxCacheAge, otherwise fetching from the database.
 func stateFromCacheOrDB(ctx context.Context, cache *sync.Map, gameID string) (state, error) {
+	ctx, span := otel.Tracer(otelScope).Start(ctx, "cache.lookup")
+	defer span.End()
+	span.SetAttributes(attribute.String("game.id", gameID))
 	log := log.With("caller", "stateFromCache", "game_id", gameID)
 
 	// cache hit
@@ -18,6 +24,7 @@ func stateFromCacheOrDB(ctx context.Context, cache *sync.Map, gameID string) (st
 		cacheAge := time.Since(cachedState.Updated)
 		if cacheAge < maxCacheAge {
 			log.Debug("cache hit", "cache_age", cacheAge)
+			span.SetAttributes(attribute.Bool("cache.hit", true))
 			if cacheHits != nil {
 				cacheHits.Add(ctx, 1)
 			}
@@ -28,6 +35,7 @@ func stateFromCacheOrDB(ctx context.Context, cache *sync.Map, gameID string) (st
 
 	// cache miss
 	log.Debug("cache miss")
+	span.SetAttributes(attribute.Bool("cache.hit", false))
 	if cacheMisses != nil {
 		cacheMisses.Add(ctx, 1)
 	}
@@ -81,28 +89,38 @@ func cacheJanitor(ctx context.Context, cache *sync.Map) {
 
 // fetchStateFromDB retrieves the game state and players from the database for the given gameID.
 func fetchStateFromDB(ctx context.Context, gameID string) (state, error) {
-	// get game state
-	game, err := queries.GameState(ctx, gameID)
+	tr := otel.Tracer(otelScope)
+	ctx, span := tr.Start(ctx, "db.fetchState")
+	defer span.End()
+	span.SetAttributes(attribute.String("game.id", gameID))
+
+	gctx, gspan := tr.Start(ctx, "db.GameState")
+	game, err := queries.GameState(gctx, gameID)
+	gspan.End()
 	if err != nil {
 		return state{}, ErrStateNoGame
 	}
-	// get game players
-	players, err := queries.GamePlayerPoints(ctx, gameID)
+	pctx, pspan := tr.Start(ctx, "db.GamePlayerPoints")
+	players, err := queries.GamePlayerPoints(pctx, gameID)
+	pspan.End()
 	if err != nil {
 		return state{}, ErrFetchPlayers
 	}
-	// get revealed player cardsPlayers and wheel cardsPlayers
-	cardsPlayers, err := queries.GameCardsPlayerView(ctx, gameID)
+	cpctx, cpspan := tr.Start(ctx, "db.GameCardsPlayerView")
+	cardsPlayers, err := queries.GameCardsPlayerView(cpctx, gameID)
+	cpspan.End()
 	if err != nil {
 		return state{}, fmt.Errorf("fetch cards for game: %w", err)
 	}
-	// get wheel cards
-	cardsWheel, err := queries.GameCardsWheelView(ctx, gameID)
+	cwctx, cwspan := tr.Start(ctx, "db.GameCardsWheelView")
+	cardsWheel, err := queries.GameCardsWheelView(cwctx, gameID)
+	cwspan.End()
 	if err != nil {
 		return state{}, fmt.Errorf("fetch wheel cards for game: %w", err)
 	}
-	// get infraction history
-	infractions, err := queries.InfractionsByGame(ctx, gameID)
+	ictx, ispan := tr.Start(ctx, "db.InfractionsByGame")
+	infractions, err := queries.InfractionsByGame(ictx, gameID)
+	ispan.End()
 	if err != nil {
 		return state{}, fmt.Errorf("fetch infractions for game: %w", err)
 	}
