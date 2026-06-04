@@ -276,6 +276,13 @@ a {
   text-shadow: 0 1px 3px rgba(0, 0, 0, 0.9), 0 0 2px rgba(0, 0, 0, 0.8);
 }
 
+.site-footer-version {
+  display: block;
+  font-size: 0.65rem;
+  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.9), 0 0 2px rgba(0, 0, 0, 0.8);
+  margin-top: .25em;
+}
+
 #about-dialog {
   max-width: 32em;
 }
@@ -321,6 +328,15 @@ a {
   font: inherit;
   text-shadow: inherit;
   cursor: pointer;
+  text-decoration: none;
+}
+
+.site-footer a {
+  text-decoration: none;
+}
+
+.site-footer a:hover,
+.site-footer-link:hover {
   text-decoration: underline;
 }
 

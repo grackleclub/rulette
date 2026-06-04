@@ -1,13 +1,12 @@
 {{define "footer"}}<footer class="site-footer">
   <small class="site-footer-meta">
-    <button type="button" class="site-footer-link" data-open-dialog="about-dialog">about</button>
+    <button type="button" class="site-footer-link" data-open-dialog="about-dialog">❓ help</button>
     ·
-    <a href="https://github.com/grackleclub/rulette/issues/new?template=new-rule.yml" target="_blank" rel="noopener">suggest a rule</a>
+    <a href="https://github.com/grackleclub/rulette/issues/new?template=new-rule.yml" target="_blank" rel="noopener">💡 suggest a rule</a>
     ·
-    <a href="https://github.com/grackleclub/rulette/issues/new?template=bug.yml&version={{version}}" target="_blank" rel="noopener">report a bug</a>
-    ·
-    {{version}}
+    <a href="https://github.com/grackleclub/rulette/issues/new?template=bug.yml&version={{version}}" target="_blank" rel="noopener">🐛 report a bug</a>
   </small>
+  <small class="site-footer-version">{{version}}</small>
 </footer>
 
 <dialog id="about-dialog">
