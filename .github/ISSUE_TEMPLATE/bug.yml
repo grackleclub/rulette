@@ -36,9 +36,27 @@ body:
         2. ...
         3. ...
 
-  - type: input
+  - type: checkboxes
+    id: os
+    attributes:
+      label: Operating system
+      options:
+        - label: Windows
+        - label: macOS
+        - label: Linux
+        - label: Android
+        - label: iOS
+        - label: Other
+
+  - type: checkboxes
     id: browser
     attributes:
-      label: Browser / device
-      placeholder: Firefox on Android, Safari on iPhone, etc.
+      label: Browser
+      options:
+        - label: Firefox
+        - label: Chrome
+        - label: Chromium
+        - label: Brave
+        - label: Safari
+        - label: Opera
 
