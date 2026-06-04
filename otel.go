@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"log/slog"
 	"os"
+	"sync"
 
 	"go.opentelemetry.io/contrib/bridges/otelslog"
 	"go.opentelemetry.io/otel"
@@ -12,6 +13,7 @@ import (
 	"go.opentelemetry.io/otel/exporters/otlp/otlplog/otlploghttp"
 	"go.opentelemetry.io/otel/exporters/otlp/otlpmetric/otlpmetrichttp"
 	"go.opentelemetry.io/otel/exporters/otlp/otlptrace/otlptracehttp"
+	"go.opentelemetry.io/otel/metric"
 	"go.opentelemetry.io/otel/propagation"
 	sdklog "go.opentelemetry.io/otel/sdk/log"
 	sdkmetric "go.opentelemetry.io/otel/sdk/metric"
@@ -28,6 +30,47 @@ var (
 	attrStateID    = attribute.Key("game.state_id")
 	attrCallerName = attribute.Key("game.caller_name")
 )
+
+var (
+	cacheHits   metric.Int64Counter
+	cacheMisses metric.Int64Counter
+)
+
+// initMetrics registers cache instruments on the global meter provider.
+// Safe to call when OTEL is disabled — the noop provider returns
+// noop instruments. Must be called after the cache var exists.
+func initMetrics(cache *sync.Map) error {
+	m := otel.Meter("rulette")
+	var err error
+	cacheHits, err = m.Int64Counter("cache.hits",
+		metric.WithDescription("Game state cache hits"),
+	)
+	if err != nil {
+		return fmt.Errorf("cache.hits counter: %w", err)
+	}
+	cacheMisses, err = m.Int64Counter("cache.misses",
+		metric.WithDescription("Game state cache misses"),
+	)
+	if err != nil {
+		return fmt.Errorf("cache.misses counter: %w", err)
+	}
+	_, err = m.Int64ObservableGauge("cache.size",
+		metric.WithDescription("Number of entries in the game state cache"),
+		metric.WithInt64Callback(func(_ context.Context, o metric.Int64Observer) error {
+			var n int64
+			cache.Range(func(_, _ any) bool {
+				n++
+				return true
+			})
+			o.Observe(n)
+			return nil
+		}),
+	)
+	if err != nil {
+		return fmt.Errorf("cache.size gauge: %w", err)
+	}
+	return nil
+}
 
 func otelResource(ctx context.Context) (*resource.Resource, error) {
 	hostname, _ := os.Hostname()

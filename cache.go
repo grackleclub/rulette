@@ -18,6 +18,9 @@ func stateFromCacheOrDB(ctx context.Context, cache *sync.Map, gameID string) (st
 		cacheAge := time.Since(cachedState.Updated)
 		if cacheAge < maxCacheAge {
 			log.Debug("cache hit", "cache_age", cacheAge)
+			if cacheHits != nil {
+				cacheHits.Add(ctx, 1)
+			}
 			return *cachedState, nil
 		}
 		log.Debug("cache stale", "cache_age", cacheAge)
@@ -25,6 +28,9 @@ func stateFromCacheOrDB(ctx context.Context, cache *sync.Map, gameID string) (st
 
 	// cache miss
 	log.Debug("cache miss")
+	if cacheMisses != nil {
+		cacheMisses.Add(ctx, 1)
+	}
 	stateFresh, err := fetchStateFromDB(ctx, gameID)
 	if err != nil {
 		return state{}, err
@@ -40,6 +46,37 @@ func stateFromCacheOrDB(ctx context.Context, cache *sync.Map, gameID string) (st
 	log.Debug("cache updated", "game_id", gameID)
 
 	return stateFresh, nil
+}
+
+// cacheJanitor periodically evicts cache entries older than cacheTTL.
+// Runs until ctx is cancelled. The cache has no other eviction policy,
+// so without this, entries accumulate indefinitely (game ended, last
+// player left, etc.) and grow process memory unbounded.
+func cacheJanitor(ctx context.Context, cache *sync.Map) {
+	tick := time.NewTicker(cacheJanitorInterval)
+	defer tick.Stop()
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case <-tick.C:
+			now := time.Now()
+			cache.Range(func(k, v any) bool {
+				s, ok := v.(*state)
+				if !ok {
+					return true
+				}
+				if now.Sub(s.Updated) > cacheTTL {
+					cache.Delete(k)
+					log.Debug("cache evicted",
+						"game_id", k,
+						"age", now.Sub(s.Updated),
+					)
+				}
+				return true
+			})
+		}
+	}
 }
 
 // fetchStateFromDB retrieves the game state and players from the database for the given gameID.

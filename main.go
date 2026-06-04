@@ -28,6 +28,8 @@ var (
 	log                    *slog.Logger
 	version                = "dev" // set via -ldflags "-X main.version=..."
 	maxCacheAge            = 500 * time.Millisecond
+	cacheTTL               = 5 * time.Minute
+	cacheJanitorInterval   = 1 * time.Minute
 	portDefault            = 7777
 	defaultFrontendRefresh string = fmt.Sprintf("%dms", 500) // passed to templates; htmx-refresh
 )
@@ -148,6 +150,12 @@ func main() {
 	log.Info("database ready",
 		"host", db.Host, "port", db.Port, "name", db.Name,
 	)
+	if err := initMetrics(&cache); err != nil {
+		log.Error("init metrics, continuing without", "error", err)
+	} else {
+		log.Info("metrics initialized")
+	}
+	go cacheJanitor(ctx, &cache)
 	port := os.Getenv("RULETTE_PORT")
 	if port == "" {
 		port = os.Getenv("PORT")
