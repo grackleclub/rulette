@@ -337,7 +337,7 @@ a {
 
 .site-footer a:hover,
 .site-footer-link:hover {
-  text-decoration: underline;
+  color: var(--color-loop-2);
 }
 
 .invite {
