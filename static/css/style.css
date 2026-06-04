@@ -151,7 +151,8 @@ a {
 .button,
 .button-teal,
 .button-danger,
-.button-create {
+.button-create,
+.button-action {
   border: none;
   border-radius: 1em;
   font: inherit;
@@ -187,7 +188,7 @@ a {
 .button-danger {
   background: var(--color-player-border);
   color: var(--color-text-light);
-  padding: .75em 1.5em;
+  padding: .75em 2em;
 }
 
 .button-create {
@@ -201,6 +202,12 @@ a {
 
 .button-create:hover {
   background: var(--color-button-hover);
+}
+
+.button-action {
+  background: var(--color-text-dark);
+  color: var(--color-text-light);
+  padding: .75em 2em;
 }
 
 /* game card (layout container, no visual chrome) */
@@ -475,12 +482,12 @@ a {
 
 .player-hey {
   position: absolute;
-  left: .5em;
+  left: 1em;
   top: 50%;
   transform: translateY(-50%);
-  width: 3.125em;
-  height: 3.125em;
-  border-radius: 50%;
+  width: 5em;
+  height: 5em;
+  border-radius: 5em;
   border: none;
   background: var(--color-loop-1);
   color: var(--color-text-light);
@@ -492,7 +499,7 @@ a {
 }
 
 .player-hey:hover {
-  background: var(--color-loop-3);
+  background: var(--color-card-bg);
 }
 
 /* action popup (spin, destroy, points, etc.) */
@@ -602,6 +609,10 @@ dialog fieldset {
   justify-content: center;
   gap: .75em;
   padding: .75em 0;
+}
+
+.table-bar button {
+  min-width: 8em;
 }
 
 /* points section (centered in card) */
