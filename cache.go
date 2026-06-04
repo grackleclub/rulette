@@ -15,7 +15,7 @@ import (
 func stateFromCacheOrDB(ctx context.Context, cache *sync.Map, gameID string) (state, error) {
 	ctx, span := otel.Tracer(otelScope).Start(ctx, "cache.lookup")
 	defer span.End()
-	span.SetAttributes(attribute.String("game.id", gameID))
+	span.SetAttributes(attrGameID.String(gameID))
 	log := log.With("caller", "stateFromCache", "game_id", gameID)
 
 	// cache hit
@@ -92,7 +92,7 @@ func fetchStateFromDB(ctx context.Context, gameID string) (state, error) {
 	tr := otel.Tracer(otelScope)
 	ctx, span := tr.Start(ctx, "db.fetchState")
 	defer span.End()
-	span.SetAttributes(attribute.String("game.id", gameID))
+	span.SetAttributes(attrGameID.String(gameID))
 
 	gctx, gspan := tr.Start(ctx, "db.GameState")
 	game, err := queries.GameState(gctx, gameID)

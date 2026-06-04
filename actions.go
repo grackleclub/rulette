@@ -50,15 +50,6 @@ func actionHandler(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "server error", http.StatusInternalServerError)
 		return
 	}
-	err = state.callerInfo(cookieKey)
-	if err != nil {
-		log.Error("populate caller info", "error", err)
-		http.Error(w, "server error", http.StatusInternalServerError)
-	}
-	span.SetAttributes(
-		attrStateID.Int(int(state.Game.StateID)),
-		attrCallerName.String(state.CallerName),
-	)
 	if !state.isPlayerInGame(cookieKey) {
 		log.Info(
 			"prohibiting unauthorized player access",
@@ -68,6 +59,16 @@ func actionHandler(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "player not in game", http.StatusForbidden)
 		return
 	}
+	err = state.callerInfo(cookieKey)
+	if err != nil {
+		log.Error("populate caller info", "error", err)
+		http.Error(w, "server error", http.StatusInternalServerError)
+		return
+	}
+	span.SetAttributes(
+		attrStateID.Int(int(state.Game.StateID)),
+		attrCallerName.String(state.CallerName),
+	)
 	switch state.Game.StateID {
 	case 6: // game over
 		log.Info("request to ended game", "game_id", gameID)

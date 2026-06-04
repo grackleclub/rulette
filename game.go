@@ -55,6 +55,7 @@ func gameHandler(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		log.Error("populate caller info", "error", err)
 		http.Error(w, "server error", http.StatusInternalServerError)
+		return
 	}
 	span.SetAttributes(
 		attrStateID.Int(int(state.Game.StateID)),
@@ -125,6 +126,7 @@ func dataHandler(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		log.Error("populate caller info", "error", err)
 		http.Error(w, "server error", http.StatusInternalServerError)
+		return
 	}
 	span.SetAttributes(
 		attrStateID.Int(int(state.Game.StateID)),
