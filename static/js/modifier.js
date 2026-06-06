@@ -33,18 +33,35 @@
     if (!dialog) return;
     var effect = e.detail && e.detail.value ? e.detail.value : "";
     var gameId = dialog.dataset.gameId;
-    var safe = document.createElement("span");
-    safe.textContent = effect;
-    var escaped = safe.innerHTML;
-    dialog.innerHTML =
-      '<div class="dialog-body stack stack-centered">' +
-      "<h2>No cards to " + escaped + "!</h2>" +
-      "<p>You drew a <span class='script'>" + escaped + "</span> modifier but have no cards to target.</p>" +
-      '<button class="button-teal" ' +
-      'hx-post="/' + gameId + '/action/spin" hx-swap="none" ' +
-      'hx-on::after-request="this.closest(\'dialog\').close()">spin again</button>' +
-      "</div>";
-    htmx.process(dialog);
+
+    var wrapper = document.createElement("div");
+    wrapper.className = "dialog-body stack stack-centered";
+
+    var h2 = document.createElement("h2");
+    h2.textContent = "No cards to " + effect + "!";
+    wrapper.appendChild(h2);
+
+    var p = document.createElement("p");
+    p.textContent = "You drew a ";
+    var span = document.createElement("span");
+    span.className = "script";
+    span.textContent = effect;
+    p.appendChild(span);
+    p.appendChild(document.createTextNode(" modifier but have no cards to target."));
+    wrapper.appendChild(p);
+
+    var btn = document.createElement("button");
+    btn.className = "button-teal";
+    btn.textContent = "spin again";
+    btn.setAttribute("hx-post", "/" + gameId + "/action/spin");
+    btn.setAttribute("hx-swap", "none");
+    btn.addEventListener("click", function () {
+      htmx.ajax("POST", "/" + gameId + "/action/spin", { swap: "none" });
+      dialog.close();
+    });
+    wrapper.appendChild(btn);
+
+    dialog.replaceChildren(wrapper);
     dialog.addEventListener("close", function () {
       dialog.innerHTML = '<div id="modifier-content" class="dialog-body"></div>';
     }, { once: true });
