@@ -82,7 +82,7 @@ func actionHandler(w http.ResponseWriter, r *http.Request) {
 					"minimum", minimumPlayers,
 				)
 				w.Header().Set("HX-Trigger", fmt.Sprintf(
-					`{"notice":"Need at least %d other players to start the game."}`,
+					`{"notice":"Need at least %d non-host players to start the game."}`,
 					minimumPlayers,
 				))
 				w.WriteHeader(http.StatusOK)
