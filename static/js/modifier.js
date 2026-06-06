@@ -27,22 +27,25 @@
     if (!dialog.open) dialog.showModal();
   });
 
-  // show notice when a modifier is shredded (no rule cards to target)
+  // show modal when a modifier is shredded (no rule cards to target)
   function showShredNotice(e) {
-    console.log("modifierShredded fired", e);
-    var notice = document.getElementById("modifier-notice");
-    if (!notice) {
-      console.log("modifier-notice element not found");
-      return;
-    }
+    var dialog = getDialog();
+    if (!dialog) return;
     var effect = e.detail && e.detail.value ? e.detail.value : "";
-    notice.textContent =
-      "You drew a " + effect + " modifier but have no cards to target. Spin again!";
-    notice.hidden = false;
-    clearTimeout(notice._timer);
-    notice._timer = setTimeout(function () {
-      notice.hidden = true;
-    }, 15000);
+    var gameId = window.location.pathname.split("/")[1];
+    dialog.innerHTML =
+      '<div class="dialog-body stack stack-centered">' +
+      "<h2>No cards to " + effect + "!</h2>" +
+      "<p>You drew a <span class='script'>" + effect + "</span> modifier but have no cards to target.</p>" +
+      '<button class="button-teal" ' +
+      'hx-post="/' + gameId + '/action/spin" hx-swap="none" ' +
+      'hx-on::after-request="this.closest(\'dialog\').close()">spin again</button>' +
+      "</div>";
+    htmx.process(dialog);
+    dialog.addEventListener("close", function () {
+      dialog.innerHTML = '<div id="modifier-content" class="dialog-body"></div>';
+    }, { once: true });
+    if (!dialog.open) dialog.showModal();
   }
   // listen for both camelCase and kebab-case (htmx dispatches both)
   document.body.addEventListener("modifierShredded", showShredNotice);
