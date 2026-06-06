@@ -3,7 +3,7 @@
 [![suggest a new rule](https://img.shields.io/badge/suggest_a_new_rule-blue)](https://github.com/grackleclub/rulette/issues/new?template=new-rule.yml)
 [![report a bug](https://img.shields.io/badge/report_a_bug-red)](https://github.com/grackleclub/rulette/issues/new?template=bug.yml) 
 
-rule stacking game based on [dropout.tv](https://dropout.tv)'s [_Rulette_ (S7E7)](https://www.dropout.tv/game-changer/season:7/videos/rulette)
+rule stacking game based on [dropout.tv](https://dropout.tv)'s [_Rulette_ (S7E7)](https://www.dropout.tv/game-changer/season:7/videos/rulette) (and S8E2).
 
 ---
 
