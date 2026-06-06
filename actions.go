@@ -73,17 +73,19 @@ func actionHandler(w http.ResponseWriter, r *http.Request) {
 				return
 			}
 			// require a minimum of non-host players, otherwise no player holds
-			// the starting initiative and the game would soft-lock
+			// the starting initiative and the game would soft-lock. surface a
+			// notice via HX-Trigger (200, no swap) rather than a raw http error
 			if state.nonHostPlayers() < minimumPlayers {
 				log.Info("host attempted to start game without enough players",
 					"game_id", gameID,
 					"non_host_players", state.nonHostPlayers(),
 					"minimum", minimumPlayers,
 				)
-				http.Error(w,
-					fmt.Sprintf("need at least %d other players to start the game", minimumPlayers),
-					http.StatusTooEarly,
-				)
+				w.Header().Set("HX-Trigger", fmt.Sprintf(
+					`{"notice":"Need at least %d other players to start the game."}`,
+					minimumPlayers,
+				))
+				w.WriteHeader(http.StatusOK)
 				return
 			}
 			// populate and shuffle the deck
