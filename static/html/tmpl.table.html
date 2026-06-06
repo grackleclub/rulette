@@ -19,24 +19,24 @@
       {{ end }}
       {{ if $isHost }}
         {{ if eq $.Game.StateName "ready" }}
-          <button class="button"
+          <button class="button-action"
             hx-post="/{{ $gid }}/action/resume"
             hx-swap="none">
-            Resume
+            resume
           </button>
         {{ else if eq $.Game.StateName "turn" }}
-          <button class="button"
+          <button class="button-action"
             hx-post="/{{ $gid }}/action/pause"
             hx-swap="none">
-            Pause
+            pause
           </button>
         {{ end }}
       {{ end }}
     </div>
     {{ if $isHost }}
       <div class="table-bar">
-        <button class="button" data-open-dialog="change-points-dialog" data-fetch-event="loadChangePoints">
-          Change Points
+        <button class="button-action" data-open-dialog="change-points-dialog" data-fetch-event="loadChangePoints">
+          change points
         </button>
       </div>
     {{ end }}

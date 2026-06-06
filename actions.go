@@ -13,6 +13,8 @@ import (
 	"go.opentelemetry.io/otel/trace"
 )
 
+const minimumPlayers = 2 // number of non-host players required to start
+
 func actionHandler(w http.ResponseWriter, r *http.Request) {
 	pathLong := strings.TrimPrefix(r.URL.Path, "/")
 	parts := strings.Split(pathLong, "/")
@@ -80,6 +82,22 @@ func actionHandler(w http.ResponseWriter, r *http.Request) {
 			if !state.isHost(cookieKey) {
 				log.Info("non-host attempted to start game", "game_id", gameID)
 				http.Error(w, "only the host can start the game", http.StatusForbidden)
+				return
+			}
+			// require a minimum of non-host players, otherwise no player holds
+			// the starting initiative and the game would soft-lock. surface a
+			// notice via HX-Trigger (200, no swap) rather than a raw http error
+			if state.nonHostPlayers() < minimumPlayers {
+				log.Info("host attempted to start game without enough players",
+					"game_id", gameID,
+					"non_host_players", state.nonHostPlayers(),
+					"minimum", minimumPlayers,
+				)
+				w.Header().Set("HX-Trigger", fmt.Sprintf(
+					`{"notice":"Need at least %d non-host players to start the game."}`,
+					minimumPlayers,
+				))
+				w.WriteHeader(http.StatusOK)
 				return
 			}
 			// populate and shuffle the deck

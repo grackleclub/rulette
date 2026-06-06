@@ -61,6 +61,16 @@
     }
   });
 
+  // generic server-driven notice: HX-Trigger {"notice":"message"}
+  function showNotice(e) {
+    var dialog = document.getElementById("notice-dialog");
+    var message = document.getElementById("notice-message");
+    if (!dialog || !message) return;
+    message.textContent = e.detail && e.detail.value ? e.detail.value : "";
+    if (!dialog.open) dialog.showModal();
+  }
+  document.body.addEventListener("notice", showNotice);
+
   // close a dialog: data-close-dialog="dialog-id"
   document.body.addEventListener("click", function (e) {
     var btn = e.target.closest("[data-close-dialog]");

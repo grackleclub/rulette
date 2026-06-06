@@ -21,7 +21,6 @@
             <footer class="playing-as">playing as <span id="self">{{ .CallerName }}</span></footer>
             <section id="status-fetch" hx-get="/{{ .Game.ID }}/data/status"
               hx-target="#status-fetch" hx-trigger="load, every {{ .Config.refresh }}" hx-swap="morph:innerHTML">
-              <footer class="status">{{ .Game.StateName }}</footer>
             </section>
           </div>
         </div>
@@ -44,8 +43,6 @@
             <p>loading players...</p>
           </div>
         </section>
-
-        <div id="modifier-notice" hidden></div>
 
         <section id="points" class="stack game-points">
         </section>
@@ -82,8 +79,15 @@
       </div>
     </dialog>
 
-    <dialog id="modifier-dialog">
+    <dialog id="modifier-dialog" data-game-id="{{ .Game.ID }}">
       <div id="modifier-content" class="dialog-body"></div>
+    </dialog>
+
+    <dialog id="notice-dialog">
+      <div class="dialog-body stack stack-centered">
+        <p id="notice-message"></p>
+        <button class="button" data-close-dialog="notice-dialog">ok</button>
+      </div>
     </dialog>
 
     <dialog id="points-dialog">

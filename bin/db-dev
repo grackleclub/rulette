@@ -43,8 +43,10 @@ cleanup() {
 }
 trap cleanup EXIT
 
-# remove stale container if it exists
+# remove stale container and ready file if they exist (e.g. after a hard kill
+# left the EXIT trap from running)
 docker rm -f "$CONTAINER" >/dev/null 2>&1 || true
+rm -f /tmp/rulette/db-ready
 
 if ! docker run -d \
   --name "$CONTAINER" \

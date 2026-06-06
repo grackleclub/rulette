@@ -27,22 +27,45 @@
     if (!dialog.open) dialog.showModal();
   });
 
-  // show notice when a modifier is shredded (no rule cards to target)
+  // show modal when a modifier is shredded (no rule cards to target)
   function showShredNotice(e) {
-    console.log("modifierShredded fired", e);
-    var notice = document.getElementById("modifier-notice");
-    if (!notice) {
-      console.log("modifier-notice element not found");
-      return;
-    }
+    var dialog = getDialog();
+    if (!dialog) return;
     var effect = e.detail && e.detail.value ? e.detail.value : "";
-    notice.textContent =
-      "You drew a " + effect + " modifier but have no cards to target. Spin again!";
-    notice.hidden = false;
-    clearTimeout(notice._timer);
-    notice._timer = setTimeout(function () {
-      notice.hidden = true;
-    }, 15000);
+    var gameId = dialog.dataset.gameId;
+
+    var wrapper = document.createElement("div");
+    wrapper.className = "dialog-body stack stack-centered";
+
+    var h2 = document.createElement("h2");
+    h2.textContent = "No cards to " + effect + "!";
+    wrapper.appendChild(h2);
+
+    var p = document.createElement("p");
+    p.textContent = "You drew a ";
+    var span = document.createElement("span");
+    span.className = "script";
+    span.textContent = effect;
+    p.appendChild(span);
+    p.appendChild(document.createTextNode(" modifier but have no cards to target."));
+    wrapper.appendChild(p);
+
+    var btn = document.createElement("button");
+    btn.className = "button-teal";
+    btn.textContent = "spin again";
+    btn.setAttribute("hx-post", "/" + gameId + "/action/spin");
+    btn.setAttribute("hx-swap", "none");
+    btn.addEventListener("click", function () {
+      htmx.ajax("POST", "/" + gameId + "/action/spin", { swap: "none" });
+      dialog.close();
+    });
+    wrapper.appendChild(btn);
+
+    dialog.replaceChildren(wrapper);
+    dialog.addEventListener("close", function () {
+      dialog.innerHTML = '<div id="modifier-content" class="dialog-body"></div>';
+    }, { once: true });
+    if (!dialog.open) dialog.showModal();
   }
   // listen for both camelCase and kebab-case (htmx dispatches both)
   document.body.addEventListener("modifierShredded", showShredNotice);

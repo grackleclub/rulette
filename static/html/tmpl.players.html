@@ -3,6 +3,7 @@
 {{ $gid := .Game.ID }}
 <section class="stack">
   {{ range .Players }}
+    {{ if eq .Initiative.Int32 0 }}{{ continue }}{{ end }}
     {{ $pid := .PlayerID }}
     <article id="player-{{ .PlayerID }}" class="player{{ if eq .Initiative.Int32 $.Game.InitiativeCurrent.Int32 }} active-turn{{ end }}">
       <span class="player-name">{{ .Name }}</span>
