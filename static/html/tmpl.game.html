@@ -44,8 +44,6 @@
           </div>
         </section>
 
-        <div id="modifier-notice" hidden></div>
-
         <section id="points" class="stack game-points">
         </section>
 
@@ -81,7 +79,7 @@
       </div>
     </dialog>
 
-    <dialog id="modifier-dialog">
+    <dialog id="modifier-dialog" data-game-id="{{ .Game.ID }}">
       <div id="modifier-content" class="dialog-body"></div>
     </dialog>
 

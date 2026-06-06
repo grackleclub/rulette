@@ -210,6 +210,10 @@ a {
   padding: .75em 2em;
 }
 
+.button-action:hover {
+  background: var(--color-button-hover);
+}
+
 /* game card (layout container, no visual chrome) */
 .card {
   position: relative;
