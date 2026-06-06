@@ -48,6 +48,18 @@ func (s *state) isHost(cookieKey string) bool {
 	return false
 }
 
+// nonHostPlayers returns the count of players who can take turns,
+// i.e. everyone except the host (initiative 0).
+func (s *state) nonHostPlayers() int {
+	var count int
+	for _, player := range s.Players {
+		if player.Initiative.Int32 != int32(0) {
+			count++
+		}
+	}
+	return count
+}
+
 func (s *state) isPlayerTurn(cookieKey string) bool {
 	var inGame bool
 	for _, player := range s.Players {
