@@ -411,13 +411,19 @@ a {
 }
 
 .game-subtitle footer {
+  font-family: var(--font-script);
   font-size: .875em;
   font-weight: bold;
 }
 
-.game-subtitle footer.playing-as {
-  font-family: var(--font-script);
-  font-size: 1.15em;
+.game-subtitle footer.status {
+  padding-top: .7em;
+}
+
+.game-subtitle footer.playing-as,
+.game-subtitle footer.initiative {
+  font-family: sans-serif;
+  font-size: .875em;
   font-weight: bold;
 }
 
