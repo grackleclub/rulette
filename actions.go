@@ -226,7 +226,7 @@ func actionHandler(w http.ResponseWriter, r *http.Request) {
 				return
 			}
 			// record the points change; no infraction here, just a host adjustment
-			_, err = txq.PointChangeCreate(r.Context(), sqlc.PointChangeCreateParams{
+			pcID, err := txq.PointChangeCreate(r.Context(), sqlc.PointChangeCreateParams{
 				GameID:       gameID,
 				PlayerID:     pgtype.Int4{Int32: int32(targetID), Valid: true},
 				Delta:        int32(amount),
@@ -238,6 +238,17 @@ func actionHandler(w http.ResponseWriter, r *http.Request) {
 					"game_id", gameID,
 					"player_id", targetID,
 				)
+				http.Error(w, "server error", http.StatusInternalServerError)
+				return
+			}
+			// add an event so the change shows in the feed and plays a sound
+			if err := recordEvent(r.Context(), txq, sqlc.EventCreateParams{
+				GameID:        gameID,
+				EventType:     "points",
+				TargetID:      pgInt(int32(targetID)),
+				PointChangeID: pgInt(pcID),
+			}); err != nil {
+				log.Error("record points event", "error", err, "game_id", gameID)
 				http.Error(w, "server error", http.StatusInternalServerError)
 				return
 			}
@@ -1226,7 +1237,16 @@ func actionHandler(w http.ResponseWriter, r *http.Request) {
 				http.Error(w, "invalid accuser", http.StatusBadRequest)
 				return
 			}
-			infractionID, err := queries.InfractionCreate(
+			tx, err := dbPool.Begin(r.Context())
+			if err != nil {
+				log.Error("begin transaction", "error", err, "game_id", gameID)
+				http.Error(w, "server error", http.StatusInternalServerError)
+				return
+			}
+			defer tx.Rollback(r.Context())
+			txq := queries.WithTx(tx)
+
+			infractionID, err := txq.InfractionCreate(
 				r.Context(), sqlc.InfractionCreateParams{
 					GameID:     gameID,
 					GameCardID: int32(gcID),
@@ -1243,7 +1263,7 @@ func actionHandler(w http.ResponseWriter, r *http.Request) {
 				return
 			}
 			// transition to challenge state
-			err = queries.GameUpdate(r.Context(), sqlc.GameUpdateParams{
+			err = txq.GameUpdate(r.Context(), sqlc.GameUpdateParams{
 				ID:      gameID,
 				StateID: 5, // challenge
 				InitiativeCurrent: pgtype.Int4{
@@ -1256,6 +1276,23 @@ func actionHandler(w http.ResponseWriter, r *http.Request) {
 					"error", err,
 					"game_id", gameID,
 				)
+				http.Error(w, "server error", http.StatusInternalServerError)
+				return
+			}
+			// add an event: the accuser accuses the accused
+			if err := recordEvent(r.Context(), txq, sqlc.EventCreateParams{
+				GameID:       gameID,
+				EventType:    "accuse",
+				ActorID:      pgInt(int32(accuserID)),
+				TargetID:     pgInt(int32(defendantID)),
+				InfractionID: pgInt(infractionID),
+			}); err != nil {
+				log.Error("record accuse event", "error", err, "game_id", gameID)
+				http.Error(w, "server error", http.StatusInternalServerError)
+				return
+			}
+			if err = tx.Commit(r.Context()); err != nil {
+				log.Error("commit accuse transaction", "error", err, "game_id", gameID)
 				http.Error(w, "server error", http.StatusInternalServerError)
 				return
 			}
@@ -1431,7 +1468,7 @@ func actionHandler(w http.ResponseWriter, r *http.Request) {
 					return
 				}
 				// record the points change, linked to the infraction that caused it
-				_, err = txq.PointChangeCreate(r.Context(), sqlc.PointChangeCreateParams{
+				pcID, err := txq.PointChangeCreate(r.Context(), sqlc.PointChangeCreateParams{
 					GameID:       gameID,
 					PlayerID:     pgtype.Int4{Int32: pointsPlayerID, Valid: true},
 					Delta:        penalty,
@@ -1443,6 +1480,17 @@ func actionHandler(w http.ResponseWriter, r *http.Request) {
 						"game_id", gameID,
 						"infraction_id", infID,
 					)
+					http.Error(w, "server error", http.StatusInternalServerError)
+					return
+				}
+				// the accused lost points: event for the feed and their sound
+				if err := recordEvent(r.Context(), txq, sqlc.EventCreateParams{
+					GameID:        gameID,
+					EventType:     "points",
+					TargetID:      pgInt(pointsPlayerID),
+					PointChangeID: pgInt(pcID),
+				}); err != nil {
+					log.Error("record points event", "error", err, "game_id", gameID)
 					http.Error(w, "server error", http.StatusInternalServerError)
 					return
 				}
@@ -1477,6 +1525,18 @@ func actionHandler(w http.ResponseWriter, r *http.Request) {
 					"error", err,
 					"game_id", gameID,
 				)
+				http.Error(w, "server error", http.StatusInternalServerError)
+				return
+			}
+
+			// add an event for the verdict (feed + the accuser's sound)
+			if err := recordEvent(r.Context(), txq, sqlc.EventCreateParams{
+				GameID:       gameID,
+				EventType:    "decide",
+				TargetID:     pgInt(infraction.Accuser),
+				InfractionID: pgInt(int32(infID)),
+			}); err != nil {
+				log.Error("record decide event", "error", err, "game_id", gameID)
 				http.Error(w, "server error", http.StatusInternalServerError)
 				return
 			}
