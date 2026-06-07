@@ -69,9 +69,11 @@
     document.querySelectorAll("#points-dialog .infraction-id-input").forEach(function(el) {
       el.value = input ? input.value : "";
     });
-    var pointsInfo = document.querySelector("#points-dialog .points-info");
-    if (pointsInfo && currentInfraction) {
-      pointsInfo.textContent = currentInfraction.accused + ' broke: ' + currentInfraction.rule;
+    if (currentInfraction) {
+      var pName = document.querySelector("#points-dialog .points-info-name");
+      var pRule = document.querySelector("#points-dialog .points-info-rule");
+      if (pName) pName.textContent = currentInfraction.accused;
+      if (pRule) pRule.textContent = 'rule: ' + currentInfraction.rule;
     }
     document.getElementById("points-dialog").showModal();
   });
