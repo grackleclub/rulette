@@ -346,7 +346,7 @@ func actionHandler(w http.ResponseWriter, r *http.Request) {
 				}
 				trigger := `{"refreshTable":null`
 				if cardContent != "" {
-					trigger += `,"notice":"new rule: ` + cardContent + `"`
+					trigger += `,"notice":` + strconv.Quote("new rule: "+cardContent)
 				}
 				trigger += `}`
 				w.Header().Set("HX-Trigger", trigger)
