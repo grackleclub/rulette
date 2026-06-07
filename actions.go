@@ -390,7 +390,7 @@ func actionHandler(w http.ResponseWriter, r *http.Request) {
 				return
 			}
 			cache.Delete(gameID)
-			w.Header().Set("HX-Trigger", "refreshTable")
+			w.Header().Set("HX-Trigger", `{"refreshTable":null,"loadModifier":null}`)
 			w.WriteHeader(http.StatusOK)
 
 		case "pause":

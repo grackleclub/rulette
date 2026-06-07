@@ -13,7 +13,7 @@
   </head>
   <body hx-ext="morph">
     <div class="card-float">
-      <article class="card card-game{{ if eq .Game.StateName "inviting" }} card-game-inviting{{ end }}">
+      <article class="card card-game">
 
         <div id="title" class="stack game-title">
           <h1>{{ .Game.Name }}</h1>
@@ -80,7 +80,10 @@
     </dialog>
 
     <dialog id="modifier-dialog" data-game-id="{{ .Game.ID }}">
-      <div id="modifier-content" class="dialog-body"></div>
+      <div id="modifier-content" class="dialog-body"
+        hx-get="/{{ .Game.ID }}/data/modifier"
+        hx-trigger="loadModifier from:body"
+        hx-swap="innerHTML"></div>
     </dialog>
 
     <dialog id="notice-dialog">

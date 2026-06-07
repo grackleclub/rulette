@@ -201,6 +201,13 @@ func dataHandler(w http.ResponseWriter, r *http.Request) {
 				http.Error(w, "internal server error", http.StatusInternalServerError)
 			}
 			return
+		case "modifier":
+			filepath := path.Join("static", "html", "tmpl.modifier.html")
+			if err := renderTemplate(r.Context(), w, filepath, state); err != nil {
+				log.Error("render template", "error", err, "template", filepath)
+				http.Error(w, "internal server error", http.StatusInternalServerError)
+			}
+			return
 		case "accuse":
 			filepath := path.Join("static", "html", "tmpl.accuse_dialog.html")
 			if err := renderTemplate(r.Context(), w, filepath, state); err != nil {

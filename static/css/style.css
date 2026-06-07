@@ -260,7 +260,7 @@ a {
   pointer-events: none;
 }
 
-.card-game-inviting .player {
+.player-dimmed {
   filter: brightness(0.7);
 }
 
@@ -491,8 +491,6 @@ a {
 .player-rules {
   font-size: .875em;
   color: var(--color-text-dark);
-  max-height: 4em;
-  overflow-y: auto;
   padding-left: 2.5em;
   margin-top: 1em;
 }
