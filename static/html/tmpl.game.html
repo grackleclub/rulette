@@ -24,7 +24,7 @@
                 {{ $isHost = true }}
               {{ end }}
             {{ end }}
-            <footer class="playing-as"><span id="self">{{ .CallerName }}</span> ({{ if $isHost }}host{{ else }}player{{ end }})</footer>
+            <footer class="playing-as"><span id="self">{{ .CallerName }}</span> <span class="role-label">{{ if $isHost }}host{{ else }}player{{ end }}</span></footer>
             <section id="status-fetch" hx-get="/{{ .Game.ID }}/data/status"
               hx-target="#status-fetch" hx-trigger="load, every {{ .Config.refresh }}" hx-swap="morph:innerHTML">
             </section>
