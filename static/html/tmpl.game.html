@@ -110,8 +110,12 @@
           data-close-on-success="points-dialog">
           <input type="hidden" name="verdict" value="affirm">
           <input class="infraction-id-input" type="hidden" name="infraction_id" value="">
-          <label for="points-amount">points</label>
-          <input id="points-amount" type="number" name="amount" value="0" min="-99" max="99">
+          <div class="points-selector">
+            <button type="button" class="points-step" data-step="-1" data-target="points" data-min="0">−</button>
+            <span class="value" id="points-display">0</span>
+            <button type="button" class="points-step" data-step="1" data-target="points" data-min="0">+</button>
+          </div>
+          <input id="points-amount" type="hidden" name="amount" value="0">
           <button type="submit" class="button-teal">submit</button>
         </form>
         <button class="button" data-nevermind>nevermind</button>

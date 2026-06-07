@@ -90,4 +90,20 @@
     }
   });
 
+  // points stepper: +/- buttons update hidden input and display
+  document.body.addEventListener("click", function (e) {
+    var btn = e.target.closest(".points-step");
+    if (!btn) return;
+    var target = btn.dataset.target || "points";
+    var input = document.getElementById(target + "-amount");
+    var display = document.getElementById(target + "-display");
+    if (!input || !display) return;
+    var min = btn.dataset.min !== undefined ? parseInt(btn.dataset.min, 10) : -99;
+    var val = parseInt(input.value, 10) + parseInt(btn.dataset.step, 10);
+    if (val < min) val = min;
+    if (val > 99) val = 99;
+    input.value = val;
+    display.textContent = val;
+  });
+
 })();

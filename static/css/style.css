@@ -553,11 +553,15 @@ a {
 }
 
 .points-selector .value {
-  font-family: var(--font-score);
+  font-family: var(--font-display);
   font-size: 2em;
   color: var(--color-text-dark);
   min-width: 2em;
   text-align: center;
+}
+
+.points-selector {
+  margin-bottom: .75em;
 }
 
 .points-selector button {

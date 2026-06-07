@@ -64,6 +64,8 @@
     document.querySelectorAll("#points-dialog form").forEach(function(f) {
       f.reset();
     });
+    var display = document.getElementById("points-display");
+    if (display) display.textContent = "0";
     document.querySelectorAll("#points-dialog .infraction-id-input").forEach(function(el) {
       el.value = input ? input.value : "";
     });

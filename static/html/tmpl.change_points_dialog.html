@@ -1,14 +1,23 @@
 <h2>Change Points</h2>
 <form class="stack" hx-post="/{{ $.Game.ID }}/action/points" hx-swap="none"
   data-close-on-success="change-points-dialog">
-  <label for="change-points-player">player</label>
-  <select id="change-points-player" name="player_id" required>
+  <fieldset>
+    <legend>player</legend>
     {{ range .Players }}
-      <option value="{{ .PlayerID }}">{{ .Name }}</option>
+      {{ if ne .Initiative.Int32 0 }}
+        <label class="accuse-option">
+          <input type="radio" name="player_id" value="{{ .PlayerID }}" required>
+          {{ .Name }}
+        </label>
+      {{ end }}
     {{ end }}
-  </select>
-  <label for="change-points-amount">points</label>
-  <input id="change-points-amount" type="number" name="amount" value="0" min="-99" max="99" required>
+  </fieldset>
+  <div class="points-selector">
+    <button type="button" class="points-step" data-step="-1" data-target="change-points">−</button>
+    <span class="value" id="change-points-display">0</span>
+    <button type="button" class="points-step" data-step="1" data-target="change-points">+</button>
+  </div>
+  <input id="change-points-amount" type="hidden" name="amount" value="0">
   <button type="submit" class="button-teal">submit</button>
 </form>
 <button class="button" data-close-dialog="change-points-dialog">nevermind</button>

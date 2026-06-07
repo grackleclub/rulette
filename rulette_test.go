@@ -494,7 +494,7 @@ func TestGame(t *testing.T) {
 		penalty := int32(2)
 		path := fmt.Sprintf(
 			"/%s/action/decide?infraction_id=1&verdict=affirm&amount=%d&player_id=%d",
-			gameID, -penalty, accusedPlayerID,
+			gameID, penalty, accusedPlayerID,
 		)
 		req := httptest.NewRequest(http.MethodPost, path, nil)
 		req.AddCookie(cookieByInitiative[0]) // host

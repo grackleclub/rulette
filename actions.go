@@ -1344,7 +1344,7 @@ func actionHandler(w http.ResponseWriter, r *http.Request) {
 					http.Error(w, "invalid amount", http.StatusBadRequest)
 					return
 				}
-				penalty = int32(pts)
+				penalty = -int32(pts)
 			}
 
 			tx, err := dbPool.Begin(r.Context())
