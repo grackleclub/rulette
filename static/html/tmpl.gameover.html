@@ -1,0 +1,19 @@
+<div class="stack stack-centered game-over">
+  <h2>game over</h2>
+  {{ $winners := .Winners }}
+  {{ if $winners }}
+    <p class="game-over-winner">
+      {{ if gt (len $winners) 1 }}winners:{{ else }}winner:{{ end }}
+      {{ range $i, $w := $winners }}{{ if $i }}, {{ end }}{{ $w.Name }}{{ end }}
+    </p>
+  {{ end }}
+  <ol class="game-over-standings">
+    {{ range .Standings }}
+      <li>
+        <span class="game-over-name">{{ .Name }}</span>
+        <span class="game-over-score">{{ .Points.Int32 }}</span>
+      </li>
+    {{ end }}
+  </ol>
+  <a href="/" class="button-teal">new game</a>
+</div>

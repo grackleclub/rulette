@@ -134,8 +134,22 @@ func dataHandler(w http.ResponseWriter, r *http.Request) {
 
 	switch state.Game.StateID {
 	case 6: // game over
-		log.Info("request to ended game", "game_id", gameID)
-		http.Error(w, "game over", http.StatusGone)
+		// htmx stops a polling trigger when it sees status 286, so the
+		// polled sections settle instead of erroring forever. The table
+		// shows the final screen; the others just clear and stop.
+		const stopPolling = 286
+		switch topic {
+		case "table":
+			w.WriteHeader(stopPolling)
+			filepath := path.Join("static", "html", "tmpl.gameover.html")
+			if err := renderTemplate(r.Context(), w, filepath, state); err != nil {
+				log.Error("render gameover", "error", err, "template", filepath)
+			}
+		case "status", "players", "infraction":
+			w.WriteHeader(stopPolling)
+		default:
+			http.Error(w, "game over", http.StatusGone)
+		}
 		return
 	case 5, 4, 3, 2, 1, 0: // game in progress
 		switch topic {

@@ -3,6 +3,7 @@ package main
 import (
 	"fmt"
 	"net/http"
+	"sort"
 	"strings"
 	"time"
 
@@ -139,4 +140,36 @@ func (s *state) isGameActive() bool {
 	default:
 		return false
 	}
+}
+
+// Standings returns the non-host players ranked by points, highest first.
+// Value receiver so templates can call it on the by-value state data.
+func (s state) Standings() []sqlc.GamePlayerPointsRow {
+	ranked := make([]sqlc.GamePlayerPointsRow, 0, len(s.Players))
+	for _, p := range s.Players {
+		if p.Initiative.Int32 == 0 {
+			continue // skip the host
+		}
+		ranked = append(ranked, p)
+	}
+	sort.SliceStable(ranked, func(i, j int) bool {
+		return ranked[i].Points.Int32 > ranked[j].Points.Int32
+	})
+	return ranked
+}
+
+// Winners returns the player(s) with the most points, including ties.
+func (s state) Winners() []sqlc.GamePlayerPointsRow {
+	ranked := s.Standings()
+	if len(ranked) == 0 {
+		return nil
+	}
+	most := ranked[0].Points.Int32
+	var winners []sqlc.GamePlayerPointsRow
+	for _, p := range ranked {
+		if p.Points.Int32 == most {
+			winners = append(winners, p)
+		}
+	}
+	return winners
 }
