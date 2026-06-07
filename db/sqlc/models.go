@@ -24,6 +24,24 @@ type Cards struct {
 	ModifierEffect pgtype.Text      `json:"modifier_effect"`
 }
 
+type EventLog struct {
+	ID            int32            `json:"id"`
+	GameID        string           `json:"game_id"`
+	EventType     string           `json:"event_type"`
+	ActorID       pgtype.Int4      `json:"actor_id"`
+	TargetID      pgtype.Int4      `json:"target_id"`
+	SpinID        pgtype.Int4      `json:"spin_id"`
+	InfractionID  pgtype.Int4      `json:"infraction_id"`
+	GameCardID    pgtype.Int4      `json:"game_card_id"`
+	PointChangeID pgtype.Int4      `json:"point_change_id"`
+	Ts            pgtype.Timestamp `json:"ts"`
+}
+
+type EventTypes struct {
+	Name        string      `json:"name"`
+	Description pgtype.Text `json:"description"`
+}
+
 type GameCache struct {
 	GameID  string           `json:"game_id"`
 	Value   []byte           `json:"value"`
@@ -93,7 +111,16 @@ type Players struct {
 	Created pgtype.Timestamp `json:"created"`
 }
 
-type SpinLog struct {
+type PointChanges struct {
+	ID           int32            `json:"id"`
+	GameID       string           `json:"game_id"`
+	PlayerID     pgtype.Int4      `json:"player_id"`
+	Delta        int32            `json:"delta"`
+	InfractionID pgtype.Int4      `json:"infraction_id"`
+	Ts           pgtype.Timestamp `json:"ts"`
+}
+
+type Spins struct {
 	ID       int32            `json:"id"`
 	GameID   string           `json:"game_id"`
 	PlayerID pgtype.Int4      `json:"player_id"`

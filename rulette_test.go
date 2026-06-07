@@ -326,7 +326,7 @@ func TestGame(t *testing.T) {
 			gs, err := queries.GameState(ctx, gameID)
 			require.NoError(t, err)
 			if gs.StateID == 4 {
-				lastSpin, err := queries.SpinLogPendingModifier(ctx, gameID)
+				lastSpin, err := queries.SpinPendingModifier(ctx, gameID)
 				require.NoError(t, err)
 				effect := lastSpin.ModifierEffect.String
 				t.Logf("spin %d: modifier=%s, state=pending", i, effect)

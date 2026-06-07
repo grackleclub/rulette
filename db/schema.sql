@@ -169,8 +169,9 @@ CREATE TABLE IF NOT EXISTS game_cards (
 	FOREIGN KEY (player_id) REFERENCES players(id) ON DELETE CASCADE -- a leaving player takes their game cards with them
 );
 
--- TODO: make log viewer route?
-CREATE TABLE IF NOT EXISTS spin_log (
+-- spins: per-spin detail (one row per wheel spin). a detail table referenced
+-- by event_log; not the player-facing log itself.
+CREATE TABLE IF NOT EXISTS spins (
 	id SERIAL PRIMARY KEY,
 	game_id VARCHAR(6) NOT NULL,
 	player_id INTEGER, -- (NULL=system,deleted)
@@ -203,3 +204,65 @@ CREATE UNLOGGED TABLE IF NOT EXISTS game_cache (
 	value JSONB,
 	expires TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP + INTERVAL '1 seconds' -- TODO: make var?
 );
+
+CREATE TABLE IF NOT EXISTS event_types (
+	name TEXT PRIMARY KEY,
+	description TEXT
+);
+INSERT INTO event_types (name, description)
+VALUES
+	('start', 'host started the game'),
+	('end', 'game ended'),
+	('pause', 'host paused the game'),
+	('resume', 'host resumed the game'),
+	('turn', 'initiative passed to a player'),
+	('spin', 'a player spun the wheel'),
+	('points', 'points adjusted for a player'),
+	('accuse', 'a player accused another of an infraction'),
+	('decide', 'host decided an infraction'),
+	('flip', 'a card was flipped'),
+	('shred', 'a card was shredded'),
+	('clone', 'a card was cloned'),
+	('transfer', 'a card was transferred')
+ON CONFLICT DO NOTHING;
+
+-- point_changes: ledger of every points delta. the cause is a typed FK --
+-- infraction_id set means an affirmed accusation, NULL means a direct host
+-- adjustment -- so no free-text reason is needed.
+CREATE TABLE IF NOT EXISTS point_changes (
+	id SERIAL PRIMARY KEY,
+	game_id VARCHAR(6) NOT NULL,
+	player_id INTEGER, -- whose balance changed (NULL=deleted)
+	delta INTEGER NOT NULL, -- signed
+	infraction_id INTEGER, -- cause; NULL = direct host adjustment
+	ts TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+	FOREIGN KEY (game_id) REFERENCES games(id) ON DELETE CASCADE,
+	FOREIGN KEY (player_id) REFERENCES players(id) ON DELETE SET NULL,
+	FOREIGN KEY (infraction_id) REFERENCES infractions(id) ON DELETE SET NULL
+);
+
+-- event_log: ordered, player-visible feed of game events. a pure spine of
+-- references -- detail lives in the table each event points at (spins,
+-- infractions, game_cards, point_changes). actor_id/target_id/ts are captured
+-- here and immutable; detail FKs are followed only for immutable content.
+CREATE TABLE IF NOT EXISTS event_log (
+	id SERIAL PRIMARY KEY,
+	game_id VARCHAR(6) NOT NULL,
+	event_type TEXT NOT NULL,
+	actor_id INTEGER, -- who caused it (NULL=system/host)
+	target_id INTEGER, -- who it's about
+	spin_id INTEGER, -- spin events
+	infraction_id INTEGER, -- accuse/decide events
+	game_card_id INTEGER, -- flip/shred/clone/transfer events
+	point_change_id INTEGER, -- points events
+	ts TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+	FOREIGN KEY (game_id) REFERENCES games(id) ON DELETE CASCADE,
+	FOREIGN KEY (event_type) REFERENCES event_types(name),
+	FOREIGN KEY (actor_id) REFERENCES players(id) ON DELETE SET NULL,
+	FOREIGN KEY (target_id) REFERENCES players(id) ON DELETE SET NULL,
+	FOREIGN KEY (spin_id) REFERENCES spins(id) ON DELETE SET NULL,
+	FOREIGN KEY (infraction_id) REFERENCES infractions(id) ON DELETE SET NULL,
+	FOREIGN KEY (game_card_id) REFERENCES game_cards(id) ON DELETE SET NULL,
+	FOREIGN KEY (point_change_id) REFERENCES point_changes(id) ON DELETE SET NULL
+);
+CREATE INDEX IF NOT EXISTS event_log_game_id_idx ON event_log (game_id, id);

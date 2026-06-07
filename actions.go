@@ -250,7 +250,7 @@ func actionHandler(w http.ResponseWriter, r *http.Request) {
 				http.Error(w, "invalid player id", http.StatusBadRequest)
 				return
 			}
-			prevSpin, err := queries.SpinLogPendingModifier(r.Context(), gameID)
+			prevSpin, err := queries.SpinPendingModifier(r.Context(), gameID)
 			if err != nil && !errors.Is(err, pgx.ErrNoRows) {
 				log.Error("check previous spin", "error", err, "game_id", gameID)
 				http.Error(w, "server error", http.StatusInternalServerError)
@@ -306,7 +306,7 @@ func actionHandler(w http.ResponseWriter, r *http.Request) {
 			)
 
 			// check if drawn card is a modifier via spin log
-			lastSpin, err := queries.SpinLogPendingModifier(
+			lastSpin, err := queries.SpinPendingModifier(
 				r.Context(), gameID,
 			)
 			if err != nil {
@@ -497,7 +497,7 @@ func actionHandler(w http.ResponseWriter, r *http.Request) {
 				http.Error(w, "no pending modifier", http.StatusConflict)
 				return
 			}
-			lastSpin, err := queries.SpinLogPendingModifier(
+			lastSpin, err := queries.SpinPendingModifier(
 				r.Context(), gameID,
 			)
 			if err != nil {
@@ -640,7 +640,7 @@ func actionHandler(w http.ResponseWriter, r *http.Request) {
 				http.Error(w, "no pending modifier", http.StatusConflict)
 				return
 			}
-			lastSpin, err := queries.SpinLogPendingModifier(
+			lastSpin, err := queries.SpinPendingModifier(
 				r.Context(), gameID,
 			)
 			if err != nil {
@@ -785,7 +785,7 @@ func actionHandler(w http.ResponseWriter, r *http.Request) {
 				http.Error(w, "no pending modifier", http.StatusConflict)
 				return
 			}
-			lastSpin, err := queries.SpinLogPendingModifier(
+			lastSpin, err := queries.SpinPendingModifier(
 				r.Context(), gameID,
 			)
 			if err != nil {
@@ -965,7 +965,7 @@ func actionHandler(w http.ResponseWriter, r *http.Request) {
 				http.Error(w, "no pending modifier", http.StatusConflict)
 				return
 			}
-			lastSpin, err := queries.SpinLogPendingModifier(
+			lastSpin, err := queries.SpinPendingModifier(
 				r.Context(), gameID,
 			)
 			if err != nil {
