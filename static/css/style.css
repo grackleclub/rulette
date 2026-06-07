@@ -31,7 +31,7 @@
   --color-loop-4: #fee596;
   --color-player-bg: #fee596;
   --color-player-border: #dd2330;
-  --color-button-hover: #383838;
+  --color-button-hover: #525252;
   --color-text-dark: #1b110f;
   --color-text-light: #ffffff;
   --color-text-muted: #f0f0f0;
@@ -59,6 +59,7 @@ body {
   line-height: 1.4;
   -webkit-font-smoothing: antialiased;
   min-height: 100vh;
+  min-height: 100dvh;
   display: flex;
   flex-direction: column;
   justify-content: flex-start;
@@ -101,6 +102,7 @@ input::placeholder {
 
 a {
   color: var(--color-loop-1);
+  text-decoration: none;
 }
 
 /* utility classes */
@@ -260,6 +262,10 @@ a {
   pointer-events: none;
 }
 
+.player-dimmed {
+  filter: brightness(0.7);
+}
+
 /* card logo */
 .card-logo {
   background: var(--color-text-dark);
@@ -417,7 +423,7 @@ a {
 .game-subtitle footer {
   font-family: var(--font-script);
   font-size: .875em;
-  font-weight: bold;
+  font-weight: 600;
 }
 
 .game-subtitle footer.status {
@@ -428,7 +434,16 @@ a {
 .game-subtitle footer.initiative {
   font-family: sans-serif;
   font-size: .875em;
-  font-weight: bold;
+}
+
+.game-subtitle footer.playing-as #self {
+  font-size: 1.75em;
+  font-weight: 900;
+}
+
+.role-label {
+  font-style: italic;
+  color: var(--color-button-hover);
 }
 
 /* player pill */
@@ -443,6 +458,8 @@ a {
 }
 .player.active-turn {
   background: var(--color-player-bg);
+  outline: .25em dotted var(--color-text-light);
+  outline-offset: -.5em;
 }
 
 .player .player-name {
@@ -483,8 +500,6 @@ a {
 .player-rules {
   font-size: .875em;
   color: var(--color-text-dark);
-  max-height: 4em;
-  overflow-y: auto;
   padding-left: 2.5em;
   margin-top: 1em;
 }
@@ -543,11 +558,15 @@ a {
 }
 
 .points-selector .value {
-  font-family: var(--font-score);
+  font-family: var(--font-display);
   font-size: 2em;
   color: var(--color-text-dark);
   min-width: 2em;
   text-align: center;
+}
+
+.points-selector {
+  margin-bottom: .75em;
 }
 
 .points-selector button {
@@ -575,6 +594,10 @@ dialog {
 
 dialog::backdrop {
   background: var(--color-backdrop);
+}
+
+.decide-info-rule {
+  font-family: var(--font-script);
 }
 
 dialog h2 {
@@ -612,7 +635,11 @@ dialog fieldset {
 }
 
 .accuse-option:hover {
-  background: var(--color-text-dark);
+  background: var(--color-dim);
+}
+
+.accuse-option:has(input:checked) {
+  background: var(--color-backdrop);
 }
 
 /* table bar (outside card) */

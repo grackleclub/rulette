@@ -7,10 +7,14 @@
         {{ $isHost = true }}
       {{ end }}
     {{ end }}
+    {{ $isTurn := false }}
+    {{ range .Players }}
+      {{ if and (eq $cid .PlayerID) (eq .Initiative.Int32 $.Game.InitiativeCurrent.Int32) }}
+        {{ $isTurn = true }}
+      {{ end }}
+    {{ end }}
     <div class="table-bar">
-      {{ if eq $.Game.StateName "ready" }}
-        <button class="button-teal" disabled>spin</button>
-      {{ else }}
+      {{ if and (eq $.Game.StateName "turn") $isTurn }}
         <button class="button-teal"
           hx-post="/{{ $gid }}/action/spin"
           hx-swap="none">
@@ -41,50 +45,3 @@
       </div>
     {{ end }}
   {{ end }}
-{{ if eq .Game.StateName "pending" }}
-  {{ range .Players }}
-    {{ if eq .Initiative.Int32 $.Game.InitiativeCurrent.Int32 }}
-      {{ $pid := .PlayerID }}
-      {{ $pname := .Name }}
-      {{ $effect := "" }}
-      {{ range $.CardsPlayers }}
-        {{ if and (eq .PlayerID.Int32 $pid) (eq .Type "modifier") }}
-          {{ $effect = .ModifierEffect.String }}
-        {{ end }}
-      {{ end }}
-      <div hx-swap-oob="innerHTML:#modifier-content">
-      <div id="modifier-data" class="stack"
-        data-turn-player="{{ $pname }}" data-effect="{{ $effect }}">
-        <h2><span class="script">{{ $effect }}</span> card!</h2>
-        <p>Choose a card to {{ $effect }}:</p>
-        {{ if or (eq $effect "clone") (eq $effect "transfer") }}
-          <fieldset>
-            <legend>Target player:</legend>
-            {{ range $.Players }}
-              {{ if ne .PlayerID $pid }}
-                <label class="accuse-option">
-                  <input type="radio" name="target_player_id" value="{{ .PlayerID }}">
-                  {{ .Name }}
-                </label>
-              {{ end }}
-            {{ end }}
-          </fieldset>
-        {{ end }}
-        <div class="actions">
-          {{ range $.CardsPlayers }}
-            {{ if and (eq .PlayerID.Int32 $pid) (eq .Type "rule") }}
-              <button class="button-teal modifier-card-btn"
-                data-game-card-id="{{ .ID }}"
-                data-action="/{{ $.Game.ID }}/action/{{ $effect }}">
-                {{ .Content }}
-              </button>
-            {{ end }}
-          {{ end }}
-        </div>
-      </div>
-      </div>
-    {{ end }}
-  {{ end }}
-{{ else }}
-  <div hx-swap-oob="innerHTML:#modifier-content"></div>
-{{ end }}

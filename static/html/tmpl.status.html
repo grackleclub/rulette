@@ -1,5 +1,13 @@
 <footer class="status">{{ .Game.StateName }}</footer>
-{{ if .Game.InitiativeCurrent.Valid }}
+{{ if eq .Game.StateName "inviting" }}
+  <footer class="initiative">
+    {{ $count := 0 }}
+    {{ range .Players }}
+      {{ if ne .Initiative.Int32 0 }}{{ $count = add $count 1 }}{{ end }}
+    {{ end }}
+    {{ if lt $count 2 }}waiting on players{{ else }}waiting on host{{ end }}
+  </footer>
+{{ else if .Game.InitiativeCurrent.Valid }}
   <footer class="initiative">
     {{ range .Players }}
       {{ if eq .Initiative.Int32 $.Game.InitiativeCurrent.Int32 }}

@@ -328,7 +328,28 @@ func actionHandler(w http.ResponseWriter, r *http.Request) {
 					return
 				}
 				cache.Delete(gameID)
-				w.Header().Set("HX-Trigger", "refreshTable")
+				fresh, err := stateFromCacheOrDB(r.Context(), &cache, gameID)
+				if err != nil {
+					log.Error("refresh state after spin", "error", err)
+					w.Header().Set("HX-Trigger", "refreshTable")
+					w.WriteHeader(http.StatusOK)
+					return
+				}
+				cardContent := ""
+				for _, c := range fresh.CardsPlayers {
+					if c.ID == gcID {
+						if s, ok := c.Content.(string); ok {
+							cardContent = s
+						}
+						break
+					}
+				}
+				trigger := `{"refreshTable":null`
+				if cardContent != "" {
+					trigger += `,"notice":` + strconv.Quote("new rule: "+cardContent)
+				}
+				trigger += `}`
+				w.Header().Set("HX-Trigger", trigger)
 				w.WriteHeader(http.StatusOK)
 				return
 			}
@@ -390,7 +411,7 @@ func actionHandler(w http.ResponseWriter, r *http.Request) {
 				return
 			}
 			cache.Delete(gameID)
-			w.Header().Set("HX-Trigger", "refreshTable")
+			w.Header().Set("HX-Trigger", `{"refreshTable":null,"loadModifier":null}`)
 			w.WriteHeader(http.StatusOK)
 
 		case "pause":
@@ -1323,7 +1344,7 @@ func actionHandler(w http.ResponseWriter, r *http.Request) {
 					http.Error(w, "invalid amount", http.StatusBadRequest)
 					return
 				}
-				penalty = int32(pts)
+				penalty = -int32(pts)
 			}
 
 			tx, err := dbPool.Begin(r.Context())

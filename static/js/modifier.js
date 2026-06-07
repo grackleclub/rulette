@@ -1,27 +1,19 @@
 (function () {
-  // re-query each time because OOB swaps replace the DOM element
   function getDialog() {
     return document.getElementById("modifier-dialog");
-  }
-  function getContent() {
-    return document.getElementById("modifier-content");
   }
   function getData() {
     return document.getElementById("modifier-data");
   }
 
-  // after each htmx settle, check if modifier content was populated
-  document.body.addEventListener("htmx:afterSettle", function () {
+  // after modifier content is fetched, check if we should open the dialog
+  document.body.addEventListener("htmx:afterSettle", function (e) {
+    if (!e.detail || !e.detail.elt || e.detail.elt.id !== "modifier-content") return;
     var dialog = getDialog();
     var data = getData();
     if (!data || !dialog) return;
-    // dialog has content and a turn player set
     var turnPlayer = data.dataset.turnPlayer;
-    if (!turnPlayer || !data.children.length) {
-      if (dialog.open) dialog.close();
-      return;
-    }
-    // only open for the turn player
+    if (!turnPlayer || !data.children.length) return;
     var self = document.getElementById("self");
     if (!self || self.textContent.trim() !== turnPlayer) return;
     if (!dialog.open) dialog.showModal();
@@ -53,8 +45,6 @@
     var btn = document.createElement("button");
     btn.className = "button-teal";
     btn.textContent = "spin again";
-    btn.setAttribute("hx-post", "/" + gameId + "/action/spin");
-    btn.setAttribute("hx-swap", "none");
     btn.addEventListener("click", function () {
       htmx.ajax("POST", "/" + gameId + "/action/spin", { swap: "none" });
       dialog.close();
@@ -63,7 +53,16 @@
 
     dialog.replaceChildren(wrapper);
     dialog.addEventListener("close", function () {
-      dialog.innerHTML = '<div id="modifier-content" class="dialog-body"></div>';
+      var content = document.getElementById("modifier-content");
+      if (!content) {
+        dialog.innerHTML = '<div id="modifier-content" class="dialog-body"' +
+          ' hx-get="/' + gameId + '/data/modifier"' +
+          ' hx-trigger="loadModifier from:body"' +
+          ' hx-swap="innerHTML"></div>';
+        htmx.process(dialog);
+      } else {
+        content.innerHTML = "";
+      }
     }, { once: true });
     if (!dialog.open) dialog.showModal();
   }

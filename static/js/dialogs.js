@@ -90,25 +90,20 @@
     }
   });
 
-  // affirm: close decide-dialog, reset points forms, open points-dialog
+  // points stepper: +/- buttons update hidden input and display
   document.body.addEventListener("click", function (e) {
-    if (!e.target.closest("[data-affirm]")) return;
-    var idInput = document.querySelector("#decide-dialog .infraction-id-input");
-    var id = idInput ? idInput.value : "";
-    document.getElementById("decide-dialog").close();
-    document.querySelectorAll("#points-dialog form").forEach(function (f) {
-      f.reset();
-    });
-    document.querySelectorAll("#points-dialog .infraction-id-input").forEach(function (el) {
-      el.value = id;
-    });
-    document.getElementById("points-dialog").showModal();
+    var btn = e.target.closest(".points-step");
+    if (!btn) return;
+    var target = btn.dataset.target || "points";
+    var input = document.getElementById(target + "-amount");
+    var display = document.getElementById(target + "-display");
+    if (!input || !display) return;
+    var min = btn.dataset.min !== undefined ? parseInt(btn.dataset.min, 10) : -99;
+    var val = parseInt(input.value, 10) + parseInt(btn.dataset.step, 10);
+    if (val < min) val = min;
+    if (val > 99) val = 99;
+    input.value = val;
+    display.textContent = val;
   });
 
-  // cancel accuse panel: data-cancel-accuse
-  document.body.addEventListener("click", function (e) {
-    if (!e.target.closest("[data-cancel-accuse]")) return;
-    var panel = e.target.closest(".accuse-panel");
-    if (panel) panel.remove();
-  });
 })();

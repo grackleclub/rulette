@@ -1,10 +1,6 @@
 {{define "footer"}}<footer class="site-footer">
   <small class="site-footer-meta">
     <button type="button" class="site-footer-link" data-open-dialog="about-dialog" aria-haspopup="dialog" aria-controls="about-dialog">❓ help</button>
-    ·
-    <a href="https://github.com/grackleclub/rulette/issues/new?template=new-rule.yml" target="_blank" rel="noopener">💡 suggest a rule</a>
-    ·
-    <a href="https://github.com/grackleclub/rulette/issues/new?template=bug.yml&amp;version={{version}}" target="_blank" rel="noopener">🐛 report a bug</a>
   </small>
   <small class="site-footer-version">{{version}}</small>
 </footer>
@@ -37,8 +33,25 @@
     <p>
       This project is completely unaffiliated with DropoutTV. Be cool, Sam!
     </p>
-    <button type="button" class="button" data-close-dialog="about-dialog">close</button>
+    <div class="stack about-actions">
+      <a class="button-teal" href="https://github.com/grackleclub/rulette/issues/new?template=new-rule.yml" target="_blank" rel="noopener">💡 suggest a rule</a>
+      <a class="button-teal" href="https://github.com/grackleclub/rulette/issues/new?template=bug.yml&amp;version={{version}}" target="_blank" rel="noopener">🐛 report a bug</a>
+      {{ if inGame . }}
+        <button type="button" class="button-danger" data-open-dialog="exit-dialog">exit game</button>
+      {{ end }}
+      <button type="button" class="button" data-close-dialog="about-dialog">close</button>
+    </div>
   </div>
 </dialog>
+
+{{ if inGame . }}
+<dialog id="exit-dialog">
+  <div class="dialog-body stack stack-centered">
+    <h2>are you sure?</h2>
+    <a class="button-danger" href="/">exit game</a>
+    <button type="button" class="button" data-close-dialog="exit-dialog">nevermind</button>
+  </div>
+</dialog>
+{{ end }}
 
 <script src="/static/js/dialogs.js" defer></script>{{end}}

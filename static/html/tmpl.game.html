@@ -18,7 +18,13 @@
         <div id="title" class="stack game-title">
           <h1>{{ .Game.Name }}</h1>
           <div class="game-subtitle">
-            <footer class="playing-as">playing as <span id="self">{{ .CallerName }}</span></footer>
+            {{ $isHost := false }}
+            {{ range .Players }}
+              {{ if and (eq .Initiative.Int32 0) (eq $.CallerID .PlayerID) }}
+                {{ $isHost = true }}
+              {{ end }}
+            {{ end }}
+            <footer class="playing-as"><span id="self">{{ .CallerName }}</span> <span class="role-label">{{ if $isHost }}host{{ else }}player{{ end }}</span></footer>
             <section id="status-fetch" hx-get="/{{ .Game.ID }}/data/status"
               hx-target="#status-fetch" hx-trigger="load, every {{ .Config.refresh }}" hx-swap="morph:innerHTML">
             </section>
@@ -69,6 +75,8 @@
     <dialog id="decide-dialog">
       <div class="dialog-body stack">
         <h2>Verdict</h2>
+        <p class="decide-info-name"></p>
+        <p class="decide-info-rule"></p>
         <form hx-post="/{{ $.Game.ID }}/action/decide" hx-swap="none"
           data-close-on-success="decide-dialog">
           <input type="hidden" name="verdict" value="absolve">
@@ -80,7 +88,10 @@
     </dialog>
 
     <dialog id="modifier-dialog" data-game-id="{{ .Game.ID }}">
-      <div id="modifier-content" class="dialog-body"></div>
+      <div id="modifier-content" class="dialog-body"
+        hx-get="/{{ .Game.ID }}/data/modifier"
+        hx-trigger="loadModifier from:body"
+        hx-swap="innerHTML"></div>
     </dialog>
 
     <dialog id="notice-dialog">
@@ -90,18 +101,24 @@
       </div>
     </dialog>
 
-    <dialog id="points-dialog">
+    <dialog id="points-dialog" data-game-id="{{ $.Game.ID }}">
       <div class="dialog-body stack">
         <h2>Penalty for the accused</h2>
+        <p class="points-info-name"></p>
+        <p class="points-info-rule"></p>
         <form hx-post="/{{ $.Game.ID }}/action/decide" hx-swap="none"
           data-close-on-success="points-dialog">
           <input type="hidden" name="verdict" value="affirm">
           <input class="infraction-id-input" type="hidden" name="infraction_id" value="">
-          <label for="points-amount">points</label>
-          <input id="points-amount" type="number" name="amount" value="0" min="-99" max="99">
+          <div class="points-selector">
+            <button type="button" class="points-step" data-step="-1" data-target="points" data-min="0">−</button>
+            <span class="value" id="points-display">0</span>
+            <button type="button" class="points-step" data-step="1" data-target="points" data-min="0">+</button>
+          </div>
+          <input id="points-amount" type="hidden" name="amount" value="0">
           <button type="submit" class="button-teal">submit</button>
         </form>
-        <button class="button" data-close-dialog="points-dialog">nevermind</button>
+        <button class="button" data-nevermind>nevermind</button>
       </div>
     </dialog>
 
@@ -116,7 +133,7 @@
       </div>
     </dialog>
 
-    {{ template "footer" }}
+    {{ template "footer" . }}
   </body>
 </html>
 
