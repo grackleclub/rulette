@@ -99,6 +99,19 @@ func (q *Queries) InfractionUpdatePoints(ctx context.Context, arg InfractionUpda
 	return err
 }
 
+const infractionsActiveCount = `-- name: InfractionsActiveCount :one
+SELECT COUNT(*) FROM infractions
+WHERE game_id = $1
+    AND active = TRUE
+`
+
+func (q *Queries) InfractionsActiveCount(ctx context.Context, gameID string) (int64, error) {
+	row := q.db.QueryRow(ctx, infractionsActiveCount, gameID)
+	var count int64
+	err := row.Scan(&count)
+	return count, err
+}
+
 const infractionsByGame = `-- name: InfractionsByGame :many
 SELECT id, game_id, game_card_id, accused, accuser, created, active, affirmed, points
 FROM infractions

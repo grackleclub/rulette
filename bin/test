@@ -18,9 +18,9 @@ error() {
   exit 1
 }
 
-# require sqlc
-if ! command -v sqlc >/dev/null 2>&1; then
-  error "sqlc required"
+# require mise (provides pinned sqlc + go per mise.toml)
+if ! command -v mise >/dev/null 2>&1; then
+  error "mise required"
 fi
 
 # update sqlc definitions
@@ -33,7 +33,7 @@ fi
 #
 # run go tests
 info "go: testing..."
-if ! go test "$verbose" ./...; then
+if ! mise exec -- go test "$verbose" ./...; then
   error "go test failed"
 else
   info "go: tests passed!"

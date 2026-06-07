@@ -1403,17 +1403,32 @@ func actionHandler(w http.ResponseWriter, r *http.Request) {
 				}
 			}
 
-			// return to turn state
+			// stay in challenge while infractions remain queued, so the
+			// host keeps getting prompted for the next one; otherwise return
+			// to turn state
+			remaining, err := txq.InfractionsActiveCount(r.Context(), gameID)
+			if err != nil {
+				log.Error("count active infractions",
+					"error", err,
+					"game_id", gameID,
+				)
+				http.Error(w, "server error", http.StatusInternalServerError)
+				return
+			}
+			nextState := int32(3) // turn
+			if remaining > 0 {
+				nextState = 5 // challenge
+			}
 			err = txq.GameUpdate(r.Context(), sqlc.GameUpdateParams{
 				ID:      gameID,
-				StateID: 3,
+				StateID: nextState,
 				InitiativeCurrent: pgtype.Int4{
 					Int32: state.Game.InitiativeCurrent.Int32,
 					Valid: true,
 				},
 			})
 			if err != nil {
-				log.Error("transition to turn",
+				log.Error("transition state after decide",
 					"error", err,
 					"game_id", gameID,
 				)

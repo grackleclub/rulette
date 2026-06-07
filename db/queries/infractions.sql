@@ -27,3 +27,8 @@ UPDATE game_players
 SET points = points - $1
 WHERE game_id = $2
     AND player_id = $3;
+
+-- name: InfractionsActiveCount :one
+SELECT COUNT(*) FROM infractions
+WHERE game_id = $1
+    AND active = TRUE;
