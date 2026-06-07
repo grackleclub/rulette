@@ -2,7 +2,6 @@ package main
 
 import (
 	"encoding/json"
-	"fmt"
 	"net/http"
 	"path"
 	"strings"
@@ -228,8 +227,28 @@ func dataHandler(w http.ResponseWriter, r *http.Request) {
 			}
 			for _, inf := range state.Infractions {
 				if inf.Active.Bool {
-					w.Header().Set("Content-Type", "text/plain")
-					fmt.Fprint(w, inf.ID)
+					accusedName := ""
+					for _, p := range state.Players {
+						if p.PlayerID == inf.Accused {
+							accusedName = p.Name
+							break
+						}
+					}
+					ruleContent := ""
+					for _, c := range state.CardsPlayers {
+						if c.ID == inf.GameCardID {
+							if s, ok := c.Content.(string); ok {
+								ruleContent = s
+							}
+							break
+						}
+					}
+					w.Header().Set("Content-Type", "application/json")
+					json.NewEncoder(w).Encode(map[string]interface{}{
+						"id":       inf.ID,
+						"accused":  accusedName,
+						"rule":     ruleContent,
+					})
 					return
 				}
 			}

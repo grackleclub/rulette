@@ -69,6 +69,8 @@
     <dialog id="decide-dialog">
       <div class="dialog-body stack">
         <h2>Verdict</h2>
+        <p class="decide-info-name"></p>
+        <p class="decide-info-rule"></p>
         <form hx-post="/{{ $.Game.ID }}/action/decide" hx-swap="none"
           data-close-on-success="decide-dialog">
           <input type="hidden" name="verdict" value="absolve">
@@ -93,9 +95,11 @@
       </div>
     </dialog>
 
-    <dialog id="points-dialog">
+    <dialog id="points-dialog" data-game-id="{{ $.Game.ID }}">
       <div class="dialog-body stack">
         <h2>Penalty for the accused</h2>
+        <p class="points-info-name"></p>
+        <p class="points-info-rule"></p>
         <form hx-post="/{{ $.Game.ID }}/action/decide" hx-swap="none"
           data-close-on-success="points-dialog">
           <input type="hidden" name="verdict" value="affirm">
@@ -104,7 +108,7 @@
           <input id="points-amount" type="number" name="amount" value="0" min="-99" max="99">
           <button type="submit" class="button-teal">submit</button>
         </form>
-        <button class="button" data-close-dialog="points-dialog">nevermind</button>
+        <button class="button" data-nevermind>nevermind</button>
       </div>
     </dialog>
 

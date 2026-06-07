@@ -618,7 +618,11 @@ dialog fieldset {
 }
 
 .accuse-option:hover {
-  background: var(--color-text-dark);
+  background: var(--color-dim);
+}
+
+.accuse-option:has(input:checked) {
+  background: var(--color-backdrop);
 }
 
 /* table bar (outside card) */
