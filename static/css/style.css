@@ -451,6 +451,8 @@ a {
 }
 .player.active-turn {
   background: var(--color-player-bg);
+  outline: .25em dotted var(--color-text-light);
+  outline-offset: -.5em;
 }
 
 .player .player-name {
