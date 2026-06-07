@@ -583,6 +583,10 @@ dialog::backdrop {
   background: var(--color-backdrop);
 }
 
+.decide-info-rule {
+  font-family: var(--font-script);
+}
+
 dialog h2 {
   font-size: 1.5625em;
   text-align: center;

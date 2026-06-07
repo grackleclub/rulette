@@ -18,7 +18,13 @@
         <div id="title" class="stack game-title">
           <h1>{{ .Game.Name }}</h1>
           <div class="game-subtitle">
-            <footer class="playing-as">playing as <span id="self">{{ .CallerName }}</span></footer>
+            {{ $isHost := false }}
+            {{ range .Players }}
+              {{ if and (eq .Initiative.Int32 0) (eq $.CallerID .PlayerID) }}
+                {{ $isHost = true }}
+              {{ end }}
+            {{ end }}
+            <footer class="playing-as"><span id="self">{{ .CallerName }}</span> ({{ if $isHost }}host{{ else }}player{{ end }})</footer>
             <section id="status-fetch" hx-get="/{{ .Game.ID }}/data/status"
               hx-target="#status-fetch" hx-trigger="load, every {{ .Config.refresh }}" hx-swap="morph:innerHTML">
             </section>

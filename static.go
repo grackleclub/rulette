@@ -45,6 +45,7 @@ func readParse(fs embed.FS, path string) (*template.Template, error) {
 	name := filepath.Base(path)
 	funcs := template.FuncMap{
 		"version": func() string { return version },
+		"add":     func(a, b int) int { return a + b },
 	}
 	tmpl, err := template.New(name).Funcs(funcs).Parse(string(f))
 	if err != nil {
