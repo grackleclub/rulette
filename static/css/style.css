@@ -260,6 +260,10 @@ a {
   pointer-events: none;
 }
 
+.card-game-inviting .player {
+  filter: brightness(0.7);
+}
+
 /* card logo */
 .card-logo {
   background: var(--color-text-dark);
@@ -417,7 +421,7 @@ a {
 .game-subtitle footer {
   font-family: var(--font-script);
   font-size: .875em;
-  font-weight: bold;
+  font-weight: 600;
 }
 
 .game-subtitle footer.status {
@@ -428,7 +432,11 @@ a {
 .game-subtitle footer.initiative {
   font-family: sans-serif;
   font-size: .875em;
-  font-weight: bold;
+}
+
+.game-subtitle footer.playing-as #self {
+  font-size: 1.75em;
+  font-weight: 900;
 }
 
 /* player pill */

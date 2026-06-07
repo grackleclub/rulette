@@ -13,7 +13,7 @@
   </head>
   <body hx-ext="morph">
     <div class="card-float">
-      <article class="card card-game">
+      <article class="card card-game{{ if eq .Game.StateName "inviting" }} card-game-inviting{{ end }}">
 
         <div id="title" class="stack game-title">
           <h1>{{ .Game.Name }}</h1>

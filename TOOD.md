@@ -1,6 +1,6 @@
 ## design
 
-"playing as qa host" should be differentiated with two parts ("playing as" and "name")
+-[x]"playing as qa host" should be differentiated with two parts ("playing as" and "name")
 
 help menu contains: "suggest a rule" button, "report a bug" button, and "exit game" button that returns to create a game screen. Exit game only shows up when you're in a current game.
 
