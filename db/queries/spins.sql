@@ -2,6 +2,7 @@
 -- Returns the most recent spin for a game, with modifier info.
 -- A non-NULL modifier_effect means the spin landed on a modifier.
 SELECT
+    spins.id,
     spins.player_id,
     spins.card_id,
     cards.modifier_effect

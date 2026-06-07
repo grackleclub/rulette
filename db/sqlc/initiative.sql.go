@@ -30,6 +30,22 @@ func (q *Queries) InitiativeAdvance(ctx context.Context, id string) error {
 	return err
 }
 
+const initiativeCurrentPlayer = `-- name: InitiativeCurrentPlayer :one
+SELECT game_players.player_id
+FROM game_players
+JOIN games ON games.id = game_players.game_id
+WHERE game_players.game_id = $1
+    AND game_players.initiative = games.initiative_current
+`
+
+// The player whose turn it is now (initiative matches the game's current).
+func (q *Queries) InitiativeCurrentPlayer(ctx context.Context, gameID string) (int32, error) {
+	row := q.db.QueryRow(ctx, initiativeCurrentPlayer, gameID)
+	var player_id int32
+	err := row.Scan(&player_id)
+	return player_id, err
+}
+
 const initiativeSet = `-- name: InitiativeSet :exec
 UPDATE game_players
 SET initiative = $1

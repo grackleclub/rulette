@@ -18,3 +18,11 @@ SET initiative_current = (
 ) + 1
 FROM initiative_max
 WHERE games.id = $1;
+
+-- name: InitiativeCurrentPlayer :one
+-- The player whose turn it is now (initiative matches the game's current).
+SELECT game_players.player_id
+FROM game_players
+JOIN games ON games.id = game_players.game_id
+WHERE game_players.game_id = $1
+    AND game_players.initiative = games.initiative_current;

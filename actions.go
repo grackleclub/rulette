@@ -358,8 +358,19 @@ func actionHandler(w http.ResponseWriter, r *http.Request) {
 				http.Error(w, "server error", http.StatusInternalServerError)
 				return
 			}
+			// add an event for the spin (feed + the spinner's sound)
+			if err := recordEvent(r.Context(), queries, sqlc.EventCreateParams{
+				GameID:    gameID,
+				EventType: "spin",
+				ActorID:   pgInt(int32(id)),
+				SpinID:    pgInt(lastSpin.ID),
+			}); err != nil {
+				log.Error("record spin event", "error", err, "game_id", gameID)
+				http.Error(w, "server error", http.StatusInternalServerError)
+				return
+			}
 			if !lastSpin.ModifierEffect.Valid {
-				err = queries.InitiativeAdvance(r.Context(), gameID)
+				err = advanceTurn(r.Context(), queries, gameID)
 				if err != nil {
 					log.Error("advance initiative after spin",
 						"error", err,
@@ -648,7 +659,7 @@ func actionHandler(w http.ResponseWriter, r *http.Request) {
 				http.Error(w, "server error", http.StatusInternalServerError)
 				return
 			}
-			err = queries.InitiativeAdvance(r.Context(), gameID)
+			err = advanceTurn(r.Context(), queries, gameID)
 			if err != nil {
 				log.Error("advance initiative after flip",
 					"error", err,
@@ -793,7 +804,7 @@ func actionHandler(w http.ResponseWriter, r *http.Request) {
 				http.Error(w, "server error", http.StatusInternalServerError)
 				return
 			}
-			err = queries.InitiativeAdvance(r.Context(), gameID)
+			err = advanceTurn(r.Context(), queries, gameID)
 			if err != nil {
 				log.Error("advance initiative after shred",
 					"error", err,
@@ -971,7 +982,7 @@ func actionHandler(w http.ResponseWriter, r *http.Request) {
 				http.Error(w, "server error", http.StatusInternalServerError)
 				return
 			}
-			err = queries.InitiativeAdvance(r.Context(), gameID)
+			err = advanceTurn(r.Context(), queries, gameID)
 			if err != nil {
 				log.Error("advance initiative after clone",
 					"error", err,
@@ -1151,7 +1162,7 @@ func actionHandler(w http.ResponseWriter, r *http.Request) {
 				http.Error(w, "server error", http.StatusInternalServerError)
 				return
 			}
-			err = queries.InitiativeAdvance(r.Context(), gameID)
+			err = advanceTurn(r.Context(), queries, gameID)
 			if err != nil {
 				log.Error("advance initiative after transfer",
 					"error", err,

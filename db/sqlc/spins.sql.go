@@ -13,6 +13,7 @@ import (
 
 const spinPendingModifier = `-- name: SpinPendingModifier :one
 SELECT
+    spins.id,
     spins.player_id,
     spins.card_id,
     cards.modifier_effect
@@ -24,6 +25,7 @@ LIMIT 1
 `
 
 type SpinPendingModifierRow struct {
+	ID             int32       `json:"id"`
 	PlayerID       pgtype.Int4 `json:"player_id"`
 	CardID         pgtype.Int4 `json:"card_id"`
 	ModifierEffect pgtype.Text `json:"modifier_effect"`
@@ -34,6 +36,11 @@ type SpinPendingModifierRow struct {
 func (q *Queries) SpinPendingModifier(ctx context.Context, gameID string) (SpinPendingModifierRow, error) {
 	row := q.db.QueryRow(ctx, spinPendingModifier, gameID)
 	var i SpinPendingModifierRow
-	err := row.Scan(&i.PlayerID, &i.CardID, &i.ModifierEffect)
+	err := row.Scan(
+		&i.ID,
+		&i.PlayerID,
+		&i.CardID,
+		&i.ModifierEffect,
+	)
 	return i, err
 }

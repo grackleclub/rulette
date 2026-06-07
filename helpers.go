@@ -33,3 +33,20 @@ func recordEvent(ctx context.Context, q *sqlc.Queries, p sqlc.EventCreateParams)
 	}
 	return nil
 }
+
+// advanceTurn moves initiative to the next player and adds a turn event for
+// whoever holds it now.
+func advanceTurn(ctx context.Context, q *sqlc.Queries, gameID string) error {
+	if err := q.InitiativeAdvance(ctx, gameID); err != nil {
+		return fmt.Errorf("advance initiative: %w", err)
+	}
+	playerID, err := q.InitiativeCurrentPlayer(ctx, gameID)
+	if err != nil {
+		return fmt.Errorf("find current turn player: %w", err)
+	}
+	return recordEvent(ctx, q, sqlc.EventCreateParams{
+		GameID:    gameID,
+		EventType: "turn",
+		TargetID:  pgInt(playerID),
+	})
+}
