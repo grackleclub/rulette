@@ -149,11 +149,10 @@ func actionHandler(w http.ResponseWriter, r *http.Request) {
 			log.Info("initiative initiated", "state", "ready", "initiative", 1)
 
 			// log the start, and the first player's turn so they hear the ding
-			if err := recordEvent(r.Context(), queries, sqlc.EventCreateParams{
+			if err := recordEvent(r.Context(), log, queries, sqlc.EventCreateParams{
 				GameID:    gameID,
 				EventType: "start",
 			}); err != nil {
-				log.Error("record event", "error", err, "event_type", "start", "game_id", gameID)
 				http.Error(w, "server error", http.StatusInternalServerError)
 				return
 			}
@@ -163,12 +162,11 @@ func actionHandler(w http.ResponseWriter, r *http.Request) {
 				http.Error(w, "server error", http.StatusInternalServerError)
 				return
 			}
-			if err := recordEvent(r.Context(), queries, sqlc.EventCreateParams{
+			if err := recordEvent(r.Context(), log, queries, sqlc.EventCreateParams{
 				GameID:    gameID,
 				EventType: "turn",
 				TargetID:  pgInt(firstPlayer),
 			}); err != nil {
-				log.Error("record event", "error", err, "event_type", "turn", "game_id", gameID)
 				http.Error(w, "server error", http.StatusInternalServerError)
 				return
 			}
@@ -267,13 +265,12 @@ func actionHandler(w http.ResponseWriter, r *http.Request) {
 				return
 			}
 			// add an event so the change shows in the feed and plays a sound
-			if err := recordEvent(r.Context(), txq, sqlc.EventCreateParams{
+			if err := recordEvent(r.Context(), log, txq, sqlc.EventCreateParams{
 				GameID:        gameID,
 				EventType:     "points",
 				TargetID:      pgInt(int32(targetID)),
 				PointChangeID: pgInt(pcID),
 			}); err != nil {
-				log.Error("record event", "error", err, "event_type", "points", "game_id", gameID)
 				http.Error(w, "server error", http.StatusInternalServerError)
 				return
 			}
@@ -384,18 +381,17 @@ func actionHandler(w http.ResponseWriter, r *http.Request) {
 				return
 			}
 			// add an event for the spin (feed + the spinner's sound)
-			if err := recordEvent(r.Context(), queries, sqlc.EventCreateParams{
+			if err := recordEvent(r.Context(), log, queries, sqlc.EventCreateParams{
 				GameID:    gameID,
 				EventType: "spin",
 				ActorID:   pgInt(int32(id)),
 				SpinID:    pgInt(lastSpin.ID),
 			}); err != nil {
-				log.Error("record event", "error", err, "event_type", "spin", "game_id", gameID)
 				http.Error(w, "server error", http.StatusInternalServerError)
 				return
 			}
 			if !lastSpin.ModifierEffect.Valid {
-				err = advanceTurn(r.Context(), queries, gameID)
+				err = advanceTurn(r.Context(), log, queries, gameID)
 				if err != nil {
 					log.Error("advance initiative after spin",
 						"error", err,
@@ -519,11 +515,10 @@ func actionHandler(w http.ResponseWriter, r *http.Request) {
 				return
 			}
 			log.Info("game paused", "game_id", gameID)
-			if err := recordEvent(r.Context(), queries, sqlc.EventCreateParams{
+			if err := recordEvent(r.Context(), log, queries, sqlc.EventCreateParams{
 				GameID:    gameID,
 				EventType: "pause",
 			}); err != nil {
-				log.Error("record event", "error", err, "event_type", "pause", "game_id", gameID)
 				http.Error(w, "server error", http.StatusInternalServerError)
 				return
 			}
@@ -560,11 +555,10 @@ func actionHandler(w http.ResponseWriter, r *http.Request) {
 				return
 			}
 			log.Info("game resumed", "game_id", gameID)
-			if err := recordEvent(r.Context(), queries, sqlc.EventCreateParams{
+			if err := recordEvent(r.Context(), log, queries, sqlc.EventCreateParams{
 				GameID:    gameID,
 				EventType: "resume",
 			}); err != nil {
-				log.Error("record event", "error", err, "event_type", "resume", "game_id", gameID)
 				http.Error(w, "server error", http.StatusInternalServerError)
 				return
 			}
@@ -666,13 +660,12 @@ func actionHandler(w http.ResponseWriter, r *http.Request) {
 				return
 			}
 			// add an event for the flip
-			if err := recordEvent(r.Context(), queries, sqlc.EventCreateParams{
+			if err := recordEvent(r.Context(), log, queries, sqlc.EventCreateParams{
 				GameID:     gameID,
 				EventType:  "flip",
 				ActorID:    pgInt(int32(playerID)),
 				GameCardID: pgInt(int32(gcID)),
 			}); err != nil {
-				log.Error("record event", "error", err, "event_type", "flip", "game_id", gameID)
 				http.Error(w, "server error", http.StatusInternalServerError)
 				return
 			}
@@ -711,7 +704,7 @@ func actionHandler(w http.ResponseWriter, r *http.Request) {
 				http.Error(w, "server error", http.StatusInternalServerError)
 				return
 			}
-			err = advanceTurn(r.Context(), queries, gameID)
+			err = advanceTurn(r.Context(), log, queries, gameID)
 			if err != nil {
 				log.Error("advance initiative after flip",
 					"error", err,
@@ -822,13 +815,12 @@ func actionHandler(w http.ResponseWriter, r *http.Request) {
 				return
 			}
 			// add an event for the shred
-			if err := recordEvent(r.Context(), queries, sqlc.EventCreateParams{
+			if err := recordEvent(r.Context(), log, queries, sqlc.EventCreateParams{
 				GameID:     gameID,
 				EventType:  "shred",
 				ActorID:    pgInt(int32(shredPlayerID)),
 				GameCardID: pgInt(int32(cardID)),
 			}); err != nil {
-				log.Error("record event", "error", err, "event_type", "shred", "game_id", gameID)
 				http.Error(w, "server error", http.StatusInternalServerError)
 				return
 			}
@@ -867,7 +859,7 @@ func actionHandler(w http.ResponseWriter, r *http.Request) {
 				http.Error(w, "server error", http.StatusInternalServerError)
 				return
 			}
-			err = advanceTurn(r.Context(), queries, gameID)
+			err = advanceTurn(r.Context(), log, queries, gameID)
 			if err != nil {
 				log.Error("advance initiative after shred",
 					"error", err,
@@ -1013,14 +1005,13 @@ func actionHandler(w http.ResponseWriter, r *http.Request) {
 				return
 			}
 			// add an event for the clone (cloner -> recipient)
-			if err := recordEvent(r.Context(), queries, sqlc.EventCreateParams{
+			if err := recordEvent(r.Context(), log, queries, sqlc.EventCreateParams{
 				GameID:     gameID,
 				EventType:  "clone",
 				ActorID:    pgInt(int32(clonePlayerID)),
 				TargetID:   pgInt(int32(targetID)),
 				GameCardID: pgInt(int32(cardID)),
 			}); err != nil {
-				log.Error("record event", "error", err, "event_type", "clone", "game_id", gameID)
 				http.Error(w, "server error", http.StatusInternalServerError)
 				return
 			}
@@ -1057,7 +1048,7 @@ func actionHandler(w http.ResponseWriter, r *http.Request) {
 				http.Error(w, "server error", http.StatusInternalServerError)
 				return
 			}
-			err = advanceTurn(r.Context(), queries, gameID)
+			err = advanceTurn(r.Context(), log, queries, gameID)
 			if err != nil {
 				log.Error("advance initiative after clone",
 					"error", err,
@@ -1205,14 +1196,13 @@ func actionHandler(w http.ResponseWriter, r *http.Request) {
 				return
 			}
 			// add an event for the transfer (sender -> recipient)
-			if err := recordEvent(r.Context(), queries, sqlc.EventCreateParams{
+			if err := recordEvent(r.Context(), log, queries, sqlc.EventCreateParams{
 				GameID:     gameID,
 				EventType:  "transfer",
 				ActorID:    pgInt(int32(xferPlayerID)),
 				TargetID:   pgInt(int32(targetID)),
 				GameCardID: pgInt(int32(cardID)),
 			}); err != nil {
-				log.Error("record event", "error", err, "event_type", "transfer", "game_id", gameID)
 				http.Error(w, "server error", http.StatusInternalServerError)
 				return
 			}
@@ -1249,7 +1239,7 @@ func actionHandler(w http.ResponseWriter, r *http.Request) {
 				http.Error(w, "server error", http.StatusInternalServerError)
 				return
 			}
-			err = advanceTurn(r.Context(), queries, gameID)
+			err = advanceTurn(r.Context(), log, queries, gameID)
 			if err != nil {
 				log.Error("advance initiative after transfer",
 					"error", err,
@@ -1378,14 +1368,13 @@ func actionHandler(w http.ResponseWriter, r *http.Request) {
 				return
 			}
 			// add an event: the accuser accuses the accused
-			if err := recordEvent(r.Context(), txq, sqlc.EventCreateParams{
+			if err := recordEvent(r.Context(), log, txq, sqlc.EventCreateParams{
 				GameID:       gameID,
 				EventType:    "accuse",
 				ActorID:      pgInt(int32(accuserID)),
 				TargetID:     pgInt(int32(defendantID)),
 				InfractionID: pgInt(infractionID),
 			}); err != nil {
-				log.Error("record event", "error", err, "event_type", "accuse", "game_id", gameID)
 				http.Error(w, "server error", http.StatusInternalServerError)
 				return
 			}
@@ -1582,13 +1571,12 @@ func actionHandler(w http.ResponseWriter, r *http.Request) {
 					return
 				}
 				// the accused lost points: event for the feed and their sound
-				if err := recordEvent(r.Context(), txq, sqlc.EventCreateParams{
+				if err := recordEvent(r.Context(), log, txq, sqlc.EventCreateParams{
 					GameID:        gameID,
 					EventType:     "points",
 					TargetID:      pgInt(pointsPlayerID),
 					PointChangeID: pgInt(pcID),
 				}); err != nil {
-					log.Error("record event", "error", err, "event_type", "points", "game_id", gameID)
 					http.Error(w, "server error", http.StatusInternalServerError)
 					return
 				}
@@ -1628,13 +1616,12 @@ func actionHandler(w http.ResponseWriter, r *http.Request) {
 			}
 
 			// add an event for the verdict (feed + the accuser's sound)
-			if err := recordEvent(r.Context(), txq, sqlc.EventCreateParams{
+			if err := recordEvent(r.Context(), log, txq, sqlc.EventCreateParams{
 				GameID:       gameID,
 				EventType:    "decide",
 				TargetID:     pgInt(infraction.Accuser),
 				InfractionID: pgInt(int32(infID)),
 			}); err != nil {
-				log.Error("record event", "error", err, "event_type", "decide", "game_id", gameID)
 				http.Error(w, "server error", http.StatusInternalServerError)
 				return
 			}
@@ -1673,11 +1660,10 @@ func actionHandler(w http.ResponseWriter, r *http.Request) {
 				http.Error(w, "server error", http.StatusInternalServerError)
 				return
 			}
-			if err := recordEvent(r.Context(), queries, sqlc.EventCreateParams{
+			if err := recordEvent(r.Context(), log, queries, sqlc.EventCreateParams{
 				GameID:    gameID,
 				EventType: "end",
 			}); err != nil {
-				log.Error("record event", "error", err, "event_type", "end", "game_id", gameID)
 				http.Error(w, "server error", http.StatusInternalServerError)
 				return
 			}
