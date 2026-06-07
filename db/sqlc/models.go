@@ -97,7 +97,6 @@ type Infractions struct {
 	Created    pgtype.Timestamp `json:"created"`
 	Active     pgtype.Bool      `json:"active"`
 	Affirmed   pgtype.Bool      `json:"affirmed"`
-	Points     pgtype.Int4      `json:"points"`
 }
 
 type ModifierEffects struct {

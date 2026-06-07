@@ -192,7 +192,7 @@ CREATE TABLE IF NOT EXISTS infractions (
 	created TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
 	active BOOLEAN DEFAULT TRUE, -- active until decided
 	affirmed BOOLEAN DEFAULT FALSE,
-	points INTEGER DEFAULT 0, -- points deducted if affirmed
+	-- points changes are recorded in point_changes, not here
 	FOREIGN KEY (game_id) REFERENCES games(id) ON DELETE CASCADE,
 	FOREIGN KEY (game_card_id) REFERENCES game_cards(id) ON DELETE CASCADE,
 	FOREIGN KEY (accused) REFERENCES players(id) ON DELETE CASCADE,
@@ -226,9 +226,9 @@ VALUES
 	('transfer', 'a card was transferred')
 ON CONFLICT DO NOTHING;
 
--- point_changes: ledger of every points delta. the cause is a typed FK --
--- infraction_id set means an affirmed accusation, NULL means a direct host
--- adjustment -- so no free-text reason is needed.
+-- point_changes: a record of every points change. infraction_id says what
+-- caused it: set means an affirmed accusation, NULL means a direct host
+-- adjustment.
 CREATE TABLE IF NOT EXISTS point_changes (
 	id SERIAL PRIMARY KEY,
 	game_id VARCHAR(6) NOT NULL,
@@ -241,10 +241,10 @@ CREATE TABLE IF NOT EXISTS point_changes (
 	FOREIGN KEY (infraction_id) REFERENCES infractions(id) ON DELETE SET NULL
 );
 
--- event_log: ordered, player-visible feed of game events. a pure spine of
--- references -- detail lives in the table each event points at (spins,
--- infractions, game_cards, point_changes). actor_id/target_id/ts are captured
--- here and immutable; detail FKs are followed only for immutable content.
+-- event_log: an ordered, player-visible feed of game events. each row points
+-- at the table holding that event's detail (spins, infractions, game_cards,
+-- point_changes) instead of copying it. actor_id, target_id, and ts are set
+-- when the event happens and never change.
 CREATE TABLE IF NOT EXISTS event_log (
 	id SERIAL PRIMARY KEY,
 	game_id VARCHAR(6) NOT NULL,

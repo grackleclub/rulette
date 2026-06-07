@@ -39,8 +39,7 @@ func (q *Queries) InfractionCreate(ctx context.Context, arg InfractionCreatePara
 const infractionDecide = `-- name: InfractionDecide :one
 UPDATE infractions
 SET active = FALSE,
-    affirmed = $2,
-    points = $3
+    affirmed = $2
 WHERE id = $1
     AND active = TRUE
 RETURNING id
@@ -49,18 +48,17 @@ RETURNING id
 type InfractionDecideParams struct {
 	ID       int32       `json:"id"`
 	Affirmed pgtype.Bool `json:"affirmed"`
-	Points   pgtype.Int4 `json:"points"`
 }
 
 func (q *Queries) InfractionDecide(ctx context.Context, arg InfractionDecideParams) (int32, error) {
-	row := q.db.QueryRow(ctx, infractionDecide, arg.ID, arg.Affirmed, arg.Points)
+	row := q.db.QueryRow(ctx, infractionDecide, arg.ID, arg.Affirmed)
 	var id int32
 	err := row.Scan(&id)
 	return id, err
 }
 
 const infractionGet = `-- name: InfractionGet :one
-SELECT id, game_id, game_card_id, accused, accuser, created, active, affirmed, points FROM infractions
+SELECT id, game_id, game_card_id, accused, accuser, created, active, affirmed FROM infractions
 WHERE id = $1
 `
 
@@ -76,27 +74,8 @@ func (q *Queries) InfractionGet(ctx context.Context, id int32) (Infractions, err
 		&i.Created,
 		&i.Active,
 		&i.Affirmed,
-		&i.Points,
 	)
 	return i, err
-}
-
-const infractionUpdatePoints = `-- name: InfractionUpdatePoints :exec
-UPDATE game_players
-SET points = points - $1
-WHERE game_id = $2
-    AND player_id = $3
-`
-
-type InfractionUpdatePointsParams struct {
-	Points   pgtype.Int4 `json:"points"`
-	GameID   string      `json:"game_id"`
-	PlayerID int32       `json:"player_id"`
-}
-
-func (q *Queries) InfractionUpdatePoints(ctx context.Context, arg InfractionUpdatePointsParams) error {
-	_, err := q.db.Exec(ctx, infractionUpdatePoints, arg.Points, arg.GameID, arg.PlayerID)
-	return err
 }
 
 const infractionsActiveCount = `-- name: InfractionsActiveCount :one
@@ -113,7 +92,7 @@ func (q *Queries) InfractionsActiveCount(ctx context.Context, gameID string) (in
 }
 
 const infractionsByGame = `-- name: InfractionsByGame :many
-SELECT id, game_id, game_card_id, accused, accuser, created, active, affirmed, points
+SELECT id, game_id, game_card_id, accused, accuser, created, active, affirmed
 FROM infractions
 WHERE game_id = $1
 ORDER BY created DESC
@@ -137,7 +116,6 @@ func (q *Queries) InfractionsByGame(ctx context.Context, gameID string) ([]Infra
 			&i.Created,
 			&i.Active,
 			&i.Affirmed,
-			&i.Points,
 		); err != nil {
 			return nil, err
 		}

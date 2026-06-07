@@ -24,8 +24,8 @@ type PointChangeCreateParams struct {
 	InfractionID pgtype.Int4 `json:"infraction_id"`
 }
 
-// Records a points delta. infraction_id is the cause when the change came from
-// an affirmed accusation; NULL for a direct host adjustment.
+// Records a points change. infraction_id is set when the change came from an
+// affirmed accusation, or NULL for a direct host adjustment.
 func (q *Queries) PointChangeCreate(ctx context.Context, arg PointChangeCreateParams) (int32, error) {
 	row := q.db.QueryRow(ctx, pointChangeCreate,
 		arg.GameID,
