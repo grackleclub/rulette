@@ -58,8 +58,10 @@
   function soundFor(ev) {
     var actor = ev.getAttribute("data-actor") || "";
     var target = ev.getAttribute("data-target") || "";
-    var delta = parseInt(ev.getAttribute("data-delta"), 10);
-    var affirmed = ev.getAttribute("data-affirmed") === "true";
+    var deltaAttr = ev.getAttribute("data-delta");
+    var delta = deltaAttr === null ? NaN : parseInt(deltaAttr, 10);
+    var affirmedAttr = ev.getAttribute("data-affirmed");
+    var affirmed = affirmedAttr === null ? null : affirmedAttr === "true";
     switch (ev.getAttribute("data-event-type")) {
       case "turn":
         return { sound: "alert", who: target }; // your turn
@@ -69,10 +71,11 @@
       case "transfer":
         return { sound: "alert", who: target }; // a card landed with you
       case "points":
-        if (delta === 0) return null; // a no-op adjustment makes no sound
+        if (isNaN(delta) || delta === 0) return null; // no-op/unknown: no sound
         return { sound: delta > 0 ? "happy" : "sad", who: target };
       case "decide":
         // target is the accuser; they hear the verdict
+        if (affirmed === null) return null;
         return { sound: affirmed ? "happy" : "sad", who: target };
       default:
         return null;
