@@ -45,8 +45,10 @@
     return el ? el.textContent.trim() : "";
   }
 
-  // create the audio context and decode the WAVs once, on first user gesture
-  function ensureAudio() {
+  // create the audio context and decode the WAVs once. safe to call at load:
+  // decoding doesn't need a user gesture (only playback does), so doing it
+  // early means the first sound isn't lost waiting on the decode.
+  function preloadAudio() {
     if (ctx) return;
     var AC = window.AudioContext || window.webkitAudioContext;
     if (!AC) return;
@@ -70,6 +72,13 @@
           /* file absent or undecodable: that sound just stays silent */
         });
     });
+  }
+
+  // browsers block audio until a user gesture; resume the (preloaded) context
+  // on the first one so playback is allowed. buffers are already decoded.
+  function unlockAudio() {
+    preloadAudio();
+    if (ctx && ctx.state === "suspended") ctx.resume();
   }
 
   function play(name) {
@@ -173,7 +182,7 @@
     if (!btn) return;
     storeSet(soundOn() ? "off" : "on");
     refresh(btn);
-    if (inGame) ensureAudio();
+    if (inGame) unlockAudio();
   });
   document.addEventListener("DOMContentLoaded", function () {
     var btn = document.querySelector("[data-sound-toggle]");
@@ -181,6 +190,8 @@
   });
 
   if (inGame) {
+    // decode the WAVs now so the first sound isn't lost warming up
+    preloadAudio();
     // the feed re-renders on its poll; react when it settles
     document.body.addEventListener("htmx:afterSettle", function (e) {
       if (e.target && e.target.id === "event-log") process();
@@ -189,6 +200,6 @@
     document.body.addEventListener("modifierShredded", dingNotice);
     document.body.addEventListener("modifier-shredded", dingNotice);
     // browsers block audio until a gesture; unlock on the first interaction
-    document.body.addEventListener("pointerdown", ensureAudio);
+    document.body.addEventListener("pointerdown", unlockAudio);
   }
 })();
