@@ -302,25 +302,40 @@ a {
   margin-top: .25em;
 }
 
-#about-dialog {
+#help-dialog {
   max-width: 32em;
 }
 
-#about-dialog ul {
+.help-list {
   list-style: none;
   padding-left: 1.25em;
 }
 
-#about-dialog li {
+.help-list li {
   position: relative;
   margin: .35em 0;
 }
 
-#about-dialog li::before {
+.help-list li::before {
   content: "§";
   position: absolute;
   left: -1.25em;
   color: var(--color-loop-1);
+}
+
+/* about/rules/getting started shown on the create screen */
+.help-intro {
+  max-width: 28em;
+  text-align: left;
+  background: rgba(256, 256, 256, 0.6);
+  color: var(--color-text-dark);
+  padding: 1.25em 1.5em;
+  border-radius: 1em;
+  box-shadow: 0 .25em .25em var(--color-shadow);
+}
+
+.help-intro h3 {
+  margin-top: .25em;
 }
 
 .player-hey.player-hey-inline {
