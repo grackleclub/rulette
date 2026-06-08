@@ -1,0 +1,141 @@
+(function () {
+  // three sounds, loaded from /static/audio (Turk provides the WAVs)
+  var SOUNDS = {
+    ding: "/static/audio/ding.wav", // your turn / new card / a message
+    happy: "/static/audio/happy.wav", // you gained points / your accusation held
+    sad: "/static/audio/sad.wav", // you lost points / your accusation was tossed
+  };
+  var STORE_KEY = "rulette-sound";
+
+  var ctx = null;
+  var buffers = {};
+  var lastSeenId = -1; // < 0 means "not seeded yet"
+
+  function soundOn() {
+    return localStorage.getItem(STORE_KEY) !== "off"; // default on
+  }
+  function self() {
+    var el = document.getElementById("self");
+    return el ? el.textContent.trim() : "";
+  }
+
+  // create the audio context and decode the WAVs once, on first user gesture
+  function ensureAudio() {
+    if (ctx) return;
+    var AC = window.AudioContext || window.webkitAudioContext;
+    if (!AC) return;
+    ctx = new AC();
+    Object.keys(SOUNDS).forEach(function (name) {
+      fetch(SOUNDS[name])
+        .then(function (r) {
+          if (!r.ok) throw new Error("missing");
+          return r.arrayBuffer();
+        })
+        .then(function (data) {
+          return ctx.decodeAudioData(data);
+        })
+        .then(function (buf) {
+          buffers[name] = buf;
+        })
+        .catch(function () {
+          /* file absent or undecodable: that sound just stays silent */
+        });
+    });
+  }
+
+  function play(name) {
+    if (!ctx || !buffers[name]) return;
+    if (ctx.state === "suspended") ctx.resume();
+    var src = ctx.createBufferSource();
+    src.buffer = buffers[name];
+    src.connect(ctx.destination);
+    src.start(0);
+  }
+
+  // an event element -> { sound, who } where "who" is the player it concerns;
+  // null for events with no sound in this set.
+  function soundFor(ev) {
+    var actor = ev.getAttribute("data-actor") || "";
+    var target = ev.getAttribute("data-target") || "";
+    var delta = parseInt(ev.getAttribute("data-delta"), 10);
+    var affirmed = ev.getAttribute("data-affirmed") === "true";
+    switch (ev.getAttribute("data-event-type")) {
+      case "turn":
+        return { sound: "ding", who: target }; // your turn
+      case "spin":
+        return { sound: "ding", who: actor }; // you drew a card
+      case "clone":
+      case "transfer":
+        return { sound: "ding", who: target }; // a card landed with you
+      case "points":
+        return { sound: delta > 0 ? "happy" : "sad", who: target };
+      case "decide":
+        // target is the accuser; they hear the verdict
+        return { sound: affirmed ? "happy" : "sad", who: target };
+      default:
+        return null;
+    }
+  }
+
+  // walk the live feed; play the newest events that concern me. the first run
+  // with events present only seeds lastSeenId, so history doesn't replay.
+  function process() {
+    var list = document.getElementById("event-log");
+    if (!list) return;
+    var items = list.querySelectorAll(".event");
+    if (!items.length) return;
+    var me = self();
+    var on = soundOn();
+    var maxId = lastSeenId;
+    for (var i = 0; i < items.length; i++) {
+      var id = parseInt(items[i].getAttribute("data-event-id"), 10);
+      if (isNaN(id)) continue;
+      if (id > maxId) maxId = id;
+      if (lastSeenId < 0) continue; // seeding pass: no playback
+      if (id <= lastSeenId) continue; // already handled
+      if (!on) continue;
+      var m = soundFor(items[i]);
+      if (m && m.who && m.who === me) play(m.sound);
+    }
+    lastSeenId = maxId;
+  }
+
+  // server messages/warnings and the "no cards to ..." notice ding. these
+  // events only fire on the screen of the player who triggered them.
+  function dingNotice() {
+    if (soundOn()) play("ding");
+  }
+
+  // the toggle lives in the shared footer, so it shows on every page; audio
+  // only matters on a game page (where the event feed exists).
+  var inGame = !!document.getElementById("event-log");
+
+  // mute toggle (data-sound-toggle) — just a stored preference, works anywhere
+  function refresh(btn) {
+    btn.textContent = soundOn() ? "🔊 sound" : "🔇 muted";
+    btn.setAttribute("aria-pressed", soundOn() ? "false" : "true");
+  }
+  document.body.addEventListener("click", function (e) {
+    var btn = e.target.closest("[data-sound-toggle]");
+    if (!btn) return;
+    localStorage.setItem(STORE_KEY, soundOn() ? "off" : "on");
+    refresh(btn);
+    if (inGame) ensureAudio();
+  });
+  document.addEventListener("DOMContentLoaded", function () {
+    var btn = document.querySelector("[data-sound-toggle]");
+    if (btn) refresh(btn);
+  });
+
+  if (inGame) {
+    // the feed re-renders on its poll; react when it settles
+    document.body.addEventListener("htmx:afterSettle", function (e) {
+      if (e.target && e.target.id === "event-log") process();
+    });
+    document.body.addEventListener("notice", dingNotice);
+    document.body.addEventListener("modifierShredded", dingNotice);
+    document.body.addEventListener("modifier-shredded", dingNotice);
+    // browsers block audio until a gesture; unlock on the first interaction
+    document.body.addEventListener("pointerdown", ensureAudio);
+  }
+})();

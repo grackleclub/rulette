@@ -1,6 +1,8 @@
 {{define "footer"}}<footer class="site-footer">
   <small class="site-footer-meta">
     <button type="button" class="site-footer-link" data-open-dialog="about-dialog" aria-haspopup="dialog" aria-controls="about-dialog">❓ help</button>
+    ·
+    <button type="button" class="site-footer-link" data-sound-toggle aria-label="toggle sound">🔊 sound</button>
   </small>
   <small class="site-footer-version">{{version}}</small>
 </footer>
@@ -54,4 +56,5 @@
 </dialog>
 {{ end }}
 
-<script src="/static/js/dialogs.js" defer></script>{{end}}
+<script src="/static/js/dialogs.js" defer></script>
+<script src="/static/js/sound.js" defer></script>{{end}}

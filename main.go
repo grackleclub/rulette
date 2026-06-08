@@ -96,6 +96,7 @@ func main() {
 	mux.Handle("/static/js/", logMW(rateMW(http.FileServer(http.FS(static)))))
 	mux.Handle("/static/img/", logMW(rateMW(http.FileServer(http.FS(static)))))
 	mux.Handle("/static/fonts/", logMW(rateMW(http.FileServer(http.FS(static)))))
+	mux.Handle("/static/audio/", logMW(rateMW(http.FileServer(http.FS(static)))))
 	// pregame.go
 	mux.Handle("/", logMW(rateMW(http.HandlerFunc(rootHandler))))
 	mux.Handle("/create", logMW(rateMW(http.HandlerFunc(createHandler))))
