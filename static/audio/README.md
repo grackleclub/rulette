@@ -6,7 +6,7 @@ on/off toggle, default on). Missing files are simply silent.
 
 | file | plays when |
 |---|---|
-| `ding.wav`  | your turn · you draw/receive a card · a message or warning shows |
+| `alert.wav` | your turn · you draw/receive a card · a message or warning shows |
 | `happy.wav` | you gain points, or your accusation is upheld |
 | `sad.wav`   | you lose points, or your accusation is denied |
 

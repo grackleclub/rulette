@@ -1,7 +1,7 @@
 (function () {
   // three sounds, loaded from /static/audio (Turk provides the WAVs)
   var SOUNDS = {
-    ding: "/static/audio/ding.wav", // your turn / new card / a message
+    alert: "/static/audio/alert.wav", // your turn / new card / a message
     happy: "/static/audio/happy.wav", // you gained points / your accusation held
     sad: "/static/audio/sad.wav", // you lost points / your accusation was tossed
   };
@@ -61,12 +61,12 @@
     var affirmed = ev.getAttribute("data-affirmed") === "true";
     switch (ev.getAttribute("data-event-type")) {
       case "turn":
-        return { sound: "ding", who: target }; // your turn
+        return { sound: "alert", who: target }; // your turn
       case "spin":
-        return { sound: "ding", who: actor }; // you drew a card
+        return { sound: "alert", who: actor }; // you drew a card
       case "clone":
       case "transfer":
-        return { sound: "ding", who: target }; // a card landed with you
+        return { sound: "alert", who: target }; // a card landed with you
       case "points":
         return { sound: delta > 0 ? "happy" : "sad", who: target };
       case "decide":
@@ -103,7 +103,7 @@
   // server messages/warnings and the "no cards to ..." notice ding. these
   // events only fire on the screen of the player who triggered them.
   function dingNotice() {
-    if (soundOn()) play("ding");
+    if (soundOn()) play("alert");
   }
 
   // the toggle lives in the shared footer, so it shows on every page; audio
