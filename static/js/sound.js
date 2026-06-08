@@ -8,24 +8,28 @@
   var STORE_KEY = "rulette-sound";
 
   var ctx = null;
+  var gain = null; // shared gain so overlapping sounds don't clip
   var buffers = {};
   var lastSeenId = 0;
   var seeded = false; // the first poll only seeds; it never replays history
 
   // localStorage can throw (privacy modes, storage disabled); guard it and
-  // default to sound-on when it's unavailable.
+  // fall back to an in-memory preference so muting still works for the session,
+  // defaulting to sound-on when nothing has been set.
+  var memPref = null;
   function storeGet() {
     try {
       return localStorage.getItem(STORE_KEY);
     } catch (e) {
-      return null;
+      return memPref;
     }
   }
   function storeSet(v) {
+    memPref = v;
     try {
       localStorage.setItem(STORE_KEY, v);
     } catch (e) {
-      /* storage unavailable: preference just won't persist */
+      /* storage unavailable: preference lives in memPref for this session */
     }
   }
 
@@ -43,6 +47,9 @@
     var AC = window.AudioContext || window.webkitAudioContext;
     if (!AC) return;
     ctx = new AC();
+    gain = ctx.createGain();
+    gain.gain.value = 0.7; // headroom so simultaneous sounds don't clip
+    gain.connect(ctx.destination);
     Object.keys(SOUNDS).forEach(function (name) {
       fetch(SOUNDS[name])
         .then(function (r) {
@@ -66,7 +73,7 @@
     if (ctx.state === "suspended") ctx.resume();
     var src = ctx.createBufferSource();
     src.buffer = buffers[name];
-    src.connect(ctx.destination);
+    src.connect(gain);
     src.start(0);
   }
 
