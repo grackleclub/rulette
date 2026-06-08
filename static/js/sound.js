@@ -13,6 +13,10 @@
   var lastSeenId = 0;
   var seeded = false; // the first poll only seeds; it never replays history
 
+  var mixSoundProximity = 250; // ms to stagger sounds that arrive together
+  var maxQueuedSounds = 4; // cap stacked sounds so a burst can't pile up
+  var nextAt = 0; // AudioContext time the next stacked sound may start
+
   // localStorage can throw (privacy modes, storage disabled); guard it and
   // fall back to an in-memory preference so muting still works for the session,
   // defaulting to sound-on when nothing has been set.
@@ -48,7 +52,7 @@
     if (!AC) return;
     ctx = new AC();
     gain = ctx.createGain();
-    gain.gain.value = 0.7; // headroom so simultaneous sounds don't clip
+    gain.gain.value = 0.85; // headroom so overlapping sounds don't clip
     gain.connect(ctx.destination);
     Object.keys(SOUNDS).forEach(function (name) {
       fetch(SOUNDS[name])
@@ -71,10 +75,20 @@
   function play(name) {
     if (!ctx || !buffers[name]) return;
     if (ctx.state === "suspended") ctx.resume();
+    var gap = mixSoundProximity / 1000; // Web Audio works in seconds
+    var now = ctx.currentTime;
+    // sounds that arrive together play in order, overlapping: each starts one
+    // gap after the previous instead of all at the same instant. a lone sound
+    // (nextAt already in the past) still starts immediately.
+    var at = Math.max(now, nextAt);
+    // don't let an old backlog delay the newest sound: if the queue is already
+    // a full window deep, start now and overlap rather than wait.
+    if (at - now > maxQueuedSounds * gap) at = now;
     var src = ctx.createBufferSource();
     src.buffer = buffers[name];
     src.connect(gain);
-    src.start(0);
+    src.start(at);
+    nextAt = at + gap;
   }
 
   // an event element -> { sound, who } where "who" is the player it concerns;
@@ -115,6 +129,7 @@
     var me = self();
     var on = soundOn();
     var maxId = lastSeenId;
+    var toPlay = [];
     for (var i = 0; i < items.length; i++) {
       var id = parseInt(items[i].getAttribute("data-event-id"), 10);
       if (isNaN(id)) continue;
@@ -123,8 +138,13 @@
       if (id <= lastSeenId) continue; // already handled
       if (!on) continue;
       var m = soundFor(items[i]);
-      if (m && m.who && m.who === me) play(m.sound);
+      if (m && m.who && m.who === me) toPlay.push(m.sound);
     }
+    // a burst can't pile up: keep only the most recent few sounds (newest win)
+    if (toPlay.length > maxQueuedSounds) {
+      toPlay = toPlay.slice(toPlay.length - maxQueuedSounds);
+    }
+    for (var k = 0; k < toPlay.length; k++) play(toPlay[k]);
     // keep the live list small; full history is available via the dialog
     if (items.length > 50) {
       for (var j = 0; j < items.length - 50; j++) items[j].remove();
