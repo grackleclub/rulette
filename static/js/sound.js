@@ -98,6 +98,10 @@
       var m = soundFor(items[i]);
       if (m && m.who && m.who === me) play(m.sound);
     }
+    // keep the live list small; full history is available via the dialog
+    if (items.length > 50) {
+      for (var j = 0; j < items.length - 50; j++) items[j].remove();
+    }
     lastSeenId = maxId;
     seeded = true;
   }
