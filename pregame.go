@@ -4,7 +4,6 @@ import (
 	"crypto/rand"
 	"encoding/hex"
 	"fmt"
-	"math"
 	mathrand "math/rand"
 	"net/http"
 	"path"
@@ -21,8 +20,6 @@ const (
 )
 
 // TODO: implement card selection stage of the game between invitation and spin.
-
-var gameNameSeedLength = int(math.Pow(2, 16)) // math/rand used for game id
 
 // setCookieErr make logs messages and sets HTTP status responses appropriately.
 func setCookieErr(w http.ResponseWriter, err error) {

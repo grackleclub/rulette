@@ -1678,5 +1678,4 @@ func actionHandler(w http.ResponseWriter, r *http.Request) {
 			http.Error(w, "unsupported action", http.StatusNotImplemented)
 		}
 	}
-	return
 }
