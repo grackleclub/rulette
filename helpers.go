@@ -2,11 +2,14 @@ package main
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"log/slog"
+	"net/http"
 	"os"
 
 	sqlc "github.com/grackleclub/rulette/db/sqlc"
+	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgtype"
 )
 
@@ -38,6 +41,16 @@ func recordEvent(ctx context.Context, log *slog.Logger, q *sqlc.Queries, p sqlc.
 	return nil
 }
 
+// writeEvent records an event and, on failure, writes a 500 and returns the
+// error, so a handler can just: if err := writeEvent(...); err != nil { return }
+func writeEvent(w http.ResponseWriter, r *http.Request, log *slog.Logger, q *sqlc.Queries, p sqlc.EventCreateParams) error {
+	if err := recordEvent(r.Context(), log, q, p); err != nil {
+		http.Error(w, "server error", http.StatusInternalServerError)
+		return err
+	}
+	return nil
+}
+
 // advanceTurn moves initiative to the next player and adds a turn event for
 // whoever holds it now.
 func advanceTurn(ctx context.Context, log *slog.Logger, q *sqlc.Queries, gameID string) error {
@@ -45,6 +58,12 @@ func advanceTurn(ctx context.Context, log *slog.Logger, q *sqlc.Queries, gameID 
 		return fmt.Errorf("advance initiative: %w", err)
 	}
 	playerID, err := q.InitiativeCurrentPlayer(ctx, gameID)
+	if errors.Is(err, pgx.ErrNoRows) {
+		// initiative landed on a gap (e.g. a player left); the turn still
+		// advanced, so just skip the turn event rather than failing
+		log.Warn("no player at current initiative", "game_id", gameID)
+		return nil
+	}
 	if err != nil {
 		return fmt.Errorf("find current turn player: %w", err)
 	}

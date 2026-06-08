@@ -9,7 +9,8 @@
 
   var ctx = null;
   var buffers = {};
-  var lastSeenId = -1; // < 0 means "not seeded yet"
+  var lastSeenId = 0;
+  var seeded = false; // the first poll only seeds; it never replays history
 
   function soundOn() {
     return localStorage.getItem(STORE_KEY) !== "off"; // default on
@@ -68,6 +69,7 @@
       case "transfer":
         return { sound: "alert", who: target }; // a card landed with you
       case "points":
+        if (delta === 0) return null; // a no-op adjustment makes no sound
         return { sound: delta > 0 ? "happy" : "sad", who: target };
       case "decide":
         // target is the accuser; they hear the verdict
@@ -83,7 +85,6 @@
     var list = document.getElementById("event-log");
     if (!list) return;
     var items = list.querySelectorAll(".event");
-    if (!items.length) return;
     var me = self();
     var on = soundOn();
     var maxId = lastSeenId;
@@ -91,13 +92,14 @@
       var id = parseInt(items[i].getAttribute("data-event-id"), 10);
       if (isNaN(id)) continue;
       if (id > maxId) maxId = id;
-      if (lastSeenId < 0) continue; // seeding pass: no playback
+      if (!seeded) continue; // first pass only seeds; no playback
       if (id <= lastSeenId) continue; // already handled
       if (!on) continue;
       var m = soundFor(items[i]);
       if (m && m.who && m.who === me) play(m.sound);
     }
     lastSeenId = maxId;
+    seeded = true;
   }
 
   // server messages/warnings and the "no cards to ..." notice ding. these
@@ -113,7 +115,7 @@
   // mute toggle (data-sound-toggle) — just a stored preference, works anywhere
   function refresh(btn) {
     btn.textContent = soundOn() ? "🔊 sound" : "🔇 muted";
-    btn.setAttribute("aria-pressed", soundOn() ? "false" : "true");
+    btn.setAttribute("aria-pressed", soundOn() ? "true" : "false");
   }
   document.body.addEventListener("click", function (e) {
     var btn = e.target.closest("[data-sound-toggle]");

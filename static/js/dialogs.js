@@ -106,9 +106,17 @@
     display.textContent = val;
   });
 
-  // keep the full game log scrolled to the newest (bottom) entry
-  document.body.addEventListener("htmx:afterSettle", function (e) {
+  // keep the full game log pinned to the newest entry, but only when the
+  // reader is already at the bottom -- don't yank them while they scroll back.
+  var logAtBottom = true;
+  document.body.addEventListener("htmx:beforeSwap", function (e) {
     if (e.target && e.target.id === "event-log-full") {
+      var el = e.target;
+      logAtBottom = el.scrollHeight - el.scrollTop - el.clientHeight < 8;
+    }
+  });
+  document.body.addEventListener("htmx:afterSettle", function (e) {
+    if (e.target && e.target.id === "event-log-full" && logAtBottom) {
       e.target.scrollTop = e.target.scrollHeight;
     }
   });
