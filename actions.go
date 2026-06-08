@@ -148,25 +148,24 @@ func actionHandler(w http.ResponseWriter, r *http.Request) {
 			}
 			log.Info("initiative initiated", "state", "ready", "initiative", 1)
 
-			// log the start, and the first player's turn so they hear the ding
-			if err := writeEvent(w, r, log, queries, sqlc.EventCreateParams{
+			// log the start, and the first player's turn so they hear the ding.
+			// state is already committed, so these are best-effort: a failure
+			// shouldn't 500 a game that has already started.
+			if err := recordEvent(r.Context(), log, queries, sqlc.EventCreateParams{
 				GameID:    gameID,
 				EventType: "start",
 			}); err != nil {
-				return
+				log.Error("log start event", "error", err, "game_id", gameID)
 			}
 			firstPlayer, err := queries.InitiativeCurrentPlayer(r.Context(), gameID)
 			if err != nil {
 				log.Error("find first turn player", "error", err, "game_id", gameID)
-				http.Error(w, "server error", http.StatusInternalServerError)
-				return
-			}
-			if err := writeEvent(w, r, log, queries, sqlc.EventCreateParams{
+			} else if err := recordEvent(r.Context(), log, queries, sqlc.EventCreateParams{
 				GameID:    gameID,
 				EventType: "turn",
 				TargetID:  pgInt(firstPlayer),
 			}); err != nil {
-				return
+				log.Error("log first turn event", "error", err, "game_id", gameID)
 			}
 
 			// invalidate cache for this game

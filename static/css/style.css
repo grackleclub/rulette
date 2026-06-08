@@ -327,7 +327,7 @@ a {
 .help-intro {
   max-width: 28em;
   text-align: left;
-  background: rgba(256, 256, 256, 0.6);
+  background: rgba(255, 255, 255, 0.6);
   color: var(--color-text-dark);
   padding: 1.25em 1.5em;
   border-radius: 1em;

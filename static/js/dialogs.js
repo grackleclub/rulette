@@ -120,4 +120,15 @@
       e.target.scrollTop = e.target.scrollHeight;
     }
   });
+
+  // the full log only loads on open (loadEventLog); refresh it while its dialog
+  // is open by piggybacking on the live feed's poll, so closed dialogs don't
+  // poll the history endpoint in the background.
+  document.body.addEventListener("htmx:afterSettle", function (e) {
+    if (!e.target || e.target.id !== "event-log") return;
+    var dialog = document.getElementById("event-log-dialog");
+    if (dialog && dialog.open) {
+      document.body.dispatchEvent(new Event("loadEventLog"));
+    }
+  });
 })();

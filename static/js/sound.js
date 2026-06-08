@@ -12,8 +12,25 @@
   var lastSeenId = 0;
   var seeded = false; // the first poll only seeds; it never replays history
 
+  // localStorage can throw (privacy modes, storage disabled); guard it and
+  // default to sound-on when it's unavailable.
+  function storeGet() {
+    try {
+      return localStorage.getItem(STORE_KEY);
+    } catch (e) {
+      return null;
+    }
+  }
+  function storeSet(v) {
+    try {
+      localStorage.setItem(STORE_KEY, v);
+    } catch (e) {
+      /* storage unavailable: preference just won't persist */
+    }
+  }
+
   function soundOn() {
-    return localStorage.getItem(STORE_KEY) !== "off"; // default on
+    return storeGet() !== "off"; // default on
   }
   function self() {
     var el = document.getElementById("self");
@@ -127,7 +144,7 @@
   document.body.addEventListener("click", function (e) {
     var btn = e.target.closest("[data-sound-toggle]");
     if (!btn) return;
-    localStorage.setItem(STORE_KEY, soundOn() ? "off" : "on");
+    storeSet(soundOn() ? "off" : "on");
     refresh(btn);
     if (inGame) ensureAudio();
   });
