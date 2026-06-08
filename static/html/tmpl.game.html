@@ -28,6 +28,14 @@
             <section id="status-fetch" hx-get="/{{ .Game.ID }}/data/status"
               hx-target="#status-fetch" hx-trigger="load, every {{ .Config.refresh }}" hx-swap="morph:innerHTML">
             </section>
+            <div class="status-live">
+              <ul id="event-log" class="event-log event-log-live"
+                hx-get="/{{ .Game.ID }}/data/events"
+                hx-trigger="load, every {{ .Config.refresh }}" hx-swap="morph:innerHTML">
+              </ul>
+              <button type="button" class="button-more" aria-label="expand game log"
+                data-open-dialog="event-log-dialog" data-fetch-event="loadEventLog">+</button>
+            </div>
           </div>
         </div>
 
@@ -130,6 +138,18 @@
         <small id="invite-copy-success" aria-live="polite" hidden>copied to clipboard!</small>
         <small id="invite-copy-failure" aria-live="polite" hidden>could not copy to clipboard.</small>
         <button class="button" data-close-dialog="invite-dialog">close</button>
+      </div>
+    </dialog>
+
+    <dialog id="event-log-dialog">
+      <div class="dialog-body stack">
+        <h2>game log</h2>
+        <ul id="event-log-full" class="event-log"
+          hx-get="/{{ .Game.ID }}/data/events"
+          hx-trigger="loadEventLog from:body"
+          hx-swap="morph:innerHTML">
+        </ul>
+        <button class="button" data-close-dialog="event-log-dialog">close</button>
       </div>
     </dialog>
 

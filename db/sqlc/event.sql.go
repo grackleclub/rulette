@@ -50,12 +50,21 @@ func (q *Queries) EventCreate(ctx context.Context, arg EventCreateParams) (int32
 }
 
 const eventListSince = `-- name: EventListSince :many
-SELECT id, game_id, event_type, actor_id, target_id,
-    spin_id, infraction_id, game_card_id, point_change_id, ts
-FROM event_log
-WHERE game_id = $1
-    AND id > $2
-ORDER BY id
+SELECT
+    e.id,
+    e.event_type,
+    actor.name AS actor_name,
+    target.name AS target_name,
+    pc.delta AS points_delta,
+    inf.affirmed AS infraction_affirmed
+FROM event_log e
+LEFT JOIN players actor ON actor.id = e.actor_id
+LEFT JOIN players target ON target.id = e.target_id
+LEFT JOIN point_changes pc ON pc.id = e.point_change_id
+LEFT JOIN infractions inf ON inf.id = e.infraction_id
+WHERE e.game_id = $1
+    AND e.id > $2
+ORDER BY e.id
 `
 
 type EventListSinceParams struct {
@@ -63,28 +72,33 @@ type EventListSinceParams struct {
 	ID     int32  `json:"id"`
 }
 
-// Events for a game newer than a given id, oldest first. Clients track the
-// highest id they have seen and poll for the rest.
-func (q *Queries) EventListSince(ctx context.Context, arg EventListSinceParams) ([]EventLog, error) {
+type EventListSinceRow struct {
+	ID                 int32       `json:"id"`
+	EventType          string      `json:"event_type"`
+	ActorName          pgtype.Text `json:"actor_name"`
+	TargetName         pgtype.Text `json:"target_name"`
+	PointsDelta        pgtype.Int4 `json:"points_delta"`
+	InfractionAffirmed pgtype.Bool `json:"infraction_affirmed"`
+}
+
+// Events for a game newer than a given id, oldest first, with the names and
+// details the feed text and sounds need. Clients track the highest id seen.
+func (q *Queries) EventListSince(ctx context.Context, arg EventListSinceParams) ([]EventListSinceRow, error) {
 	rows, err := q.db.Query(ctx, eventListSince, arg.GameID, arg.ID)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
-	var items []EventLog
+	var items []EventListSinceRow
 	for rows.Next() {
-		var i EventLog
+		var i EventListSinceRow
 		if err := rows.Scan(
 			&i.ID,
-			&i.GameID,
 			&i.EventType,
-			&i.ActorID,
-			&i.TargetID,
-			&i.SpinID,
-			&i.InfractionID,
-			&i.GameCardID,
-			&i.PointChangeID,
-			&i.Ts,
+			&i.ActorName,
+			&i.TargetName,
+			&i.PointsDelta,
+			&i.InfractionAffirmed,
 		); err != nil {
 			return nil, err
 		}

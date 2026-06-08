@@ -1,0 +1,27 @@
+{{ range . }}
+<li class="event"
+    data-event-id="{{ .ID }}"
+    data-event-type="{{ .EventType }}"
+    data-actor="{{ .ActorName.String }}"
+    data-target="{{ .TargetName.String }}"
+    {{ if .PointsDelta.Valid }}data-delta="{{ .PointsDelta.Int32 }}"{{ end }}
+    {{ if .InfractionAffirmed.Valid }}data-affirmed="{{ .InfractionAffirmed.Bool }}"{{ end }}>
+  {{- $actor := .ActorName.String -}}
+  {{- $target := .TargetName.String -}}
+  {{- if eq .EventType "start" }}game started
+  {{- else if eq .EventType "end" }}game over
+  {{- else if eq .EventType "pause" }}game paused
+  {{- else if eq .EventType "resume" }}game resumed
+  {{- else if eq .EventType "turn" }}{{ $target }}'s turn
+  {{- else if eq .EventType "spin" }}{{ $actor }} spun the wheel
+  {{- else if eq .EventType "points" }}{{ $target }} {{ if gt .PointsDelta.Int32 0 }}gained{{ else }}lost{{ end }} points
+  {{- else if eq .EventType "accuse" }}{{ $actor }} accused {{ $target }}
+  {{- else if eq .EventType "decide" }}verdict: {{ if .InfractionAffirmed.Bool }}guilty{{ else }}not guilty{{ end }}
+  {{- else if eq .EventType "flip" }}{{ $actor }} flipped a card
+  {{- else if eq .EventType "shred" }}{{ $actor }} shredded a card
+  {{- else if eq .EventType "clone" }}{{ $actor }} cloned a card to {{ $target }}
+  {{- else if eq .EventType "transfer" }}{{ $actor }} gave a card to {{ $target }}
+  {{- else }}{{ .EventType }}
+  {{- end }}
+</li>
+{{ end }}

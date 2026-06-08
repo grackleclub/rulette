@@ -4,8 +4,10 @@ import (
 	"encoding/json"
 	"net/http"
 	"path"
+	"strconv"
 	"strings"
 
+	sqlc "github.com/grackleclub/rulette/db/sqlc"
 	"go.opentelemetry.io/otel/trace"
 )
 
@@ -145,7 +147,7 @@ func dataHandler(w http.ResponseWriter, r *http.Request) {
 			if err := renderTemplate(r.Context(), w, filepath, state); err != nil {
 				log.Error("render gameover", "error", err, "template", filepath)
 			}
-		case "status", "players", "infraction":
+		case "status", "players", "infraction", "events":
 			w.WriteHeader(stopPolling)
 		default:
 			http.Error(w, "game over", http.StatusGone)
@@ -170,6 +172,28 @@ func dataHandler(w http.ResponseWriter, r *http.Request) {
 		case "status":
 			filepath := path.Join("static", "html", "tmpl.status.html")
 			if err := renderTemplate(r.Context(), w, filepath, state); err != nil {
+				log.Error("render template", "error", err, "template", filepath)
+				http.Error(w, "internal server error", http.StatusInternalServerError)
+			}
+			return
+		case "events":
+			// the feed and the sound engine both read this. ?since=<id>
+			// returns only newer events; omitted means the whole game.
+			var since int
+			if s := r.URL.Query().Get("since"); s != "" {
+				since, _ = strconv.Atoi(s)
+			}
+			events, err := queries.EventListSince(r.Context(), sqlc.EventListSinceParams{
+				GameID: gameID,
+				ID:     int32(since),
+			})
+			if err != nil {
+				log.Error("list events", "error", err, "game_id", gameID)
+				http.Error(w, "server error", http.StatusInternalServerError)
+				return
+			}
+			filepath := path.Join("static", "html", "tmpl.events.html")
+			if err := renderTemplate(r.Context(), w, filepath, events); err != nil {
 				log.Error("render template", "error", err, "template", filepath)
 				http.Error(w, "internal server error", http.StatusInternalServerError)
 			}

@@ -106,4 +106,10 @@
     display.textContent = val;
   });
 
+  // keep the full game log scrolled to the newest (bottom) entry
+  document.body.addEventListener("htmx:afterSettle", function (e) {
+    if (e.target && e.target.id === "event-log-full") {
+      e.target.scrollTop = e.target.scrollHeight;
+    }
+  });
 })();

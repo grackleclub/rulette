@@ -80,7 +80,7 @@ func actionHandler(w http.ResponseWriter, r *http.Request) {
 		switch action {
 		case "start":
 			if !state.isHost(cookieKey) {
-				log.Info("non-host attempted to start game", "game_id", gameID)
+				log.Warn("non-host attempted to start game", "game_id", gameID)
 				http.Error(w, "only the host can start the game", http.StatusForbidden)
 				return
 			}
@@ -88,7 +88,7 @@ func actionHandler(w http.ResponseWriter, r *http.Request) {
 			// the starting initiative and the game would soft-lock. surface a
 			// notice via HX-Trigger (200, no swap) rather than a raw http error
 			if state.nonHostPlayers() < minimumPlayers {
-				log.Info("host attempted to start game without enough players",
+				log.Warn("host attempted to start game without enough players",
 					"game_id", gameID,
 					"non_host_players", state.nonHostPlayers(),
 					"minimum", minimumPlayers,
@@ -351,6 +351,14 @@ func actionHandler(w http.ResponseWriter, r *http.Request) {
 						http.Error(w, "server error while ending game", http.StatusInternalServerError)
 						return
 					}
+					if err := recordEvent(r.Context(), log, queries, sqlc.EventCreateParams{
+						GameID:    gameID,
+						EventType: "end",
+					}); err != nil {
+						http.Error(w, "server error", http.StatusInternalServerError)
+						return
+					}
+					cache.Delete(gameID)
 					http.Error(w, "game over, deck slot exhausted", http.StatusGone)
 					return
 				}
@@ -1667,6 +1675,7 @@ func actionHandler(w http.ResponseWriter, r *http.Request) {
 				http.Error(w, "server error", http.StatusInternalServerError)
 				return
 			}
+			cache.Delete(gameID)
 			log.Info("game ended")
 			w.WriteHeader(http.StatusGone)
 			return

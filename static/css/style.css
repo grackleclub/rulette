@@ -416,7 +416,7 @@ a {
   border-radius: .9em;
   padding: .5em .75em;
   text-align: center;
-  width: auto;
+  width: 100%;
   max-width: 20.6em;
 }
 
@@ -695,6 +695,85 @@ dialog fieldset {
 }
 .game-over-score {
   font-family: var(--font-score);
+}
+
+/* event log: the status line becomes the live event feed once play starts */
+
+/* before the first event (pre-game): plain status. after: the live line. */
+.status-live {
+  display: none;
+}
+.game-subtitle:has(.event) #status-fetch {
+  display: none;
+}
+.game-subtitle:has(.event) .status-live {
+  display: flex;
+  align-items: center;
+  gap: .4em;
+}
+
+/* the + expand button beside the live line */
+.button-more {
+  flex: none;
+  width: 1.5em;
+  height: 1.5em;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--color-text-dark);
+  color: var(--color-text-light);
+  border: none;
+  border-radius: .3em;
+  font-size: 1em;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.event-log {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column; /* oldest first; newest at the bottom */
+  gap: .15em;
+}
+.event {
+  padding: .3em .5em;
+  border-bottom: .1em solid var(--color-player-border);
+  font-size: .9em;
+}
+
+/* inline: just the newest event (the last item); hide the rest */
+.event-log-live {
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
+}
+.event-log-live .event:not(:last-child) {
+  display: none;
+}
+.event-log-live .event {
+  padding: 0 .3em;
+  border: none;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  font-size: .85em;
+  line-height: 1.3;
+  animation: fade-in .4s ease;
+}
+@keyframes fade-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+/* expanded log: last ~6 events, newest at the bottom, older fading out on top */
+#event-log-full {
+  min-width: 16em;
+  max-height: 10em; /* about six lines; scroll up for older */
+  overflow-y: auto;
+  -webkit-mask-image: linear-gradient(to bottom, transparent 0, black 2.5em);
+  mask-image: linear-gradient(to bottom, transparent 0, black 2.5em);
 }
 
 
