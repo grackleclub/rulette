@@ -33,8 +33,8 @@
                 hx-get="/{{ .Game.ID }}/data/events"
                 hx-trigger="load, every {{ .Config.refresh }}" hx-swap="morph:innerHTML">
               </ul>
-              <button type="button" class="button-more" aria-label="expand game log"
-                data-open-dialog="event-log-dialog" data-fetch-event="loadEventLog">+</button>
+              <button type="button" class="button-more" aria-label="view game history"
+                data-open-dialog="event-log-dialog" data-fetch-event="loadEventLog">history</button>
             </div>
           </div>
         </div>

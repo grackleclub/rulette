@@ -416,7 +416,7 @@ a {
   border-radius: .9em;
   padding: .5em .75em;
   text-align: center;
-  width: 100%;
+  width: auto;
   max-width: 20.6em;
 }
 
@@ -712,20 +712,16 @@ dialog fieldset {
   gap: .4em;
 }
 
-/* the + expand button beside the live line */
+/* the history button beside the live line */
 .button-more {
   flex: none;
-  width: 1.5em;
-  height: 1.5em;
-  display: flex;
-  align-items: center;
-  justify-content: center;
+  padding: .15em .5em;
   background: var(--color-text-dark);
   color: var(--color-text-light);
   border: none;
   border-radius: .3em;
-  font-size: 1em;
-  line-height: 1;
+  font-size: .5em;
+  line-height: 1.4;
   cursor: pointer;
 }
 
