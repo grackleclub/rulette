@@ -70,6 +70,9 @@
     if (!dialog.open) dialog.showModal();
   }
   document.body.addEventListener("notice", showNotice);
+  // a new rule shows the same toast, but on its own channel so it stays silent
+  // (the spin event already dings the spinner) -- see sound.js dingNotice.
+  document.body.addEventListener("newRule", showNotice);
 
   // close a dialog: data-close-dialog="dialog-id"
   document.body.addEventListener("click", function (e) {

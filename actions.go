@@ -427,7 +427,9 @@ func actionHandler(w http.ResponseWriter, r *http.Request) {
 				}
 				trigger := `{"refreshTable":null`
 				if cardContent != "" {
-					trigger += `,"notice":` + strconv.Quote("new rule: "+cardContent)
+					// newRule shows the toast but stays silent; the spin event
+					// already dings the spinner, so notice would double up.
+					trigger += `,"newRule":` + strconv.Quote("new rule: "+cardContent)
 				}
 				trigger += `}`
 				w.Header().Set("HX-Trigger", trigger)
