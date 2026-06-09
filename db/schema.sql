@@ -20,7 +20,8 @@ VALUES
 (5, 'challenge', 'a points challenge is pending'),
 (6, 'ending', 'deck exhausted, waiting on host to end the game'),
 (7, 'end', 'game over')
-ON CONFLICT DO NOTHING;
+ON CONFLICT (id) DO UPDATE
+	SET name = EXCLUDED.name, description = EXCLUDED.description;
 
 CREATE TABLE IF NOT EXISTS games (
 	id VARCHAR(6) PRIMARY KEY,
@@ -59,7 +60,8 @@ VALUES
 	('rule', 'persistent rule that applies to a single player'),
 	('modifier', 'one-time effect applied to a chosen card'),
 	('prompt', 'single challenge to be immediately completed')
-ON CONFLICT DO NOTHING;
+ON CONFLICT (name) DO UPDATE
+	SET description = EXCLUDED.description;
 
 CREATE TABLE IF NOT EXISTS modifier_effects (
 	name TEXT PRIMARY KEY,
@@ -71,7 +73,8 @@ VALUES
 	('shred', 'permanently remove a card from play'),
 	('clone', 'duplicate a card and give the copy to another player'),
 	('transfer', 'transfer a card to another player')
-ON CONFLICT DO NOTHING;
+ON CONFLICT (name) DO UPDATE
+	SET description = EXCLUDED.description;
 
 CREATE TABLE IF NOT EXISTS cards (
 	id SERIAL PRIMARY KEY,
@@ -226,7 +229,8 @@ VALUES
 	('shred', 'a card was shredded'),
 	('clone', 'a card was cloned'),
 	('transfer', 'a card was transferred')
-ON CONFLICT DO NOTHING;
+ON CONFLICT (name) DO UPDATE
+	SET description = EXCLUDED.description;
 
 -- point_changes: a record of every points change. infraction_id says what
 -- caused it: set means an affirmed accusation, NULL means a direct host
