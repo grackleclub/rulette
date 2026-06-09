@@ -34,6 +34,12 @@
             hx-swap="none">
             pause
           </button>
+        {{ else if eq $.Game.StateName "ending" }}
+          <button class="button-danger"
+            hx-post="/{{ $gid }}/action/endgame"
+            hx-swap="none">
+            end game
+          </button>
         {{ end }}
       {{ end }}
     </div>

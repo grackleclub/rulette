@@ -9,6 +9,7 @@
   {{- $actor := .ActorName.String -}}
   {{- $target := .TargetName.String -}}
   {{- if eq .EventType "start" }}game started
+  {{- else if eq .EventType "rolled-end" }}{{ $actor }} rolled the end
   {{- else if eq .EventType "end" }}game over
   {{- else if eq .EventType "pause" }}game paused
   {{- else if eq .EventType "resume" }}game resumed

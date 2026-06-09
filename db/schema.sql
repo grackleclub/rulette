@@ -18,7 +18,8 @@ VALUES
 (3, 'turn', 'player is mid-turn, spinning wheel or responding'),
 (4, 'pending', 'rule modifier choice is pending'),
 (5, 'challenge', 'a points challenge is pending'),
-(6, 'end', 'game over')
+(6, 'end', 'game over'),
+(7, 'ending', 'deck exhausted, waiting on host to end the game')
 ON CONFLICT DO NOTHING;
 
 CREATE TABLE IF NOT EXISTS games (
@@ -212,6 +213,7 @@ CREATE TABLE IF NOT EXISTS event_types (
 INSERT INTO event_types (name, description)
 VALUES
 	('start', 'host started the game'),
+	('rolled-end', 'a player spun the end of the deck'),
 	('end', 'game ended'),
 	('pause', 'host paused the game'),
 	('resume', 'host resumed the game'),

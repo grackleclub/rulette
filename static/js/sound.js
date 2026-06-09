@@ -74,11 +74,27 @@
     });
   }
 
+  var unlocked = false; // iOS needs a real source started inside the gesture
+
   // browsers block audio until a user gesture; resume the (preloaded) context
   // on the first one so playback is allowed. buffers are already decoded.
+  // iOS is stricter than resuming: it only lifts the block once a source has
+  // actually started during the gesture, so play one silent sample as well.
   function unlockAudio() {
     preloadAudio();
-    if (ctx && ctx.state === "suspended") ctx.resume();
+    if (!ctx) return;
+    if (ctx.state === "suspended") ctx.resume();
+    if (unlocked) return;
+    try {
+      var silent = ctx.createBuffer(1, 1, 22050);
+      var src = ctx.createBufferSource();
+      src.buffer = silent;
+      src.connect(ctx.destination);
+      src.start(0);
+      unlocked = true;
+    } catch (e) {
+      /* a later gesture will try again */
+    }
   }
 
   function play(name) {
@@ -114,6 +130,8 @@
         return { sound: "alert", who: target }; // your turn
       case "spin":
         return { sound: "alert", who: actor }; // you drew a card
+      case "rolled-end":
+        return { sound: "alert", who: actor }; // you rolled the end of the game
       case "clone":
       case "transfer":
         return { sound: "alert", who: target }; // a card landed with you
@@ -199,7 +217,11 @@
     document.body.addEventListener("notice", dingNotice);
     document.body.addEventListener("modifierShredded", dingNotice);
     document.body.addEventListener("modifier-shredded", dingNotice);
-    // browsers block audio until a gesture; unlock on the first interaction
-    document.body.addEventListener("pointerdown", unlockAudio);
+    // browsers block audio until a gesture; unlock on the first interaction.
+    // listen for several gesture types because iOS Safari unlocks reliably on
+    // touchend/click but not always on pointerdown.
+    ["pointerdown", "touchend", "click"].forEach(function (evt) {
+      document.body.addEventListener(evt, unlockAudio);
+    });
   }
 })();

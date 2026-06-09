@@ -190,7 +190,7 @@ func dataHandler(w http.ResponseWriter, r *http.Request) {
 			http.Error(w, "game over", http.StatusGone)
 		}
 		return
-	case 5, 4, 3, 2, 1, 0: // game in progress
+	case 7, 5, 4, 3, 2, 1, 0: // in progress (7 = deck spent, host to end)
 		switch topic {
 		case "players":
 			filepath := path.Join("static", "html", "tmpl.players.html")

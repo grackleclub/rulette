@@ -178,7 +178,7 @@ func actionHandler(w http.ResponseWriter, r *http.Request) {
 			http.Error(w, ErrActionInvalid.Error(), http.StatusTooEarly)
 			return
 		}
-	case 5, 4, 3, 2: // game in progress
+	case 7, 5, 4, 3, 2: // in progress (7 = deck spent, host to end)
 		switch action {
 		case "points":
 			if !state.isHost(cookieKey) {
@@ -338,15 +338,22 @@ func actionHandler(w http.ResponseWriter, r *http.Request) {
 			gcID, err := queries.GameCardsWheelSpin(r.Context(), args)
 			if err != nil {
 				if errors.Is(err, pgx.ErrNoRows) {
-					log.Info("game over, deck slot exhausted",
+					// the deck is spent: don't end outright. move to the
+					// "ending" state so everyone sees the end was rolled, and
+					// leave the host a button to actually end the game.
+					log.Info("deck slot exhausted, waiting on host to end",
 						"game_id", gameID,
 					)
 					err := queries.GameUpdate(r.Context(), sqlc.GameUpdateParams{
 						ID:      gameID,
-						StateID: 6, // game over
+						StateID: 7, // ending
+						InitiativeCurrent: pgtype.Int4{
+							Int32: state.Game.InitiativeCurrent.Int32,
+							Valid: true,
+						},
 					})
 					if err != nil {
-						log.Error("update game state to game over",
+						log.Error("update game state to ending",
 							"error", err,
 							"game_id", gameID,
 						)
@@ -355,12 +362,14 @@ func actionHandler(w http.ResponseWriter, r *http.Request) {
 					}
 					if err := writeEvent(w, r, log, queries, sqlc.EventCreateParams{
 						GameID:    gameID,
-						EventType: "end",
+						EventType: "rolled-end",
+						ActorID:   pgInt(int32(id)),
 					}); err != nil {
 						return
 					}
 					cache.Delete(gameID)
-					http.Error(w, "game over, deck slot exhausted", http.StatusGone)
+					w.Header().Set("HX-Trigger", "refreshTable")
+					w.WriteHeader(http.StatusOK)
 					return
 				}
 				log.Error("spin wheel",
@@ -567,6 +576,43 @@ func actionHandler(w http.ResponseWriter, r *http.Request) {
 			if err := writeEvent(w, r, log, queries, sqlc.EventCreateParams{
 				GameID:    gameID,
 				EventType: "resume",
+			}); err != nil {
+				return
+			}
+			cache.Delete(gameID)
+			w.Header().Set("HX-Trigger", "refreshTable")
+			w.WriteHeader(http.StatusOK)
+			return
+
+		case "endgame":
+			// the host finalizes a game whose deck has run out. only valid in
+			// the "ending" state, which a spent deck puts the game into.
+			if !state.isHost(cookieKey) {
+				log.Info("prohibiting non-host from ending game")
+				http.Error(w, "only host can end the game", http.StatusForbidden)
+				return
+			}
+			if state.Game.StateID != 7 {
+				log.Info("endgame requires ending state",
+					"game_id", gameID,
+					"state_id", state.Game.StateID,
+				)
+				http.Error(w, "cannot end game in current state", http.StatusConflict)
+				return
+			}
+			err := queries.GameUpdate(r.Context(), sqlc.GameUpdateParams{
+				ID:      gameID,
+				StateID: 6, // game over
+			})
+			if err != nil {
+				log.Error("end game", "error", err, "game_id", gameID)
+				http.Error(w, "server error", http.StatusInternalServerError)
+				return
+			}
+			log.Info("game ended by host", "game_id", gameID)
+			if err := writeEvent(w, r, log, queries, sqlc.EventCreateParams{
+				GameID:    gameID,
+				EventType: "end",
 			}); err != nil {
 				return
 			}

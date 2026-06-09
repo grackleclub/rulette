@@ -312,19 +312,20 @@ func TestGame(t *testing.T) {
 			cache.Delete(gameID)
 			actionHandler(w, req)
 
-			if w.Result().StatusCode == http.StatusGone {
-				t.Logf("deck exhausted after %d spins", i)
-				exhausted = true
-				break
-			}
 			require.Equal(t, http.StatusOK, w.Result().StatusCode,
 				"spin %d failed", i,
 			)
 
-			// check if we entered pending state (modifier drawn)
+			// a spent deck moves the game to the "ending" state (7) instead of
+			// ending outright; the host ends it explicitly.
 			cache.Delete(gameID)
 			gs, err := queries.GameState(ctx, gameID)
 			require.NoError(t, err)
+			if gs.StateID == 7 {
+				t.Logf("deck exhausted after %d spins", i)
+				exhausted = true
+				break
+			}
 			if gs.StateID == 4 {
 				lastSpin, err := queries.SpinPendingModifier(ctx, gameID)
 				require.NoError(t, err)
@@ -411,6 +412,21 @@ func TestGame(t *testing.T) {
 			current = (current % maxInit) + 1
 		}
 		require.True(t, exhausted, "deck not exhausted within %d spins", maxSpins)
+	})
+
+	t.Run("POST /{game_id}/action/endgame (host ends)", func(t *testing.T) {
+		path := fmt.Sprintf("/%s/action/endgame", gameID)
+		req := httptest.NewRequest(http.MethodPost, path, nil)
+		req.AddCookie(cookieByInitiative[0]) // host
+		w := httptest.NewRecorder()
+		cache.Delete(gameID)
+		actionHandler(w, req)
+		require.Equal(t, http.StatusOK, w.Result().StatusCode)
+
+		cache.Delete(gameID)
+		gs, err := queries.GameState(ctx, gameID)
+		require.NoError(t, err)
+		require.Equal(t, int32(6), gs.StateID, "expected game over")
 	})
 
 	// reset game to a playable state for accuse/decide tests
