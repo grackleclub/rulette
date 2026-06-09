@@ -4,12 +4,14 @@ sql:
     queries: 
       - "queries/cache.sql"
       - "queries/cards.sql"
+      - "queries/event.sql"
       - "queries/game.sql"
       - "queries/game_cards.sql"
       - "queries/infractions.sql"
       - "queries/initiative.sql"
-      - "queries/log.sql"
       - "queries/player.sql"
+      - "queries/point_changes.sql"
+      - "queries/spins.sql"
     schema: "schema.sql"
     gen:
       go:

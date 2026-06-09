@@ -70,6 +70,9 @@
     if (!dialog.open) dialog.showModal();
   }
   document.body.addEventListener("notice", showNotice);
+  // a new rule shows the same toast, but on its own channel so it stays silent
+  // (the spin event already dings the spinner) -- see sound.js dingNotice.
+  document.body.addEventListener("newRule", showNotice);
 
   // close a dialog: data-close-dialog="dialog-id"
   document.body.addEventListener("click", function (e) {
@@ -106,4 +109,29 @@
     display.textContent = val;
   });
 
+  // keep the full game log pinned to the newest entry, but only when the
+  // reader is already at the bottom -- don't yank them while they scroll back.
+  var logAtBottom = true;
+  document.body.addEventListener("htmx:beforeSwap", function (e) {
+    if (e.target && e.target.id === "event-log-full") {
+      var el = e.target;
+      logAtBottom = el.scrollHeight - el.scrollTop - el.clientHeight < 8;
+    }
+  });
+  document.body.addEventListener("htmx:afterSettle", function (e) {
+    if (e.target && e.target.id === "event-log-full" && logAtBottom) {
+      e.target.scrollTop = e.target.scrollHeight;
+    }
+  });
+
+  // the full log only loads on open (loadEventLog); refresh it while its dialog
+  // is open by piggybacking on the live feed's poll, so closed dialogs don't
+  // poll the history endpoint in the background.
+  document.body.addEventListener("htmx:afterSettle", function (e) {
+    if (!e.target || e.target.id !== "event-log") return;
+    var dialog = document.getElementById("event-log-dialog");
+    if (dialog && dialog.open) {
+      document.body.dispatchEvent(new Event("loadEventLog"));
+    }
+  });
 })();

@@ -2,12 +2,47 @@ package main
 
 import (
 	"encoding/json"
+	"math"
 	"net/http"
 	"path"
+	"strconv"
 	"strings"
 
+	sqlc "github.com/grackleclub/rulette/db/sqlc"
 	"go.opentelemetry.io/otel/trace"
 )
+
+// renderEvents writes the event feed for a game. ?since=<id> returns only newer
+// events (clamped to a valid id; bad values fall back to the whole game). The
+// status lets a finished game serve the feed with 286 so polling stops but the
+// history still loads.
+func renderEvents(w http.ResponseWriter, r *http.Request, gameID string, status int) {
+	var since int
+	if s := r.URL.Query().Get("since"); s != "" {
+		if n, err := strconv.Atoi(s); err == nil && n >= 0 {
+			if n > math.MaxInt32 {
+				n = math.MaxInt32
+			}
+			since = n
+		}
+	}
+	events, err := queries.EventListSince(r.Context(), sqlc.EventListSinceParams{
+		GameID: gameID,
+		ID:     int32(since),
+	})
+	if err != nil {
+		log.Error("list events", "error", err, "game_id", gameID)
+		http.Error(w, "server error", http.StatusInternalServerError)
+		return
+	}
+	if status != http.StatusOK {
+		w.WriteHeader(status)
+	}
+	filepath := path.Join("static", "html", "tmpl.events.html")
+	if err := renderTemplate(r.Context(), w, filepath, events); err != nil {
+		log.Error("render events", "error", err, "template", filepath)
+	}
+}
 
 // gameHandler handles the '/{game_id}' endpoint
 // This endpoint serves as a lobby pregame, and for primary play.
@@ -134,8 +169,26 @@ func dataHandler(w http.ResponseWriter, r *http.Request) {
 
 	switch state.Game.StateID {
 	case 6: // game over
-		log.Info("request to ended game", "game_id", gameID)
-		http.Error(w, "game over", http.StatusGone)
+		// htmx stops a polling trigger when it sees status 286, so the
+		// polled sections settle instead of erroring forever. The table
+		// shows the final screen; the others just clear and stop.
+		const stopPolling = 286
+		switch topic {
+		case "table":
+			w.WriteHeader(stopPolling)
+			filepath := path.Join("static", "html", "tmpl.gameover.html")
+			if err := renderTemplate(r.Context(), w, filepath, state); err != nil {
+				log.Error("render gameover", "error", err, "template", filepath)
+			}
+		case "events":
+			// still serve the log so the final events and the history
+			// modal work, but with 286 so the feed stops polling
+			renderEvents(w, r, gameID, stopPolling)
+		case "status", "players", "infraction":
+			w.WriteHeader(stopPolling)
+		default:
+			http.Error(w, "game over", http.StatusGone)
+		}
 		return
 	case 5, 4, 3, 2, 1, 0: // game in progress
 		switch topic {
@@ -159,6 +212,10 @@ func dataHandler(w http.ResponseWriter, r *http.Request) {
 				log.Error("render template", "error", err, "template", filepath)
 				http.Error(w, "internal server error", http.StatusInternalServerError)
 			}
+			return
+		case "events":
+			// the feed and the sound engine both read this
+			renderEvents(w, r, gameID, http.StatusOK)
 			return
 		case "state": // NOTE: debug endpoint
 			w.Header().Set("Content-Type", "application/json")
@@ -244,7 +301,7 @@ func dataHandler(w http.ResponseWriter, r *http.Request) {
 						}
 					}
 					w.Header().Set("Content-Type", "application/json")
-					json.NewEncoder(w).Encode(map[string]interface{}{
+					json.NewEncoder(w).Encode(map[string]any{
 						"id":       inf.ID,
 						"accused":  accusedName,
 						"rule":     ruleContent,

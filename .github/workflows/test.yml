@@ -12,14 +12,10 @@ jobs:
     runs-on: ubuntu-latest
     steps:
     - uses: actions/checkout@v4
-    - uses: sqlc-dev/setup-sqlc@v3
-      with:
-        sqlc-version: '1.31.1'
 
-    - name: Set up Go
-      uses: actions/setup-go@v4
-      with:
-        go-version: 'stable'
+    # installs go + sqlc at the versions pinned in mise.toml, so CI and
+    # local builds resolve identical toolchains
+    - uses: jdx/mise-action@v2
 
     - name: Test
       run: bin/test -v

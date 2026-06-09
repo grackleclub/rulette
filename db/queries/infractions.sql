@@ -6,8 +6,7 @@ RETURNING id;
 -- name: InfractionDecide :one
 UPDATE infractions
 SET active = FALSE,
-    affirmed = $2,
-    points = $3
+    affirmed = $2
 WHERE id = $1
     AND active = TRUE
 RETURNING id;
@@ -17,13 +16,12 @@ SELECT * FROM infractions
 WHERE id = $1;
 
 -- name: InfractionsByGame :many
-SELECT id, game_id, game_card_id, accused, accuser, created, active, affirmed, points
+SELECT id, game_id, game_card_id, accused, accuser, created, active, affirmed
 FROM infractions
 WHERE game_id = $1
 ORDER BY created DESC;
 
--- name: InfractionUpdatePoints :exec
-UPDATE game_players
-SET points = points - $1
-WHERE game_id = $2
-    AND player_id = $3;
+-- name: InfractionsActiveCount :one
+SELECT COUNT(*) FROM infractions
+WHERE game_id = $1
+    AND active = TRUE;

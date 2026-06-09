@@ -80,7 +80,7 @@ func actionHandler(w http.ResponseWriter, r *http.Request) {
 		switch action {
 		case "start":
 			if !state.isHost(cookieKey) {
-				log.Info("non-host attempted to start game", "game_id", gameID)
+				log.Warn("non-host attempted to start game", "game_id", gameID)
 				http.Error(w, "only the host can start the game", http.StatusForbidden)
 				return
 			}
@@ -88,7 +88,7 @@ func actionHandler(w http.ResponseWriter, r *http.Request) {
 			// the starting initiative and the game would soft-lock. surface a
 			// notice via HX-Trigger (200, no swap) rather than a raw http error
 			if state.nonHostPlayers() < minimumPlayers {
-				log.Info("host attempted to start game without enough players",
+				log.Warn("host attempted to start game without enough players",
 					"game_id", gameID,
 					"non_host_players", state.nonHostPlayers(),
 					"minimum", minimumPlayers,
@@ -148,6 +148,26 @@ func actionHandler(w http.ResponseWriter, r *http.Request) {
 			}
 			log.Info("initiative initiated", "state", "ready", "initiative", 1)
 
+			// log the start, and the first player's turn so they hear the ding.
+			// state is already committed, so these are best-effort: a failure
+			// shouldn't 500 a game that has already started.
+			if err := recordEvent(r.Context(), log, queries, sqlc.EventCreateParams{
+				GameID:    gameID,
+				EventType: "start",
+			}); err != nil {
+				log.Error("log start event", "error", err, "game_id", gameID)
+			}
+			firstPlayer, err := queries.InitiativeCurrentPlayer(r.Context(), gameID)
+			if err != nil {
+				log.Error("find first turn player", "error", err, "game_id", gameID)
+			} else if err := recordEvent(r.Context(), log, queries, sqlc.EventCreateParams{
+				GameID:    gameID,
+				EventType: "turn",
+				TargetID:  pgInt(firstPlayer),
+			}); err != nil {
+				log.Error("log first turn event", "error", err, "game_id", gameID)
+			}
+
 			// invalidate cache for this game
 			cache.Delete(gameID)
 			w.Header().Set("HX-Trigger", "refreshTable")
@@ -201,7 +221,22 @@ func actionHandler(w http.ResponseWriter, r *http.Request) {
 				http.Error(w, "invalid amount", http.StatusBadRequest)
 				return
 			}
-			err = queries.GamePointsAdjust(r.Context(), sqlc.GamePointsAdjustParams{
+			if amount == 0 {
+				// no-op adjustment: nothing to record
+				w.Header().Set("HX-Trigger", "refreshTable")
+				w.WriteHeader(http.StatusOK)
+				return
+			}
+			tx, err := dbPool.Begin(r.Context())
+			if err != nil {
+				log.Error("begin transaction", "error", err, "game_id", gameID)
+				http.Error(w, "server error", http.StatusInternalServerError)
+				return
+			}
+			defer tx.Rollback(r.Context())
+			txq := queries.WithTx(tx)
+
+			err = txq.GamePointsAdjust(r.Context(), sqlc.GamePointsAdjustParams{
 				Points:   pgtype.Int4{Int32: int32(amount), Valid: true},
 				GameID:   gameID,
 				PlayerID: int32(targetID),
@@ -213,6 +248,36 @@ func actionHandler(w http.ResponseWriter, r *http.Request) {
 					"player_id", targetID,
 					"amount", amount,
 				)
+				http.Error(w, "server error", http.StatusInternalServerError)
+				return
+			}
+			// record the points change; no infraction here, just a host adjustment
+			pcID, err := txq.PointChangeCreate(r.Context(), sqlc.PointChangeCreateParams{
+				GameID:       gameID,
+				PlayerID:     pgtype.Int4{Int32: int32(targetID), Valid: true},
+				Delta:        int32(amount),
+				InfractionID: pgtype.Int4{Valid: false},
+			})
+			if err != nil {
+				log.Error("record point change",
+					"error", err,
+					"game_id", gameID,
+					"player_id", targetID,
+				)
+				http.Error(w, "server error", http.StatusInternalServerError)
+				return
+			}
+			// add an event so the change shows in the feed and plays a sound
+			if err := writeEvent(w, r, log, txq, sqlc.EventCreateParams{
+				GameID:        gameID,
+				EventType:     "points",
+				TargetID:      pgInt(int32(targetID)),
+				PointChangeID: pgInt(pcID),
+			}); err != nil {
+				return
+			}
+			if err = tx.Commit(r.Context()); err != nil {
+				log.Error("commit points transaction", "error", err, "game_id", gameID)
 				http.Error(w, "server error", http.StatusInternalServerError)
 				return
 			}
@@ -250,7 +315,7 @@ func actionHandler(w http.ResponseWriter, r *http.Request) {
 				http.Error(w, "invalid player id", http.StatusBadRequest)
 				return
 			}
-			prevSpin, err := queries.SpinLogPendingModifier(r.Context(), gameID)
+			prevSpin, err := queries.SpinPendingModifier(r.Context(), gameID)
 			if err != nil && !errors.Is(err, pgx.ErrNoRows) {
 				log.Error("check previous spin", "error", err, "game_id", gameID)
 				http.Error(w, "server error", http.StatusInternalServerError)
@@ -288,6 +353,13 @@ func actionHandler(w http.ResponseWriter, r *http.Request) {
 						http.Error(w, "server error while ending game", http.StatusInternalServerError)
 						return
 					}
+					if err := writeEvent(w, r, log, queries, sqlc.EventCreateParams{
+						GameID:    gameID,
+						EventType: "end",
+					}); err != nil {
+						return
+					}
+					cache.Delete(gameID)
 					http.Error(w, "game over, deck slot exhausted", http.StatusGone)
 					return
 				}
@@ -306,7 +378,7 @@ func actionHandler(w http.ResponseWriter, r *http.Request) {
 			)
 
 			// check if drawn card is a modifier via spin log
-			lastSpin, err := queries.SpinLogPendingModifier(
+			lastSpin, err := queries.SpinPendingModifier(
 				r.Context(), gameID,
 			)
 			if err != nil {
@@ -317,8 +389,17 @@ func actionHandler(w http.ResponseWriter, r *http.Request) {
 				http.Error(w, "server error", http.StatusInternalServerError)
 				return
 			}
+			// add an event for the spin (feed + the spinner's sound)
+			if err := writeEvent(w, r, log, queries, sqlc.EventCreateParams{
+				GameID:    gameID,
+				EventType: "spin",
+				ActorID:   pgInt(int32(id)),
+				SpinID:    pgInt(lastSpin.ID),
+			}); err != nil {
+				return
+			}
 			if !lastSpin.ModifierEffect.Valid {
-				err = queries.InitiativeAdvance(r.Context(), gameID)
+				err = advanceTurn(r.Context(), log, queries, gameID)
 				if err != nil {
 					log.Error("advance initiative after spin",
 						"error", err,
@@ -346,7 +427,9 @@ func actionHandler(w http.ResponseWriter, r *http.Request) {
 				}
 				trigger := `{"refreshTable":null`
 				if cardContent != "" {
-					trigger += `,"notice":` + strconv.Quote("new rule: "+cardContent)
+					// newRule shows the toast but stays silent; the spin event
+					// already dings the spinner, so notice would double up.
+					trigger += `,"newRule":` + strconv.Quote("new rule: "+cardContent)
 				}
 				trigger += `}`
 				w.Header().Set("HX-Trigger", trigger)
@@ -442,6 +525,12 @@ func actionHandler(w http.ResponseWriter, r *http.Request) {
 				return
 			}
 			log.Info("game paused", "game_id", gameID)
+			if err := writeEvent(w, r, log, queries, sqlc.EventCreateParams{
+				GameID:    gameID,
+				EventType: "pause",
+			}); err != nil {
+				return
+			}
 			cache.Delete(gameID)
 			w.Header().Set("HX-Trigger", "refreshTable")
 			w.WriteHeader(http.StatusOK)
@@ -475,6 +564,12 @@ func actionHandler(w http.ResponseWriter, r *http.Request) {
 				return
 			}
 			log.Info("game resumed", "game_id", gameID)
+			if err := writeEvent(w, r, log, queries, sqlc.EventCreateParams{
+				GameID:    gameID,
+				EventType: "resume",
+			}); err != nil {
+				return
+			}
 			cache.Delete(gameID)
 			w.Header().Set("HX-Trigger", "refreshTable")
 			w.WriteHeader(http.StatusOK)
@@ -497,7 +592,7 @@ func actionHandler(w http.ResponseWriter, r *http.Request) {
 				http.Error(w, "no pending modifier", http.StatusConflict)
 				return
 			}
-			lastSpin, err := queries.SpinLogPendingModifier(
+			lastSpin, err := queries.SpinPendingModifier(
 				r.Context(), gameID,
 			)
 			if err != nil {
@@ -572,6 +667,15 @@ func actionHandler(w http.ResponseWriter, r *http.Request) {
 				http.Error(w, "server error", http.StatusInternalServerError)
 				return
 			}
+			// add an event for the flip
+			if err := writeEvent(w, r, log, queries, sqlc.EventCreateParams{
+				GameID:     gameID,
+				EventType:  "flip",
+				ActorID:    pgInt(int32(playerID)),
+				GameCardID: pgInt(int32(gcID)),
+			}); err != nil {
+				return
+			}
 			// shred the modifier card that was just used
 			for _, c := range state.CardsPlayers {
 				if c.PlayerID.Int32 == int32(playerID) && c.Type == "modifier" {
@@ -607,7 +711,7 @@ func actionHandler(w http.ResponseWriter, r *http.Request) {
 				http.Error(w, "server error", http.StatusInternalServerError)
 				return
 			}
-			err = queries.InitiativeAdvance(r.Context(), gameID)
+			err = advanceTurn(r.Context(), log, queries, gameID)
 			if err != nil {
 				log.Error("advance initiative after flip",
 					"error", err,
@@ -640,7 +744,7 @@ func actionHandler(w http.ResponseWriter, r *http.Request) {
 				http.Error(w, "no pending modifier", http.StatusConflict)
 				return
 			}
-			lastSpin, err := queries.SpinLogPendingModifier(
+			lastSpin, err := queries.SpinPendingModifier(
 				r.Context(), gameID,
 			)
 			if err != nil {
@@ -717,6 +821,15 @@ func actionHandler(w http.ResponseWriter, r *http.Request) {
 				http.Error(w, "server error", http.StatusInternalServerError)
 				return
 			}
+			// add an event for the shred
+			if err := writeEvent(w, r, log, queries, sqlc.EventCreateParams{
+				GameID:     gameID,
+				EventType:  "shred",
+				ActorID:    pgInt(int32(shredPlayerID)),
+				GameCardID: pgInt(int32(cardID)),
+			}); err != nil {
+				return
+			}
 			// shred the modifier card that was just used
 			for _, c := range state.CardsPlayers {
 				if c.PlayerID.Int32 == int32(shredPlayerID) && c.Type == "modifier" {
@@ -752,7 +865,7 @@ func actionHandler(w http.ResponseWriter, r *http.Request) {
 				http.Error(w, "server error", http.StatusInternalServerError)
 				return
 			}
-			err = queries.InitiativeAdvance(r.Context(), gameID)
+			err = advanceTurn(r.Context(), log, queries, gameID)
 			if err != nil {
 				log.Error("advance initiative after shred",
 					"error", err,
@@ -785,7 +898,7 @@ func actionHandler(w http.ResponseWriter, r *http.Request) {
 				http.Error(w, "no pending modifier", http.StatusConflict)
 				return
 			}
-			lastSpin, err := queries.SpinLogPendingModifier(
+			lastSpin, err := queries.SpinPendingModifier(
 				r.Context(), gameID,
 			)
 			if err != nil {
@@ -897,6 +1010,16 @@ func actionHandler(w http.ResponseWriter, r *http.Request) {
 				http.Error(w, "server error", http.StatusInternalServerError)
 				return
 			}
+			// add an event for the clone (cloner -> recipient)
+			if err := writeEvent(w, r, log, queries, sqlc.EventCreateParams{
+				GameID:     gameID,
+				EventType:  "clone",
+				ActorID:    pgInt(int32(clonePlayerID)),
+				TargetID:   pgInt(int32(targetID)),
+				GameCardID: pgInt(int32(cardID)),
+			}); err != nil {
+				return
+			}
 			// shred the modifier card that was just used
 			for _, c := range state.CardsPlayers {
 				if c.PlayerID.Int32 == int32(clonePlayerID) && c.Type == "modifier" {
@@ -930,7 +1053,7 @@ func actionHandler(w http.ResponseWriter, r *http.Request) {
 				http.Error(w, "server error", http.StatusInternalServerError)
 				return
 			}
-			err = queries.InitiativeAdvance(r.Context(), gameID)
+			err = advanceTurn(r.Context(), log, queries, gameID)
 			if err != nil {
 				log.Error("advance initiative after clone",
 					"error", err,
@@ -965,7 +1088,7 @@ func actionHandler(w http.ResponseWriter, r *http.Request) {
 				http.Error(w, "no pending modifier", http.StatusConflict)
 				return
 			}
-			lastSpin, err := queries.SpinLogPendingModifier(
+			lastSpin, err := queries.SpinPendingModifier(
 				r.Context(), gameID,
 			)
 			if err != nil {
@@ -1077,6 +1200,16 @@ func actionHandler(w http.ResponseWriter, r *http.Request) {
 				http.Error(w, "server error", http.StatusInternalServerError)
 				return
 			}
+			// add an event for the transfer (sender -> recipient)
+			if err := writeEvent(w, r, log, queries, sqlc.EventCreateParams{
+				GameID:     gameID,
+				EventType:  "transfer",
+				ActorID:    pgInt(int32(xferPlayerID)),
+				TargetID:   pgInt(int32(targetID)),
+				GameCardID: pgInt(int32(cardID)),
+			}); err != nil {
+				return
+			}
 			// shred the modifier card that was just used
 			for _, c := range state.CardsPlayers {
 				if c.PlayerID.Int32 == int32(xferPlayerID) && c.Type == "modifier" {
@@ -1110,7 +1243,7 @@ func actionHandler(w http.ResponseWriter, r *http.Request) {
 				http.Error(w, "server error", http.StatusInternalServerError)
 				return
 			}
-			err = queries.InitiativeAdvance(r.Context(), gameID)
+			err = advanceTurn(r.Context(), log, queries, gameID)
 			if err != nil {
 				log.Error("advance initiative after transfer",
 					"error", err,
@@ -1196,7 +1329,16 @@ func actionHandler(w http.ResponseWriter, r *http.Request) {
 				http.Error(w, "invalid accuser", http.StatusBadRequest)
 				return
 			}
-			infractionID, err := queries.InfractionCreate(
+			tx, err := dbPool.Begin(r.Context())
+			if err != nil {
+				log.Error("begin transaction", "error", err, "game_id", gameID)
+				http.Error(w, "server error", http.StatusInternalServerError)
+				return
+			}
+			defer tx.Rollback(r.Context())
+			txq := queries.WithTx(tx)
+
+			infractionID, err := txq.InfractionCreate(
 				r.Context(), sqlc.InfractionCreateParams{
 					GameID:     gameID,
 					GameCardID: int32(gcID),
@@ -1213,7 +1355,7 @@ func actionHandler(w http.ResponseWriter, r *http.Request) {
 				return
 			}
 			// transition to challenge state
-			err = queries.GameUpdate(r.Context(), sqlc.GameUpdateParams{
+			err = txq.GameUpdate(r.Context(), sqlc.GameUpdateParams{
 				ID:      gameID,
 				StateID: 5, // challenge
 				InitiativeCurrent: pgtype.Int4{
@@ -1226,6 +1368,21 @@ func actionHandler(w http.ResponseWriter, r *http.Request) {
 					"error", err,
 					"game_id", gameID,
 				)
+				http.Error(w, "server error", http.StatusInternalServerError)
+				return
+			}
+			// add an event: the accuser accuses the accused
+			if err := writeEvent(w, r, log, txq, sqlc.EventCreateParams{
+				GameID:       gameID,
+				EventType:    "accuse",
+				ActorID:      pgInt(int32(accuserID)),
+				TargetID:     pgInt(int32(defendantID)),
+				InfractionID: pgInt(infractionID),
+			}); err != nil {
+				return
+			}
+			if err = tx.Commit(r.Context()); err != nil {
+				log.Error("commit accuse transaction", "error", err, "game_id", gameID)
 				http.Error(w, "server error", http.StatusInternalServerError)
 				return
 			}
@@ -1344,6 +1501,8 @@ func actionHandler(w http.ResponseWriter, r *http.Request) {
 					http.Error(w, "invalid amount", http.StatusBadRequest)
 					return
 				}
+				// the affirm UI sends a positive penalty; negate it so the
+				// ledger deducts (GamePointsAdjust adds the delta).
 				penalty = -int32(pts)
 			}
 
@@ -1362,7 +1521,6 @@ func actionHandler(w http.ResponseWriter, r *http.Request) {
 			_, err = txq.InfractionDecide(r.Context(), sqlc.InfractionDecideParams{
 				ID:       int32(infID),
 				Affirmed: pgtype.Bool{Bool: affirmed, Valid: true},
-				Points:   pgtype.Int4{Int32: penalty, Valid: true},
 			})
 			if errors.Is(err, pgx.ErrNoRows) {
 				log.Info("infraction already decided (race)",
@@ -1382,8 +1540,9 @@ func actionHandler(w http.ResponseWriter, r *http.Request) {
 				return
 			}
 
-			// adjust points if affirmed
-			if affirmed {
+			// adjust points if affirmed (a zero penalty means guilty but no
+			// points change, so skip the adjustment and its event)
+			if affirmed && penalty != 0 {
 				err = txq.GamePointsAdjust(
 					r.Context(), sqlc.GamePointsAdjustParams{
 						Points:   pgtype.Int4{Int32: penalty, Valid: true},
@@ -1401,23 +1560,73 @@ func actionHandler(w http.ResponseWriter, r *http.Request) {
 					http.Error(w, "server error", http.StatusInternalServerError)
 					return
 				}
+				// record the points change, linked to the infraction that caused it
+				pcID, err := txq.PointChangeCreate(r.Context(), sqlc.PointChangeCreateParams{
+					GameID:       gameID,
+					PlayerID:     pgtype.Int4{Int32: pointsPlayerID, Valid: true},
+					Delta:        penalty,
+					InfractionID: pgtype.Int4{Int32: int32(infID), Valid: true},
+				})
+				if err != nil {
+					log.Error("record point change",
+						"error", err,
+						"game_id", gameID,
+						"infraction_id", infID,
+					)
+					http.Error(w, "server error", http.StatusInternalServerError)
+					return
+				}
+				// the accused lost points: event for the feed and their sound
+				if err := writeEvent(w, r, log, txq, sqlc.EventCreateParams{
+					GameID:        gameID,
+					EventType:     "points",
+					TargetID:      pgInt(pointsPlayerID),
+					PointChangeID: pgInt(pcID),
+				}); err != nil {
+					return
+				}
 			}
 
-			// return to turn state
+			// stay in challenge while infractions remain queued, so the
+			// host keeps getting prompted for the next one; otherwise return
+			// to turn state
+			remaining, err := txq.InfractionsActiveCount(r.Context(), gameID)
+			if err != nil {
+				log.Error("count active infractions",
+					"error", err,
+					"game_id", gameID,
+				)
+				http.Error(w, "server error", http.StatusInternalServerError)
+				return
+			}
+			nextState := int32(3) // turn
+			if remaining > 0 {
+				nextState = 5 // challenge
+			}
 			err = txq.GameUpdate(r.Context(), sqlc.GameUpdateParams{
 				ID:      gameID,
-				StateID: 3,
+				StateID: nextState,
 				InitiativeCurrent: pgtype.Int4{
 					Int32: state.Game.InitiativeCurrent.Int32,
 					Valid: true,
 				},
 			})
 			if err != nil {
-				log.Error("transition to turn",
+				log.Error("transition state after decide",
 					"error", err,
 					"game_id", gameID,
 				)
 				http.Error(w, "server error", http.StatusInternalServerError)
+				return
+			}
+
+			// add an event for the verdict (feed + the accuser's sound)
+			if err := writeEvent(w, r, log, txq, sqlc.EventCreateParams{
+				GameID:       gameID,
+				EventType:    "decide",
+				TargetID:     pgInt(infraction.Accuser),
+				InfractionID: pgInt(int32(infID)),
+			}); err != nil {
 				return
 			}
 
@@ -1455,6 +1664,13 @@ func actionHandler(w http.ResponseWriter, r *http.Request) {
 				http.Error(w, "server error", http.StatusInternalServerError)
 				return
 			}
+			if err := writeEvent(w, r, log, queries, sqlc.EventCreateParams{
+				GameID:    gameID,
+				EventType: "end",
+			}); err != nil {
+				return
+			}
+			cache.Delete(gameID)
 			log.Info("game ended")
 			w.WriteHeader(http.StatusGone)
 			return
@@ -1463,5 +1679,4 @@ func actionHandler(w http.ResponseWriter, r *http.Request) {
 			http.Error(w, "unsupported action", http.StatusNotImplemented)
 		}
 	}
-	return
 }

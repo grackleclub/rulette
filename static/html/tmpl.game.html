@@ -28,6 +28,16 @@
             <section id="status-fetch" hx-get="/{{ .Game.ID }}/data/status"
               hx-target="#status-fetch" hx-trigger="load, every {{ .Config.refresh }}" hx-swap="morph:innerHTML">
             </section>
+            <div class="status-live">
+              <ul id="event-log" class="event-log event-log-live"
+                hx-get="/{{ .Game.ID }}/data/events"
+                hx-vals='js:{since: (document.querySelector("#event-log .event:last-child")?.dataset.eventId) || 0}'
+                hx-trigger="load, every {{ .Config.refresh }}"
+                hx-sync="this:drop" hx-swap="beforeend">
+              </ul>
+              <button type="button" class="button-more" aria-label="view game history"
+                data-open-dialog="event-log-dialog" data-fetch-event="loadEventLog">history</button>
+            </div>
           </div>
         </div>
 
@@ -125,11 +135,24 @@
     <dialog id="invite-dialog">
       <div class="dialog-body stack stack-centered">
         <h2>Invite players</h2>
-        <img id="invite-qr" alt="join QR code">
         <a id="invite-link" class="invite-link" href="" target="_blank" rel="noopener"></a>
         <small id="invite-copy-success" aria-live="polite" hidden>copied to clipboard!</small>
         <small id="invite-copy-failure" aria-live="polite" hidden>could not copy to clipboard.</small>
+        <img id="invite-qr" alt="join QR code">
         <button class="button" data-close-dialog="invite-dialog">close</button>
+      </div>
+    </dialog>
+
+    <dialog id="event-log-dialog">
+      <div class="dialog-body stack">
+        <h2>game log</h2>
+        <ul id="event-log-full" class="event-log"
+          hx-get="/{{ .Game.ID }}/data/events"
+          hx-vals='js:{since: (document.querySelector("#event-log-full .event:last-child")?.dataset.eventId) || 0}'
+          hx-trigger="loadEventLog from:body"
+          hx-sync="this:drop" hx-swap="beforeend">
+        </ul>
+        <button class="button" data-close-dialog="event-log-dialog">close</button>
       </div>
     </dialog>
 

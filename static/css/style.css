@@ -221,7 +221,7 @@ a {
   position: relative;
   display: flex;
   flex-direction: column;
-  justify-content: flex-start;
+  justify-content: space-evenly;
   align-items: center;
   gap: 1em;
   width: 100%;
@@ -231,11 +231,6 @@ a {
 .card > * {
   position: relative;
   z-index: 1;
-}
-
-.card > form {
-  margin-top: auto;
-  margin-bottom: auto;
 }
 
 .card-float {
@@ -302,25 +297,41 @@ a {
   margin-top: .25em;
 }
 
-#about-dialog {
+#help-dialog {
   max-width: 32em;
 }
 
-#about-dialog ul {
+.help-list {
   list-style: none;
   padding-left: 1.25em;
 }
 
-#about-dialog li {
+.help-list li {
   position: relative;
   margin: .35em 0;
 }
 
-#about-dialog li::before {
+.help-list li::before {
   content: "§";
   position: absolute;
   left: -1.25em;
   color: var(--color-loop-1);
+}
+
+/* about/rules/getting started shown on the create screen */
+.help-intro {
+  max-width: 28em;
+  text-align: left;
+  background: var(--color-text-light);
+  border: 10px solid var(--color-text-dark);
+  color: var(--color-text-dark);
+  padding: 1.25em 1.5em;
+  border-radius: 2.2em;
+  box-shadow: 0 .25em .25em var(--color-shadow);
+}
+
+.help-intro h3 {
+  margin-top: .25em;
 }
 
 .player-hey.player-hey-inline {
@@ -436,9 +447,17 @@ a {
   font-size: .875em;
 }
 
+.game-subtitle footer.playing-as {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  margin-bottom: .5em;
+}
+
 .game-subtitle footer.playing-as #self {
   font-size: 1.75em;
   font-weight: 900;
+  line-height: 1;
 }
 
 .role-label {
@@ -660,6 +679,117 @@ dialog fieldset {
 .game-points {
   align-items: center;
   margin-top: auto;
+}
+
+/* game-over screen */
+.game-over {
+  gap: 1em;
+  padding: 1em 0 2em;
+}
+.game-over-winner {
+  font-family: var(--font-display);
+  font-size: 1.5em;
+  text-align: center;
+}
+.game-over-standings {
+  list-style: none;
+  width: 100%;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: .5em;
+}
+.game-over-standings li {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  padding: .4em .9em;
+  border-radius: .3em;
+  background: var(--color-loop-2);
+  color: var(--color-text-dark);
+}
+.game-over-standings li:first-child {
+  background: var(--color-player-bg);
+}
+.game-over-score {
+  font-family: var(--font-score);
+}
+
+/* event log: the status line becomes the live event feed once play starts */
+
+/* before the first event (pre-game): plain status. after: the live line. */
+.status-live {
+  display: none;
+}
+.game-subtitle:has(.event) #status-fetch {
+  display: none;
+}
+.game-subtitle:has(.event) .status-live {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: .4em;
+}
+
+/* the history button beside the live line */
+.button-more {
+  flex: none;
+  padding: .15em .5em;
+  background: var(--color-text-dark);
+  color: var(--color-text-light);
+  border: none;
+  border-radius: .3em;
+  font-size: .5em;
+  line-height: 1.4;
+  cursor: pointer;
+}
+
+.event-log {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column; /* oldest first; newest at the bottom */
+  gap: .15em;
+}
+.event {
+  padding: .3em .5em;
+  border-bottom: .1em solid var(--color-player-border);
+  font-size: .9em;
+}
+
+/* inline: just the newest event (the last item); hide the rest */
+.event-log-live {
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
+}
+.event-log-live .event:not(:last-child) {
+  display: none;
+}
+.event-log-live .event {
+  padding: 0 .3em;
+  border: none;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  font-size: .85em;
+  line-height: 1.3;
+  animation: fade-in .4s ease;
+}
+@keyframes fade-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+/* expanded log: last ~6 events, newest at the bottom, older fading out on top */
+#event-log-full {
+  min-width: 16em;
+  max-height: 10em; /* about six lines; scroll up for older */
+  overflow-y: auto;
+  -webkit-mask-image: linear-gradient(to bottom, transparent 0, black 2.5em);
+  mask-image: linear-gradient(to bottom, transparent 0, black 2.5em);
 }
 
 

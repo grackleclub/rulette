@@ -233,8 +233,8 @@ resultant_card AS (
         LIMIT 1
     ) AS id
 ),
-spin_log AS (
-    INSERT INTO spin_log (game_id, player_id, slot, card_id)
+spins AS (
+    INSERT INTO spins (game_id, player_id, slot, card_id)
     VALUES (
         $1,
         $2,
