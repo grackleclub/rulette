@@ -2,10 +2,12 @@ package main
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"sync"
 	"time"
 
+	"github.com/jackc/pgx/v5"
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/attribute"
 )
@@ -128,6 +130,27 @@ func fetchStateFromDB(ctx context.Context, gameID string) (state, error) {
 		log.Debug("no infractions to fetch", "game_id", gameID)
 	}
 
+	// the turn waits on the current player to acknowledge a drawn rule card:
+	// true when, mid-turn, the most recent spin is theirs and not a modifier.
+	var awaitingAck bool
+	if game.StateID == stateTurn {
+		sctx, sspan := tr.Start(ctx, "db.SpinPendingModifier")
+		lastSpin, serr := queries.SpinPendingModifier(sctx, gameID)
+		sspan.End()
+		switch {
+		case serr == nil && !lastSpin.ModifierEffect.Valid:
+			for _, p := range players {
+				if p.Initiative.Int32 != game.InitiativeCurrent.Int32 {
+					continue
+				}
+				awaitingAck = p.PlayerID == lastSpin.PlayerID.Int32
+				break
+			}
+		case serr != nil && !errors.Is(serr, pgx.ErrNoRows):
+			return state{}, fmt.Errorf("fetch last spin: %w", serr)
+		}
+	}
+
 	log.Debug("fetched game state and players",
 		"player_count", len(players),
 		"game_id", gameID,
@@ -140,5 +163,6 @@ func fetchStateFromDB(ctx context.Context, gameID string) (state, error) {
 		CardsWheel:   cardsWheel,
 		CardsPlayers: cardsPlayers,
 		Infractions:  infractions,
+		AwaitingAck:  awaitingAck,
 	}, nil
 }

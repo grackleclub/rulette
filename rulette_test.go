@@ -204,6 +204,14 @@ func TestGame(t *testing.T) {
 		mux.ServeHTTP(w, req)
 		require.Equal(t, http.StatusOK, w.Result().StatusCode)
 		require.Equal(t, "image/png", w.Result().Header.Get("Content-Type"))
+
+		// dump the rendered banner+QR for local eyeballing when requested
+		if outDir := os.Getenv("RULETTE_TEST_DUMP_DIR"); outDir != "" {
+			require.NoError(t, os.MkdirAll(outDir, 0o755))
+			out := outDir + "/qr.png"
+			require.NoError(t, os.WriteFile(out, w.Body.Bytes(), 0o644))
+			t.Logf("wrote %s", out)
+		}
 	})
 	t.Run("GET /{game_id}/qr (unknown game)", func(t *testing.T) {
 		mux := http.NewServeMux()
@@ -404,7 +412,18 @@ func TestGame(t *testing.T) {
 			if strings.Contains(trigger, "modifierShredded") {
 				continue
 			}
-			// non-modifier spins auto-advance
+			// a drawn rule card holds the turn until the player acknowledges it
+			if strings.Contains(trigger, "newCard") {
+				ackReq := httptest.NewRequest(http.MethodPost,
+					fmt.Sprintf("/%s/action/acknowledge", gameID), nil)
+				ackReq.AddCookie(c)
+				ackW := httptest.NewRecorder()
+				cache.Delete(gameID)
+				actionHandler(ackW, ackReq)
+				require.Equal(t, http.StatusOK, ackW.Result().StatusCode,
+					"spin %d acknowledge failed", i)
+			}
+			// the turn has advanced (after ack, or by the modifier above)
 			current = (current % maxInit) + 1
 		}
 		require.True(t, exhausted, "deck not exhausted within %d spins", maxSpins)

@@ -15,11 +15,19 @@
     {{ end }}
     <div class="table-bar">
       {{ if and (eq $.Game.StateName "turn") $isTurn }}
-        <button class="button-teal"
-          hx-post="/{{ $gid }}/action/spin"
-          hx-swap="none">
-          spin
-        </button>
+        {{ if $.AwaitingAck }}
+          <button class="button-teal"
+            hx-post="/{{ $gid }}/action/acknowledge"
+            hx-swap="none">
+            end turn
+          </button>
+        {{ else }}
+          <button class="button-teal"
+            hx-post="/{{ $gid }}/action/spin"
+            hx-swap="none">
+            spin
+          </button>
+        {{ end }}
       {{ end }}
       {{ if $isHost }}
         {{ if eq $.Game.StateName "ready" }}
