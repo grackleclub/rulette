@@ -221,7 +221,7 @@ a {
   position: relative;
   display: flex;
   flex-direction: column;
-  justify-content: flex-start;
+  justify-content: space-evenly;
   align-items: center;
   gap: 1em;
   width: 100%;
@@ -231,11 +231,6 @@ a {
 .card > * {
   position: relative;
   z-index: 1;
-}
-
-.card > form {
-  margin-top: auto;
-  margin-bottom: auto;
 }
 
 .card-float {
@@ -327,10 +322,11 @@ a {
 .help-intro {
   max-width: 28em;
   text-align: left;
-  background: rgba(255, 255, 255, 0.6);
+  background: var(--color-text-light);
+  border: 10px solid var(--color-text-dark);
   color: var(--color-text-dark);
   padding: 1.25em 1.5em;
-  border-radius: 1em;
+  border-radius: 2.2em;
   box-shadow: 0 .25em .25em var(--color-shadow);
 }
 
@@ -451,9 +447,17 @@ a {
   font-size: .875em;
 }
 
+.game-subtitle footer.playing-as {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  margin-bottom: .5em;
+}
+
 .game-subtitle footer.playing-as #self {
   font-size: 1.75em;
   font-weight: 900;
+  line-height: 1;
 }
 
 .role-label {
@@ -723,6 +727,7 @@ dialog fieldset {
 }
 .game-subtitle:has(.event) .status-live {
   display: flex;
+  flex-direction: column;
   align-items: center;
   gap: .4em;
 }
