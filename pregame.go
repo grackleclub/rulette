@@ -164,27 +164,27 @@ func joinHandler(w http.ResponseWriter, r *http.Request) {
 		}
 
 		switch game.StateID {
-		case 6:
+		case stateOver:
 			log.Info("join attempt to closed game")
 			http.Error(w, "game over", http.StatusGone)
 			return
 
-		case 4, 3, 2:
+		case statePending, stateTurn, stateReady:
 			log.Info("join attempt to game in progress",
 				"state_id", game.StateID,
 				"state_name", game.StateName,
 			)
 			http.Error(w, "game in progress", http.StatusConflict)
 			return
-		case 1, 0:
+		case stateInviting, stateCreated:
 			// first join updates state from 'created' to 'inviting'
 			// NOTE: first to join is automatically set as host (initiative 0)
 			var firstJoin bool
-			if game.StateID == 0 {
+			if game.StateID == stateCreated {
 				firstJoin = true
 				log.Debug("created game has first join, updating state to inviting")
 				err := queries.GameUpdate(r.Context(), sqlc.GameUpdateParams{
-					StateID:           1,
+					StateID:           stateInviting,
 					InitiativeCurrent: pgtype.Int4{Int32: 0, Valid: true},
 					ID:                gameID,
 				})

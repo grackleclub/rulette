@@ -72,11 +72,11 @@ func actionHandler(w http.ResponseWriter, r *http.Request) {
 		attrCallerName.String(state.CallerName),
 	)
 	switch state.Game.StateID {
-	case 6: // game over
+	case stateOver: // game over
 		log.Info("request to ended game", "game_id", gameID)
 		http.Error(w, "game over", http.StatusGone)
 		return
-	case 1, 0: // pregame
+	case stateInviting, stateCreated: // pregame
 		switch action {
 		case "start":
 			if !state.isHost(cookieKey) {
@@ -126,7 +126,7 @@ func actionHandler(w http.ResponseWriter, r *http.Request) {
 			// set game to in-progress
 			err := queries.GameUpdate(r.Context(), sqlc.GameUpdateParams{
 				ID:                gameID,
-				StateID:           2, // in progress
+				StateID:           stateReady, // in progress
 				InitiativeCurrent: pgtype.Int4{Int32: 0, Valid: true},
 			})
 			if err != nil {
@@ -139,7 +139,7 @@ func actionHandler(w http.ResponseWriter, r *http.Request) {
 			// start initiative with first non-host player
 			err = queries.GameUpdate(r.Context(), sqlc.GameUpdateParams{
 				ID:                gameID,
-				StateID:           3,
+				StateID:           stateTurn,
 				InitiativeCurrent: pgtype.Int4{Int32: 1, Valid: true},
 			})
 			if err != nil {
@@ -178,7 +178,7 @@ func actionHandler(w http.ResponseWriter, r *http.Request) {
 			http.Error(w, ErrActionInvalid.Error(), http.StatusTooEarly)
 			return
 		}
-	case 7, 5, 4, 3, 2: // in progress (7 = deck spent, host to end)
+	case stateEnding, stateChallenge, statePending, stateTurn, stateReady: // in progress (6 = deck spent, host to end)
 		switch action {
 		case "points":
 			if !state.isHost(cookieKey) {
@@ -291,7 +291,7 @@ func actionHandler(w http.ResponseWriter, r *http.Request) {
 			w.WriteHeader(http.StatusOK)
 
 		case "spin":
-			if state.Game.StateID != 3 {
+			if state.Game.StateID != stateTurn {
 				log.Info("spin requires turn state",
 					"game_id", gameID,
 					"state_id", state.Game.StateID,
@@ -346,7 +346,7 @@ func actionHandler(w http.ResponseWriter, r *http.Request) {
 					)
 					err := queries.GameUpdate(r.Context(), sqlc.GameUpdateParams{
 						ID:      gameID,
-						StateID: 7, // ending
+						StateID: stateEnding,
 						InitiativeCurrent: pgtype.Int4{
 							Int32: state.Game.InitiativeCurrent.Int32,
 							Valid: true,
@@ -488,7 +488,7 @@ func actionHandler(w http.ResponseWriter, r *http.Request) {
 			)
 			err = queries.GameUpdate(r.Context(), sqlc.GameUpdateParams{
 				ID:      gameID,
-				StateID: 4, // pending
+				StateID: statePending,
 				InitiativeCurrent: pgtype.Int4{
 					Int32: state.Game.InitiativeCurrent.Int32,
 					Valid: true,
@@ -512,7 +512,7 @@ func actionHandler(w http.ResponseWriter, r *http.Request) {
 				http.Error(w, "only host can pause", http.StatusForbidden)
 				return
 			}
-			if state.Game.StateID != 3 {
+			if state.Game.StateID != stateTurn {
 				log.Info("pause requires turn state",
 					"game_id", gameID,
 					"state_id", state.Game.StateID,
@@ -522,7 +522,7 @@ func actionHandler(w http.ResponseWriter, r *http.Request) {
 			}
 			err := queries.GameUpdate(r.Context(), sqlc.GameUpdateParams{
 				ID:      gameID,
-				StateID: 2,
+				StateID: stateReady,
 				InitiativeCurrent: pgtype.Int4{
 					Int32: state.Game.InitiativeCurrent.Int32,
 					Valid: true,
@@ -551,7 +551,7 @@ func actionHandler(w http.ResponseWriter, r *http.Request) {
 				http.Error(w, "only host can resume", http.StatusForbidden)
 				return
 			}
-			if state.Game.StateID != 2 {
+			if state.Game.StateID != stateReady {
 				log.Info("resume requires ready state",
 					"game_id", gameID,
 					"state_id", state.Game.StateID,
@@ -561,7 +561,7 @@ func actionHandler(w http.ResponseWriter, r *http.Request) {
 			}
 			err := queries.GameUpdate(r.Context(), sqlc.GameUpdateParams{
 				ID:      gameID,
-				StateID: 3,
+				StateID: stateTurn,
 				InitiativeCurrent: pgtype.Int4{
 					Int32: state.Game.InitiativeCurrent.Int32,
 					Valid: true,
@@ -592,7 +592,7 @@ func actionHandler(w http.ResponseWriter, r *http.Request) {
 				http.Error(w, "only host can end the game", http.StatusForbidden)
 				return
 			}
-			if state.Game.StateID != 7 {
+			if state.Game.StateID != stateEnding {
 				log.Info("endgame requires ending state",
 					"game_id", gameID,
 					"state_id", state.Game.StateID,
@@ -602,7 +602,7 @@ func actionHandler(w http.ResponseWriter, r *http.Request) {
 			}
 			err := queries.GameUpdate(r.Context(), sqlc.GameUpdateParams{
 				ID:      gameID,
-				StateID: 6, // game over
+				StateID: stateOver,
 			})
 			if err != nil {
 				log.Error("end game", "error", err, "game_id", gameID)
@@ -630,7 +630,7 @@ func actionHandler(w http.ResponseWriter, r *http.Request) {
 				http.Error(w, "not your turn", http.StatusForbidden)
 				return
 			}
-			if state.Game.StateID != 4 {
+			if state.Game.StateID != statePending {
 				log.Info("flip requires pending state",
 					"game_id", gameID,
 					"state_id", state.Game.StateID,
@@ -743,7 +743,7 @@ func actionHandler(w http.ResponseWriter, r *http.Request) {
 			// resolve: back to turn state and advance initiative
 			err = queries.GameUpdate(r.Context(), sqlc.GameUpdateParams{
 				ID:      gameID,
-				StateID: 3, // turn
+				StateID: stateTurn,
 				InitiativeCurrent: pgtype.Int4{
 					Int32: state.Game.InitiativeCurrent.Int32,
 					Valid: true,
@@ -782,7 +782,7 @@ func actionHandler(w http.ResponseWriter, r *http.Request) {
 				http.Error(w, "not your turn", http.StatusForbidden)
 				return
 			}
-			if state.Game.StateID != 4 {
+			if state.Game.StateID != statePending {
 				log.Info("shred requires pending state",
 					"game_id", gameID,
 					"state_id", state.Game.StateID,
@@ -897,7 +897,7 @@ func actionHandler(w http.ResponseWriter, r *http.Request) {
 			// resolve: back to turn state and advance initiative
 			err = queries.GameUpdate(r.Context(), sqlc.GameUpdateParams{
 				ID:      gameID,
-				StateID: 3, // turn
+				StateID: stateTurn,
 				InitiativeCurrent: pgtype.Int4{
 					Int32: state.Game.InitiativeCurrent.Int32,
 					Valid: true,
@@ -936,7 +936,7 @@ func actionHandler(w http.ResponseWriter, r *http.Request) {
 				http.Error(w, "not your turn", http.StatusForbidden)
 				return
 			}
-			if state.Game.StateID != 4 {
+			if state.Game.StateID != statePending {
 				log.Info("clone requires pending state",
 					"game_id", gameID,
 					"state_id", state.Game.StateID,
@@ -1085,7 +1085,7 @@ func actionHandler(w http.ResponseWriter, r *http.Request) {
 			}
 			err = queries.GameUpdate(r.Context(), sqlc.GameUpdateParams{
 				ID:      gameID,
-				StateID: 3,
+				StateID: stateTurn,
 				InitiativeCurrent: pgtype.Int4{
 					Int32: state.Game.InitiativeCurrent.Int32,
 					Valid: true,
@@ -1126,7 +1126,7 @@ func actionHandler(w http.ResponseWriter, r *http.Request) {
 				http.Error(w, "not your turn", http.StatusForbidden)
 				return
 			}
-			if state.Game.StateID != 4 {
+			if state.Game.StateID != statePending {
 				log.Info("transfer requires pending state",
 					"game_id", gameID,
 					"state_id", state.Game.StateID,
@@ -1275,7 +1275,7 @@ func actionHandler(w http.ResponseWriter, r *http.Request) {
 			}
 			err = queries.GameUpdate(r.Context(), sqlc.GameUpdateParams{
 				ID:      gameID,
-				StateID: 3,
+				StateID: stateTurn,
 				InitiativeCurrent: pgtype.Int4{
 					Int32: state.Game.InitiativeCurrent.Int32,
 					Valid: true,
@@ -1403,7 +1403,7 @@ func actionHandler(w http.ResponseWriter, r *http.Request) {
 			// transition to challenge state
 			err = txq.GameUpdate(r.Context(), sqlc.GameUpdateParams{
 				ID:      gameID,
-				StateID: 5, // challenge
+				StateID: stateChallenge,
 				InitiativeCurrent: pgtype.Int4{
 					Int32: state.Game.InitiativeCurrent.Int32,
 					Valid: true,
@@ -1452,7 +1452,7 @@ func actionHandler(w http.ResponseWriter, r *http.Request) {
 				http.Error(w, "only host can decide", http.StatusForbidden)
 				return
 			}
-			if state.Game.StateID != 5 {
+			if state.Game.StateID != stateChallenge {
 				log.Info("decide requires challenge state",
 					"game_id", gameID,
 					"state_id", state.Game.StateID,
@@ -1645,9 +1645,9 @@ func actionHandler(w http.ResponseWriter, r *http.Request) {
 				http.Error(w, "server error", http.StatusInternalServerError)
 				return
 			}
-			nextState := int32(3) // turn
+			nextState := int32(stateTurn) // turn
 			if remaining > 0 {
-				nextState = 5 // challenge
+				nextState = stateChallenge // challenge
 			}
 			err = txq.GameUpdate(r.Context(), sqlc.GameUpdateParams{
 				ID:      gameID,
@@ -1702,7 +1702,7 @@ func actionHandler(w http.ResponseWriter, r *http.Request) {
 			}
 			err := queries.GameUpdate(r.Context(), sqlc.GameUpdateParams{
 				ID:                gameID,
-				StateID:           6, // game over
+				StateID:           stateOver, // game over
 				InitiativeCurrent: pgtype.Int4{Int32: 0, Valid: true},
 			})
 			if err != nil {

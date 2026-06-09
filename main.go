@@ -26,11 +26,11 @@ var (
 	dbPool                 *pgxpool.Pool
 	cache                  sync.Map
 	log                    *slog.Logger
-	version                = "dev" // set via -ldflags "-X main.version=..."
-	maxCacheAge            = 500 * time.Millisecond
-	cacheTTL               = 5 * time.Minute
-	cacheJanitorInterval   = 1 * time.Minute
-	portDefault            = 7777
+	version                       = "dev" // set via -ldflags "-X main.version=..."
+	maxCacheAge                   = 500 * time.Millisecond
+	cacheTTL                      = 5 * time.Minute
+	cacheJanitorInterval          = 1 * time.Minute
+	portDefault                   = 7777
 	defaultFrontendRefresh string = fmt.Sprintf("%dms", 500) // passed to templates; htmx-refresh
 )
 
@@ -41,6 +41,18 @@ const (
 	modShred    = "shred"
 	modClone    = "clone"
 	modTransfer = "transfer"
+)
+
+// game.state_id values, mirroring the game_states rows in db/schema.sql.
+const (
+	stateCreated   = 0 // game created, no members joined
+	stateInviting  = 1 // at least one player has joined
+	stateReady     = 2 // joining closed, ready to start (or paused)
+	stateTurn      = 3 // a player is mid-turn
+	statePending   = 4 // a rule modifier choice is pending
+	stateChallenge = 5 // a points challenge is pending
+	stateEnding    = 6 // deck spent, waiting on host to end
+	stateOver      = 7 // game over
 )
 
 //go:embed db/schema.sql

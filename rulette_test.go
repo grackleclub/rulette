@@ -316,17 +316,17 @@ func TestGame(t *testing.T) {
 				"spin %d failed", i,
 			)
 
-			// a spent deck moves the game to the "ending" state (7) instead of
+			// a spent deck moves the game to the "ending" state (6) instead of
 			// ending outright; the host ends it explicitly.
 			cache.Delete(gameID)
 			gs, err := queries.GameState(ctx, gameID)
 			require.NoError(t, err)
-			if gs.StateID == 7 {
+			if gs.StateID == stateEnding {
 				t.Logf("deck exhausted after %d spins", i)
 				exhausted = true
 				break
 			}
-			if gs.StateID == 4 {
+			if gs.StateID == statePending {
 				lastSpin, err := queries.SpinPendingModifier(ctx, gameID)
 				require.NoError(t, err)
 				effect := lastSpin.ModifierEffect.String
@@ -380,7 +380,7 @@ func TestGame(t *testing.T) {
 					t.Logf("spin %d: no rule card to target, skipping", i)
 					err = queries.GameUpdate(ctx, sqlc.GameUpdateParams{
 						ID:      gameID,
-						StateID: 3,
+						StateID: stateTurn,
 						InitiativeCurrent: pgtype.Int4{
 							Int32: gs.InitiativeCurrent.Int32,
 							Valid: true,
@@ -426,13 +426,13 @@ func TestGame(t *testing.T) {
 		cache.Delete(gameID)
 		gs, err := queries.GameState(ctx, gameID)
 		require.NoError(t, err)
-		require.Equal(t, int32(6), gs.StateID, "expected game over")
+		require.Equal(t, int32(stateOver), gs.StateID, "expected game over")
 	})
 
 	// reset game to a playable state for accuse/decide tests
 	err = queries.GameUpdate(ctx, sqlc.GameUpdateParams{
 		ID:      gameID,
-		StateID: 3,
+		StateID: stateTurn,
 		InitiativeCurrent: pgtype.Int4{
 			Int32: 1, Valid: true,
 		},
@@ -490,7 +490,7 @@ func TestGame(t *testing.T) {
 		cache.Delete(gameID)
 		gs, err := queries.GameState(ctx, gameID)
 		require.NoError(t, err)
-		require.Equal(t, int32(5), gs.StateID, "expected challenge state")
+		require.Equal(t, int32(stateChallenge), gs.StateID, "expected challenge state")
 	})
 
 	t.Run("POST /{game_id}/action/decide (non-host rejected)", func(t *testing.T) {
@@ -523,7 +523,7 @@ func TestGame(t *testing.T) {
 		cache.Delete(gameID)
 		gs, err := queries.GameState(ctx, gameID)
 		require.NoError(t, err)
-		require.Equal(t, int32(3), gs.StateID, "expected turn state")
+		require.Equal(t, int32(stateTurn), gs.StateID, "expected turn state")
 
 		// verify points adjusted
 		playersAfter, err := queries.GamePlayerPoints(ctx, gameID)
@@ -568,14 +568,14 @@ func TestGame(t *testing.T) {
 		cache.Delete(gameID)
 		gs, err := queries.GameState(ctx, gameID)
 		require.NoError(t, err)
-		require.Equal(t, int32(3), gs.StateID)
+		require.Equal(t, int32(stateTurn), gs.StateID)
 	})
 
 	t.Run("POST /{game_id}/action/end", func(t *testing.T) {
 		// ensure game is in a playable state first
 		err := queries.GameUpdate(ctx, sqlc.GameUpdateParams{
 			ID:      gameID,
-			StateID: 3,
+			StateID: stateTurn,
 			InitiativeCurrent: pgtype.Int4{
 				Int32: 1, Valid: true,
 			},

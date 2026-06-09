@@ -135,7 +135,7 @@ func cookie(r *http.Request) (string, string, error) {
 // and players can accuse each other.
 func (s *state) isGameActive() bool {
 	switch s.Game.StateID {
-	case 3, 4, 5:
+	case stateTurn, statePending, stateChallenge:
 		return true
 	default:
 		return false

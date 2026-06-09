@@ -168,7 +168,7 @@ func dataHandler(w http.ResponseWriter, r *http.Request) {
 	)
 
 	switch state.Game.StateID {
-	case 6: // game over
+	case stateOver: // game over
 		// htmx stops a polling trigger when it sees status 286, so the
 		// polled sections settle instead of erroring forever. The table
 		// shows the final screen; the others just clear and stop.
@@ -190,7 +190,7 @@ func dataHandler(w http.ResponseWriter, r *http.Request) {
 			http.Error(w, "game over", http.StatusGone)
 		}
 		return
-	case 7, 5, 4, 3, 2, 1, 0: // in progress (7 = deck spent, host to end)
+	case stateEnding, stateChallenge, statePending, stateTurn, stateReady, stateInviting, stateCreated: // in progress (6 = deck spent, host to end)
 		switch topic {
 		case "players":
 			filepath := path.Join("static", "html", "tmpl.players.html")
@@ -272,7 +272,7 @@ func dataHandler(w http.ResponseWriter, r *http.Request) {
 			}
 			return
 		case "infraction":
-			if state.Game.StateID != 5 {
+			if state.Game.StateID != stateChallenge {
 				log.Debug("infraction poll outside challenge state", "state_id", state.Game.StateID)
 				w.WriteHeader(http.StatusNoContent)
 				return
@@ -302,9 +302,9 @@ func dataHandler(w http.ResponseWriter, r *http.Request) {
 					}
 					w.Header().Set("Content-Type", "application/json")
 					json.NewEncoder(w).Encode(map[string]any{
-						"id":       inf.ID,
-						"accused":  accusedName,
-						"rule":     ruleContent,
+						"id":      inf.ID,
+						"accused": accusedName,
+						"rule":    ruleContent,
 					})
 					return
 				}

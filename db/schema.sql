@@ -18,8 +18,8 @@ VALUES
 (3, 'turn', 'player is mid-turn, spinning wheel or responding'),
 (4, 'pending', 'rule modifier choice is pending'),
 (5, 'challenge', 'a points challenge is pending'),
-(6, 'end', 'game over'),
-(7, 'ending', 'deck exhausted, waiting on host to end the game')
+(6, 'ending', 'deck exhausted, waiting on host to end the game'),
+(7, 'end', 'game over')
 ON CONFLICT DO NOTHING;
 
 CREATE TABLE IF NOT EXISTS games (
