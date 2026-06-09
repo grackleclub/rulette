@@ -238,34 +238,6 @@ ON CONFLICT (front) DO UPDATE SET
 	generic = EXCLUDED.generic,
 	modifier_effect = EXCLUDED.modifier_effect;
 
--- this list must match the INSERT VALUES above
-DELETE FROM cards WHERE generic = TRUE AND front NOT IN (
-	'flip any of your own cards',
-	'shred any of your own cards',
-	'clone any of your own cards, and give to someone else',
-	'transfer any of your own cards to another player',
-	'in a whisper',
-	'doing your best Robert De Nero impersonation',
-	'not using any pronouns',
-	'referring to yourself only in the third person',
-	'in a transatlantic accent',
-	'while singing',
-	'in your best Shakespearian english',
-	'never saying "um"',
-	'doing your best Matthew McConaughey impersonation',
-	'as if everything is juicy gossip',
-	'while trying to incite a revolution',
-	'like your mouth is full of marshmallows',
-	'name dropping every sentence',
-	'speaking only in haiku',
-	'always starting with a compliment',
-	'starting every sentence with the next letter of the alphabet',
-	'starting with a fun fact',
-	'assigning superlatives to the other players',
-	'as if everything is a question',
-	'with vocal fry'
-);
-
 -- card_id lacks primary key to allow cloning within a game,
 CREATE TABLE IF NOT EXISTS game_cards (
 	id SERIAL PRIMARY KEY, -- to distinguish between clones
