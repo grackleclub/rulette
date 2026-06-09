@@ -159,7 +159,7 @@
     var on = soundOn();
     var maxId = lastSeenId;
     var toPlay = [];
-    var played = {}; // sound types already queued this fetch (debounce per type)
+    var played = Object.create(null); // sound types already queued this fetch (debounce per type)
     for (var i = 0; i < items.length; i++) {
       var id = parseInt(items[i].getAttribute("data-event-id"), 10);
       if (isNaN(id)) continue;
