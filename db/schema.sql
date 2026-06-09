@@ -105,26 +105,133 @@ VALUES
 	('modifier', 'shred any of your own cards', '', 0, CURRENT_TIMESTAMP, TRUE, 'shred'),
 	('modifier', 'clone any of your own cards, and give to someone else', '', 0, CURRENT_TIMESTAMP, TRUE, 'clone'),
 	('modifier', 'transfer any of your own cards to another player', '', 0, CURRENT_TIMESTAMP, TRUE, 'transfer'),
-	('rule', 'in a whisper', 'a little too loudly', 0, CURRENT_TIMESTAMP, TRUE, NULL),
-	('rule', 'doing your best Robert De Nero impersonation', 'doing your worst Robin Williams impersonation', 0, CURRENT_TIMESTAMP, TRUE, NULL),
-	('rule', 'not using any pronouns', 'using only pronouns', 0, CURRENT_TIMESTAMP, TRUE, NULL),
-	('rule', 'referring to yourself only in the third person', 'referring to yourself in the second person', 0, CURRENT_TIMESTAMP, TRUE, NULL),
-	('rule', 'in a transatlantic accent', 'in a valley girl accent', 0, CURRENT_TIMESTAMP, TRUE, NULL),
-	('rule', 'while singing', 'in a monotone', 0, CURRENT_TIMESTAMP, TRUE, NULL),
-	('rule', 'in your best Shakespearian english', 'using all the contemporary slang you can', 0, CURRENT_TIMESTAMP, TRUE, NULL),
-	('rule', 'never saying "um"', 'saying "um" every other word', 0, CURRENT_TIMESTAMP, TRUE, NULL),
-	('rule', 'doing your best Matthew McConaughey impersonation', 'doing your worst Jack Nicholson impersonation', 0, CURRENT_TIMESTAMP, TRUE, NULL),
-	('rule', 'as if everything is juicy gossip', 'as if everything is really boring', 0, CURRENT_TIMESTAMP, TRUE, NULL),
-	('rule', 'while trying to incite a revolution', 'while trying to calm everyone down', 0, CURRENT_TIMESTAMP, TRUE, NULL),
-	('rule', 'like your mouth is full of marshmallows', 'like you have horrible cottonmouth', 0, CURRENT_TIMESTAMP, TRUE, NULL),
-	('rule', 'name dropping every sentence', 'not using any names', 0, CURRENT_TIMESTAMP, TRUE, NULL),
-	('rule', 'speaking only in haiku', 'rhyming every sentence', 0, CURRENT_TIMESTAMP, TRUE, NULL),
-	('rule', 'always starting with a compliment', 'always self-aggrandizing', 0, CURRENT_TIMESTAMP, TRUE, NULL),
-	('rule', 'starting every sentence with the next letter of the alphabet', 'starting every word with the next letter of the alphabet', 0, CURRENT_TIMESTAMP, TRUE, NULL),
-	('rule', 'starting with a fun fact', 'ending with a fun fact', 0, CURRENT_TIMESTAMP, TRUE, NULL),
-	('rule', 'assigning superlatives to the other players', 'assigning superlatives to yourself', 0, CURRENT_TIMESTAMP, TRUE, NULL),
-	('rule', 'as if everything is a question', 'as if everything is a definite answer', 0, CURRENT_TIMESTAMP, TRUE, NULL),
-	('rule', 'with vocal fry', 'over-enunciating', 0, CURRENT_TIMESTAMP, TRUE, NULL)
+	(
+		'rule',
+		'in a whisper',
+		'a little too loudly',
+		0, CURRENT_TIMESTAMP, TRUE, NULL
+	),
+	(
+		'rule',
+		'only single-syllable words',
+		'only 3+ syllable words',
+		0, CURRENT_TIMESTAMP, TRUE, NULL
+	),
+	(
+		'rule',
+		'doing your best Robert De Nero impersonation',
+		'doing your worst Robin Williams impersonation',
+		0, CURRENT_TIMESTAMP, TRUE, NULL
+	),
+	(
+		'rule',
+		'not using any pronouns',
+		'over-ephasizing every pronoun',
+		0, CURRENT_TIMESTAMP, TRUE, NULL
+	),
+	(
+		'rule', 
+		'referring to yourself only in the third person',
+		'referring to yourself only using honorifics',
+		0,
+		CURRENT_TIMESTAMP, TRUE, NULL
+	),
+	(
+		'rule',
+		'in a transatlantic accent',
+		'in a valley girl accent',
+		0, CURRENT_TIMESTAMP, TRUE, NULL
+	),
+	(
+		'rule',
+		'while singing',
+		'in a monotone',
+		0, CURRENT_TIMESTAMP, TRUE, NULL
+	),
+	(
+		'rule',
+		'in your best Shakespearian english',
+		'using all the contemporary slang you can',
+		0, CURRENT_TIMESTAMP, TRUE, NULL
+	),
+	(
+		'rule',
+		'never saying "um"',
+		'saying "um" every other word',
+		0, CURRENT_TIMESTAMP, TRUE, NULL
+	),
+	(
+		'rule',
+		'doing your best Matthew McConaughey impersonation',
+		'doing your worst Jack Nicholson impersonation',
+		0, CURRENT_TIMESTAMP, TRUE, NULL
+	),
+	(
+		'rule',
+		'as if everything is juicy gossip',
+		'as if everything is really boring',
+		0, CURRENT_TIMESTAMP, TRUE, NULL
+	),
+	(
+		'rule',
+		'while trying to incite a revolution',
+		'while trying to calm everyone down',
+		0, CURRENT_TIMESTAMP, TRUE, NULL
+	),
+	(
+		'rule',
+		'like your mouth is full of marshmallows',
+		'like you have horrible cottonmouth',
+		0, CURRENT_TIMESTAMP, TRUE, NULL
+	),
+	(
+		'rule',
+		'name dropping every sentence',
+		'not using any names',
+		0, CURRENT_TIMESTAMP, TRUE, NULL
+	),
+	(
+		'rule',
+		'speaking only in haiku',
+		'rhyming every sentence',
+		0, CURRENT_TIMESTAMP, TRUE, NULL
+	),
+	(
+		'rule',
+		'always starting with a compliment',
+		'always self-aggrandizing',
+		0, CURRENT_TIMESTAMP, TRUE, NULL
+	),
+	(
+		'rule',
+		'starting every sentence with the next letter of the alphabet',
+		'starting every word with the next letter of the alphabet',
+		0, CURRENT_TIMESTAMP, TRUE, NULL
+	),
+	(
+		'rule',
+		'starting with a fun fact',
+		'starting with a slightly upsetting fact',
+		0, CURRENT_TIMESTAMP, TRUE, NULL
+	),
+	(
+		'rule',
+		'end every sentence with a famous full name',
+		'end every sentence with a different zoo animal',
+		0, CURRENT_TIMESTAMP, TRUE, NULL
+	),
+	(
+		'rule',
+		'as if everything is a question',
+		'as if everything is a definite answer',
+		0, CURRENT_TIMESTAMP, TRUE, NULL
+	),
+	(
+		'rule',
+		'with vocal fry',
+		'over-enunciating',
+		0, CURRENT_TIMESTAMP, TRUE, NULL
+	)
 ON CONFLICT (front) DO UPDATE SET
 	back = EXCLUDED.back,
 	type = EXCLUDED.type,
