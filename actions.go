@@ -408,15 +408,10 @@ func actionHandler(w http.ResponseWriter, r *http.Request) {
 				return
 			}
 			if !lastSpin.ModifierEffect.Valid {
-				err = advanceTurn(r.Context(), log, queries, gameID)
-				if err != nil {
-					log.Error("advance initiative after spin",
-						"error", err,
-						"game_id", gameID,
-					)
-					http.Error(w, "server error", http.StatusInternalServerError)
-					return
-				}
+				// a rule card: hold the turn here. show the player the card
+				// they drew and wait for them to acknowledge (POST
+				// /action/acknowledge), which advances the turn. initiative
+				// stays on them until they've seen it.
 				cache.Delete(gameID)
 				fresh, err := stateFromCacheOrDB(r.Context(), &cache, gameID)
 				if err != nil {
@@ -434,13 +429,10 @@ func actionHandler(w http.ResponseWriter, r *http.Request) {
 						break
 					}
 				}
-				trigger := `{"refreshTable":null`
-				if cardContent != "" {
-					// newRule shows the toast but stays silent; the spin event
-					// already dings the spinner, so notice would double up.
-					trigger += `,"newRule":` + strconv.Quote("new rule: "+cardContent)
-				}
-				trigger += `}`
+				// newCard shows the drawn card; the spin event already dinged
+				// the spinner, so this stays silent.
+				trigger := `{"refreshTable":null,"newCard":` +
+					strconv.Quote(cardContent) + `}`
 				w.Header().Set("HX-Trigger", trigger)
 				w.WriteHeader(http.StatusOK)
 				return
@@ -505,6 +497,57 @@ func actionHandler(w http.ResponseWriter, r *http.Request) {
 			cache.Delete(gameID)
 			w.Header().Set("HX-Trigger", `{"refreshTable":null,"loadModifier":null}`)
 			w.WriteHeader(http.StatusOK)
+
+		case "acknowledge":
+			// the spinner advances their own turn after seeing the rule card
+			// they drew. only valid mid-turn for the player whose spin is
+			// waiting to be acknowledged.
+			if state.Game.StateID != stateTurn {
+				log.Info("acknowledge requires turn state",
+					"game_id", gameID,
+					"state_id", state.Game.StateID,
+				)
+				http.Error(w, "cannot acknowledge in current state", http.StatusConflict)
+				return
+			}
+			if !state.isPlayerTurn(cookieKey) {
+				log.Info("prohibiting non-turn player from acknowledging",
+					"cookie_id", cookieID,
+				)
+				http.Error(w, "not your turn", http.StatusForbidden)
+				return
+			}
+			id, err := strconv.Atoi(cookieID)
+			if err != nil {
+				log.Error("invalid player id", "game_id", gameID, "error", err)
+				http.Error(w, "invalid player id", http.StatusBadRequest)
+				return
+			}
+			lastSpin, err := queries.SpinPendingModifier(r.Context(), gameID)
+			if errors.Is(err, pgx.ErrNoRows) ||
+				(err == nil && (lastSpin.PlayerID.Int32 != int32(id) ||
+					lastSpin.ModifierEffect.Valid)) {
+				log.Info("nothing to acknowledge",
+					"game_id", gameID,
+					"player_id", id,
+				)
+				http.Error(w, "nothing to acknowledge", http.StatusConflict)
+				return
+			}
+			if err != nil && !errors.Is(err, pgx.ErrNoRows) {
+				log.Error("check spin to acknowledge", "error", err, "game_id", gameID)
+				http.Error(w, "server error", http.StatusInternalServerError)
+				return
+			}
+			if err := advanceTurn(r.Context(), log, queries, gameID); err != nil {
+				log.Error("advance after acknowledge", "error", err, "game_id", gameID)
+				http.Error(w, "server error", http.StatusInternalServerError)
+				return
+			}
+			cache.Delete(gameID)
+			w.Header().Set("HX-Trigger", "refreshTable")
+			w.WriteHeader(http.StatusOK)
+			return
 
 		case "pause":
 			if !state.isHost(cookieKey) {

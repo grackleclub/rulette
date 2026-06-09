@@ -410,7 +410,18 @@ func TestGame(t *testing.T) {
 			if strings.Contains(trigger, "modifierShredded") {
 				continue
 			}
-			// non-modifier spins auto-advance
+			// a drawn rule card holds the turn until the player acknowledges it
+			if strings.Contains(trigger, "newCard") {
+				ackReq := httptest.NewRequest(http.MethodPost,
+					fmt.Sprintf("/%s/action/acknowledge", gameID), nil)
+				ackReq.AddCookie(c)
+				ackW := httptest.NewRecorder()
+				cache.Delete(gameID)
+				actionHandler(ackW, ackReq)
+				require.Equal(t, http.StatusOK, ackW.Result().StatusCode,
+					"spin %d acknowledge failed", i)
+			}
+			// the turn has advanced (after ack, or by the modifier above)
 			current = (current % maxInit) + 1
 		}
 		require.True(t, exhausted, "deck not exhausted within %d spins", maxSpins)

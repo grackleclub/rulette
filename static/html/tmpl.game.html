@@ -111,6 +111,18 @@
       </div>
     </dialog>
 
+    <dialog id="newcard-dialog">
+      <div class="dialog-body stack stack-centered">
+        <h2>new rule</h2>
+        <p id="newcard-content"></p>
+        <button class="button-teal"
+          hx-post="/{{ .Game.ID }}/action/acknowledge" hx-swap="none"
+          data-close-on-success="newcard-dialog">
+          got it
+        </button>
+      </div>
+    </dialog>
+
     <dialog id="points-dialog" data-game-id="{{ $.Game.ID }}">
       <div class="dialog-body stack">
         <h2>Penalty for the accused</h2>

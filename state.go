@@ -21,6 +21,9 @@ type state struct {
 	Infractions  []sqlc.Infractions            // infraction history
 	CallerID     int                           // init empty, copies populated by callerInfo()
 	CallerName   string                        // init empty, copies populated by callerInfo()
+	// AwaitingAck is true when the current-turn player has spun a rule card
+	// they must acknowledge before the turn advances.
+	AwaitingAck bool
 }
 
 // isPlayerInGame returns true when cookieKey exists in game_players.

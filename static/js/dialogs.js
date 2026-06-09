@@ -70,9 +70,18 @@
     if (!dialog.open) dialog.showModal();
   }
   document.body.addEventListener("notice", showNotice);
-  // a new rule shows the same toast, but on its own channel so it stays silent
-  // (the spin event already dings the spinner) -- see sound.js dingNotice.
-  document.body.addEventListener("newRule", showNotice);
+
+  // a drawn rule card opens its own dialog; its "got it" button posts
+  // /action/acknowledge, which advances the turn. it stays silent (the spin
+  // event already dings the spinner) -- see sound.js dingNotice.
+  function showNewCard(e) {
+    var dialog = document.getElementById("newcard-dialog");
+    var content = document.getElementById("newcard-content");
+    if (!dialog || !content) return;
+    content.textContent = e.detail && e.detail.value ? e.detail.value : "";
+    if (!dialog.open) dialog.showModal();
+  }
+  document.body.addEventListener("newCard", showNewCard);
 
   // close a dialog: data-close-dialog="dialog-id"
   document.body.addEventListener("click", function (e) {
