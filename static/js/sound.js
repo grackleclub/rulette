@@ -148,7 +148,9 @@
   }
 
   // walk the live feed; play the newest events that concern me. the first run
-  // with events present only seeds lastSeenId, so history doesn't replay.
+  // with events present only seeds lastSeenId, so history doesn't replay. within
+  // a single fetch each sound type plays at most once, so a burst of like events
+  // in one poll doesn't stack; separate polls each get their own sound.
   function process() {
     var list = document.getElementById("event-log");
     if (!list) return;
@@ -157,6 +159,7 @@
     var on = soundOn();
     var maxId = lastSeenId;
     var toPlay = [];
+    var played = {}; // sound types already queued this fetch (debounce per type)
     for (var i = 0; i < items.length; i++) {
       var id = parseInt(items[i].getAttribute("data-event-id"), 10);
       if (isNaN(id)) continue;
@@ -165,7 +168,10 @@
       if (id <= lastSeenId) continue; // already handled
       if (!on) continue;
       var m = soundFor(items[i]);
-      if (m && m.who && m.who === me) toPlay.push(m.sound);
+      if (!m || !m.who || m.who !== me) continue;
+      if (played[m.sound]) continue; // this type already queued this fetch
+      played[m.sound] = true;
+      toPlay.push(m.sound);
     }
     // a burst can't pile up: keep only the most recent few sounds (newest win)
     if (toPlay.length > maxQueuedSounds) {
