@@ -205,11 +205,13 @@ func TestGame(t *testing.T) {
 		require.Equal(t, http.StatusOK, w.Result().StatusCode)
 		require.Equal(t, "image/png", w.Result().Header.Get("Content-Type"))
 
-		// dump the rendered banner+QR so it can be eyeballed after a run
-		require.NoError(t, os.MkdirAll("/tmp/rulette", 0o755))
-		out := "/tmp/rulette/qr.png"
-		require.NoError(t, os.WriteFile(out, w.Body.Bytes(), 0o644))
-		t.Logf("wrote %s", out)
+		// dump the rendered banner+QR for local eyeballing when requested
+		if outDir := os.Getenv("RULETTE_TEST_DUMP_DIR"); outDir != "" {
+			require.NoError(t, os.MkdirAll(outDir, 0o755))
+			out := outDir + "/qr.png"
+			require.NoError(t, os.WriteFile(out, w.Body.Bytes(), 0o644))
+			t.Logf("wrote %s", out)
+		}
 	})
 	t.Run("GET /{game_id}/qr (unknown game)", func(t *testing.T) {
 		mux := http.NewServeMux()
