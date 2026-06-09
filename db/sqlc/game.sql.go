@@ -12,19 +12,18 @@ import (
 )
 
 const gameCreate = `-- name: GameCreate :exec
-INSERT INTO games (name, id, owner_id)
-VALUES ($1, $2, $3)
+INSERT INTO games (id, owner_id)
+VALUES ($1, $2)
 RETURNING id
 `
 
 type GameCreateParams struct {
-	Name    string      `json:"name"`
 	ID      string      `json:"id"`
 	OwnerID pgtype.Int4 `json:"owner_id"`
 }
 
 func (q *Queries) GameCreate(ctx context.Context, arg GameCreateParams) error {
-	_, err := q.db.Exec(ctx, gameCreate, arg.Name, arg.ID, arg.OwnerID)
+	_, err := q.db.Exec(ctx, gameCreate, arg.ID, arg.OwnerID)
 	return err
 }
 
@@ -40,7 +39,6 @@ func (q *Queries) GameDelete(ctx context.Context, id string) error {
 const gameState = `-- name: GameState :one
 SELECT
     id,
-    name,
     owner_id,
     state_id,
     initiative_current,
@@ -64,7 +62,6 @@ FROM games WHERE games.id = $1
 
 type GameStateRow struct {
 	ID                string      `json:"id"`
-	Name              string      `json:"name"`
 	OwnerID           pgtype.Int4 `json:"owner_id"`
 	StateID           int32       `json:"state_id"`
 	InitiativeCurrent pgtype.Int4 `json:"initiative_current"`
@@ -78,7 +75,6 @@ func (q *Queries) GameState(ctx context.Context, id string) (GameStateRow, error
 	var i GameStateRow
 	err := row.Scan(
 		&i.ID,
-		&i.Name,
 		&i.OwnerID,
 		&i.StateID,
 		&i.InitiativeCurrent,
@@ -107,7 +103,7 @@ func (q *Queries) GameUpdate(ctx context.Context, arg GameUpdateParams) error {
 }
 
 const games = `-- name: Games :many
-SELECT id, name, created, owner_id, state_id, wheel_slots, card_count, initiative_timer, initiative_current FROM games WHERE id = (
+SELECT id, created, owner_id, state_id, wheel_slots, card_count, initiative_timer, initiative_current FROM games WHERE id = (
 	SELECT game_id 
 	FROM game_players
 	WHERE player_id = $1
@@ -125,7 +121,6 @@ func (q *Queries) Games(ctx context.Context, playerID int32) ([]Games, error) {
 		var i Games
 		if err := rows.Scan(
 			&i.ID,
-			&i.Name,
 			&i.Created,
 			&i.OwnerID,
 			&i.StateID,

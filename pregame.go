@@ -53,18 +53,12 @@ func createHandler(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
 		return
 	}
-	gamename := r.FormValue("gamename")
-	if gamename == "" {
-		http.Error(w, "missing required field: gamename", http.StatusBadRequest)
-		return
-	}
 
 	// construct random hex game identifier and create new game
 	gamecode := fmt.Sprintf("%06x", mathrand.Intn(0xffffff+1))
-	log.Debug("short hash for game name", "gamename", gamename, "hash", gamecode)
+	log.Debug("new game", "code", gamecode)
 	err := queries.GameCreate(r.Context(), sqlc.GameCreateParams{
-		Name: gamename,
-		ID:   string(gamecode),
+		ID: string(gamecode),
 		// TODO: missing owner_id for now
 	})
 	if err != nil {

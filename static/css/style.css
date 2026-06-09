@@ -206,6 +206,12 @@ a {
   background: var(--color-button-hover);
 }
 
+/* larger variant for the primary create-game call-to-action */
+.button-create.button-create-lg {
+  padding: .6em 2em;
+  font-size: 1.3em;
+}
+
 .button-action {
   background: var(--color-text-dark);
   color: var(--color-text-light);
@@ -239,6 +245,12 @@ a {
   display: flex;
 }
 
+/* join screen: keep the logo at the top instead of spread down the card */
+.card-join {
+  justify-content: flex-start;
+  padding-top: 1.5em;
+}
+
 /* in-game variant of .card */
 .card-game {
   justify-content: flex-start;
@@ -259,6 +271,14 @@ a {
 
 .player-dimmed {
   filter: brightness(0.7);
+}
+
+/* empty sections (e.g. the table during the invite lobby) shouldn't take up a
+   flex gap and push later content down -- collapse them when they have no
+   content so the spacing stays even. */
+#table:empty,
+#points:empty {
+  display: none;
 }
 
 /* card logo */
@@ -371,17 +391,9 @@ a {
 }
 
 .invite {
-  position: fixed;
-  top: 50%;
-  left: 50%;
-  transform: translate(-50%, -50%);
-  z-index: 10;
-  pointer-events: none;
-}
-
-.invite a,
-.invite button {
-  pointer-events: auto;
+  /* shrink to the wider button and center the block; children stretch to it,
+     so Invite/Players and Start/Game come out the same width */
+  align-self: center;
 }
 
 .card-action {

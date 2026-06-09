@@ -1,5 +1,5 @@
-  {{ $gid := .Game.ID }}
-  {{ if ne .Game.StateName "inviting" }}
+{{- $gid := .Game.ID -}}
+{{- if ne .Game.StateName "inviting" -}}
     {{ $cid := .CallerID }}
     {{ $isHost := false }}
     {{ range .Players }}
@@ -50,4 +50,4 @@
         </button>
       </div>
     {{ end }}
-  {{ end }}
+{{- end -}}

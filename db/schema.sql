@@ -25,7 +25,6 @@ ON CONFLICT (id) DO UPDATE
 
 CREATE TABLE IF NOT EXISTS games (
 	id VARCHAR(6) PRIMARY KEY,
-	name TEXT NOT NULL,
 	created TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
 	owner_id INTEGER,
 	state_id INTEGER NOT NULL DEFAULT 0,
@@ -36,6 +35,10 @@ CREATE TABLE IF NOT EXISTS games (
 	FOREIGN KEY (owner_id) REFERENCES players(id) ON DELETE CASCADE,
 	FOREIGN KEY (state_id) REFERENCES game_states(id)
 );
+
+-- games used to carry a name; it's gone now. drop it from any older database
+-- on startup. idempotent: a no-op once dropped, and on a fresh games table.
+ALTER TABLE games DROP COLUMN IF EXISTS name;
 
 CREATE TABLE IF NOT EXISTS game_players (
 	game_id VARCHAR(6) NOT NULL,

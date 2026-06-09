@@ -3,15 +3,19 @@
   <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Rulette | {{ .Name }}</title>
+    <title>Rulette | {{ .ID }}</title>
     <link rel="stylesheet" href="/static/css/style.css">
     <link rel="icon" type="image/svg+xml" href="/static/img/favicon.svg">
   </head>
   <body>
     <div class="card-float">
-      <article class="card">
+      <article class="card card-join">
         <div class="stack game-title">
-          <h1>{{ .Name }}</h1>
+          <div class="card-logo">rulette</div>
+        </div>
+        <div class="help-intro">
+          <p>Only one session cookie is set.</p>
+          <p>No ads or tracking.</p>
         </div>
         <form class="stack" action="/{{ .ID }}/join" method="POST">
           <input type="text" id="username" name="username" placeholder="enter name" autocomplete="off" autofocus required />

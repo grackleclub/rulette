@@ -99,12 +99,8 @@ func TestGame(t *testing.T) {
 	// new game
 	var gameID string
 	t.Run("POST /create", func(t *testing.T) {
-		// create new game with gamename="Test Game"
 		req := httptest.NewRequest(http.MethodPost, "/create", nil)
 		w := httptest.NewRecorder()
-		req.Form = map[string][]string{
-			"gamename": {"Test Game"},
-		}
 		createHandler(w, req)
 		require.Equal(t, http.StatusSeeOther, w.Result().StatusCode)
 		// capture the redirect location

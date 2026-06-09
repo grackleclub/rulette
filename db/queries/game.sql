@@ -1,6 +1,6 @@
 -- name: GameCreate :exec
-INSERT INTO games (name, id, owner_id)
-VALUES ($1, $2, $3)
+INSERT INTO games (id, owner_id)
+VALUES ($1, $2)
 RETURNING id;
 
 -- name: GameUpdate :exec
@@ -21,7 +21,6 @@ DELETE FROM games WHERE id = $1;
 -- name: GameState :one
 SELECT
     id,
-    name,
     owner_id,
     state_id,
     initiative_current,

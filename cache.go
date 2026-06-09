@@ -131,7 +131,6 @@ func fetchStateFromDB(ctx context.Context, gameID string) (state, error) {
 	log.Debug("fetched game state and players",
 		"player_count", len(players),
 		"game_id", gameID,
-		"game_name", game.Name,
 		"game_state", game.StateName,
 	)
 	return state{

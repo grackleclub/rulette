@@ -3,7 +3,7 @@
   <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Rulette | {{ .Game.Name }}</title>
+    <title>Rulette | {{ .Game.ID }}</title>
     <link rel="icon" type="image/svg+xml" href="/static/img/favicon.svg">
     <link rel="stylesheet" href="/static/css/style.css"> 
     <script src="/static/js/htmx.min.js"></script>
@@ -16,7 +16,7 @@
       <article class="card card-game">
 
         <div id="title" class="stack game-title">
-          <h1>{{ .Game.Name }}</h1>
+          <div class="card-logo">rulette</div>
           <div class="game-subtitle">
             {{ $isHost := false }}
             {{ range .Players }}
