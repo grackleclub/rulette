@@ -722,6 +722,53 @@ func actionHandler(w http.ResponseWriter, r *http.Request) {
 			w.WriteHeader(http.StatusOK)
 			return
 
+		case "continue":
+			if !state.isHost(cookieKey) {
+				log.Warn("prohibiting non-host from continuing game")
+				http.Error(w, "only host can continue the game", http.StatusForbidden)
+				return
+			}
+			if state.Game.StateID != stateEnding {
+				log.Warn("continue requires ending state",
+					"game_id", gameID,
+					"state_id", state.Game.StateID,
+				)
+				http.Error(w, "cannot continue in current state", http.StatusConflict)
+				return
+			}
+			err := queries.GameUpdate(r.Context(), sqlc.GameUpdateParams{
+				ID:      gameID,
+				StateID: stateTurn,
+				InitiativeCurrent: pgtype.Int4{
+					Int32: state.Game.InitiativeCurrent.Int32,
+					Valid: true,
+				},
+			})
+			if err != nil {
+				log.Error("continue game", "error", err, "game_id", gameID)
+				http.Error(w, "server error", http.StatusInternalServerError)
+				return
+			}
+			log.Info("game continued by host", "game_id", gameID)
+			if err := writeEvent(w, r, log, queries, sqlc.EventCreateParams{
+				GameID:    gameID,
+				EventType: "continue",
+			}); err != nil {
+				return
+			}
+			if err := advanceTurn(r.Context(), log, queries, gameID); err != nil {
+				log.Error("advance initiative after continue",
+					"error", err,
+					"game_id", gameID,
+				)
+				http.Error(w, "server error", http.StatusInternalServerError)
+				return
+			}
+			cache.Delete(gameID)
+			w.Header().Set("HX-Trigger", "refreshTable")
+			w.WriteHeader(http.StatusOK)
+			return
+
 		case "flip":
 			if !state.isPlayerTurn(cookieKey) {
 				log.Warn("prohibiting non-turn player from flipping",

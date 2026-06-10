@@ -66,6 +66,8 @@
     });
     var display = document.getElementById("points-display");
     if (display) display.textContent = "0";
+    var amount = document.getElementById("points-amount");
+    if (amount) amount.value = "0";
     document.querySelectorAll("#points-dialog .infraction-id-input").forEach(function(el) {
       el.value = input ? input.value : "";
     });

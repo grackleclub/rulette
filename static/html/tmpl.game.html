@@ -15,35 +15,32 @@
     <div class="card-float">
       <article class="card card-game">
 
-        <div id="title" class="stack game-title">
-          <div class="card-logo">rulette</div>
-          <div class="game-subtitle">
-            {{ $isHost := false }}
-            {{ range .Players }}
-              {{ if and (eq .Initiative.Int32 0) (eq $.CallerID .PlayerID) }}
-                {{ $isHost = true }}
-              {{ end }}
+        <div id="title" class="game-header">
+          <div class="header-logo">rulette</div>
+          {{ $isHost := false }}
+          {{ range .Players }}
+            {{ if and (eq .Initiative.Int32 0) (eq $.CallerID .PlayerID) }}
+              {{ $isHost = true }}
             {{ end }}
-            <footer class="playing-as"><span id="self">{{ .CallerName }}</span> <span class="role-label">{{ if $isHost }}host{{ else }}player{{ end }}</span></footer>
-            <section id="status-fetch" hx-get="/{{ .Game.ID }}/data/status"
-              hx-target="#status-fetch" hx-trigger="load, every {{ .Config.refresh }}" hx-swap="morph:innerHTML">
-            </section>
-            <div class="status-live">
-              <ul id="event-log" class="event-log event-log-live"
-                hx-get="/{{ .Game.ID }}/data/events"
-                hx-vals='js:{since: (document.querySelector("#event-log .event:last-child")?.dataset.eventId) || 0}'
-                hx-trigger="load, every {{ .Config.refresh }}"
-                hx-sync="this:drop" hx-swap="beforeend">
-              </ul>
-              <button type="button" class="button-more" aria-label="view game history"
-                data-open-dialog="event-log-dialog" data-fetch-event="loadEventLog">history</button>
-            </div>
+          {{ end }}
+          <footer class="playing-as"><span id="self">{{ .CallerName }}</span> <span class="role-label">{{ if $isHost }}host{{ else }}player{{ end }}</span></footer>
+          <section id="status-fetch" hx-get="/{{ .Game.ID }}/data/status"
+            hx-target="#status-fetch" hx-trigger="load, every {{ .Config.refresh }}" hx-swap="morph:innerHTML">
+          </section>
+          <div class="status-live">
+            <button type="button" class="button-more" aria-label="view game log"
+              data-open-dialog="event-log-dialog" data-fetch-event="loadEventLog">game log</button>
+            <ul id="event-log" class="event-log event-log-live"
+              hx-get="/{{ .Game.ID }}/data/events"
+              hx-vals='js:{since: (document.querySelector("#event-log .event:last-child")?.dataset.eventId) || 0}'
+              hx-trigger="load, every {{ .Config.refresh }}"
+              hx-sync="this:drop" hx-swap="beforeend">
+            </ul>
           </div>
+          <section id="table" hx-get="/{{ .Game.ID }}/data/table"
+            hx-target="#table" hx-trigger="load, refreshTable from:body, every {{ .Config.refresh }}" hx-swap="morph:innerHTML">
+          </section>
         </div>
-
-        <section id="table" hx-get="/{{ .Game.ID }}/data/table"
-          hx-target="#table" hx-trigger="load, refreshTable from:body, every {{ .Config.refresh }}" hx-swap="morph:innerHTML">
-        </section>
 
         <dialog id="change-points-dialog">
           <div class="dialog-body stack"

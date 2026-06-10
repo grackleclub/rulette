@@ -22,6 +22,12 @@
   font-display: swap;
 }
 
+@font-face {
+  font-family: 'Bebas Neue';
+  src: url('/static/fonts/BebasNeue-Regular.ttf') format('truetype');
+  font-display: swap;
+}
+
 :root {
   --color-bg: #afafaf;
   --color-card-bg: #00a0b8;
@@ -43,6 +49,7 @@
   --font-script: 'Borel', cursive;
   --font-score: 'DSEG7', monospace;
   --font-body: 'Roboto', sans-serif;
+  --font-title: 'Bebas Neue', 'Secular One', sans-serif;
 }
 
 
@@ -245,10 +252,15 @@ a {
   display: flex;
 }
 
-/* join screen: keep the logo at the top instead of spread down the card */
+/* join screen: logo at top, form centered in remaining space */
 .card-join {
   justify-content: flex-start;
   padding-top: 1.5em;
+}
+
+.card-join .join-group {
+  margin-top: auto;
+  margin-bottom: auto;
 }
 
 /* in-game variant of .card */
@@ -276,12 +288,11 @@ a {
 /* empty sections (e.g. the table during the invite lobby) shouldn't take up a
    flex gap and push later content down -- collapse them when they have no
    content so the spacing stays even. */
-#table:empty,
 #points:empty {
   display: none;
 }
 
-/* card logo */
+/* card logo (join screen standalone) */
 .card-logo {
   background: var(--color-text-dark);
   color: var(--color-text-light);
@@ -354,6 +365,53 @@ a {
   margin-top: .25em;
 }
 
+.input-wrap {
+  position: relative;
+}
+
+.input-wrap input {
+  width: 100%;
+  padding-right: 2.5em;
+}
+
+.info-toggle {
+  position: absolute;
+  right: .75em;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 1.4em;
+  height: 1.4em;
+  border: 2px solid var(--color-button-hover);
+  border-radius: 50%;
+  background: none;
+  color: var(--color-button-hover);
+  font-style: italic;
+  font-weight: bold;
+  font-size: .6em;
+  cursor: pointer;
+  line-height: 1;
+  padding: 0;
+}
+
+.info-bubble {
+  display: none;
+  position: absolute;
+  top: calc(100% + .5em);
+  left: 0;
+  right: 0;
+  background: var(--color-text-light);
+  color: var(--color-text-dark);
+  border: 4px solid var(--color-text-dark);
+  border-radius: 1em;
+  padding: .5em .75em;
+  font-size: .75em;
+  z-index: 10;
+}
+
+.info-bubble[aria-hidden="false"] {
+  display: block;
+}
+
 .player-hey.player-hey-inline {
   position: static;
   transform: none;
@@ -390,19 +448,15 @@ a {
   color: var(--color-loop-2);
 }
 
-.invite {
-  /* shrink to the wider button and center the block; children stretch to it,
-     so Invite/Players and Start/Game come out the same width */
-  align-self: center;
-}
-
 .card-action {
-  font-size: 1.75em;
+  flex: 1 1 0;
+  min-width: 0;
+  font-size: 1.25em;
   font-weight: bold;
   text-transform: uppercase;
   text-align: center;
+  padding: .75em .5em;
   color: var(--color-loop-2);
-  padding: 1.5em;
 }
 
 #start {
@@ -414,60 +468,79 @@ a {
 }
 
 
-/* game title */
 .game-title {
   width: 100%;
   align-items: center;
 }
 
-.game-title h1 {
-  background: var(--color-text-light);
-  color: var(--color-text-dark);
-  border: .3em solid var(--color-text-dark);
-  border-radius: .7em;
-  padding: .25em .75em;
-  font-size: 2em;
-  text-align: center;
+/* combined game header card */
+.game-header {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: .5em;
   width: 100%;
-  max-width: 20.6em;
-}
-
-.game-subtitle {
+  max-width: 30em;
+  align-self: center;
   background: var(--color-text-light);
   color: var(--color-text-dark);
   border: .5em solid var(--color-text-dark);
   border-radius: .9em;
-  padding: .5em .75em;
+  padding: 0 .75em .75em;
+  box-shadow: 0 .25em .25em var(--color-shadow);
   text-align: center;
-  width: auto;
-  max-width: 20.6em;
+  overflow: hidden;
 }
 
-.game-subtitle footer {
+.header-logo {
+  font-family: var(--font-script);
+  font-size: 2.5em;
+  line-height: 1;
+  background: var(--color-text-dark);
+  color: var(--color-text-light);
+  width: calc(100% + 1.5em);
+  margin: 0 -.75em;
+  padding: 1em .5em .2em;
+}
+
+.game-header footer {
   font-family: var(--font-script);
   font-size: .875em;
   font-weight: 600;
 }
 
-.game-subtitle footer.status {
-  padding-top: .7em;
+#status-fetch {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
 }
 
-.game-subtitle footer.playing-as,
-.game-subtitle footer.initiative {
+.game-header footer.status {
+  padding: .7em .5em .25em;
+  background: var(--color-text-dark);
+  color: var(--color-text-light);
+  font-family: var(--font-script);
+  border: none;
+  border-radius: .3em;
+  font-size: .7em;
+  line-height: 1.4;
+}
+
+.game-header footer.playing-as,
+.game-header footer.initiative {
   font-family: sans-serif;
   font-size: .875em;
 }
 
-.game-subtitle footer.playing-as {
+.game-header footer.playing-as {
   display: flex;
   flex-direction: column;
   align-items: center;
-  margin-bottom: .5em;
+  margin-bottom: .25em;
 }
 
-.game-subtitle footer.playing-as #self {
-  font-size: 1.75em;
+.game-header footer.playing-as #self {
+  font-size: 2.25em;
   font-weight: 900;
   line-height: 1;
 }
@@ -529,15 +602,42 @@ a {
 }
 
 .player-rules {
-  font-size: .875em;
-  color: var(--color-text-dark);
-  padding-left: 2.5em;
   margin-top: 1em;
+  margin-bottom: .75em;
+  padding-left: 2.5em;
+  display: flex;
+  flex-wrap: wrap;
+  gap: .5em;
 }
 
-.player-rules ul {
-  list-style: disc;
-  padding-left: 1.5em;
+/* shared boxed card: 6x4 index-card proportions, used in the player pill
+   and the game log so cards look the same everywhere */
+.index-card {
+  aspect-ratio: 6 / 4;
+  width: 9em;
+  box-sizing: border-box;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  padding: .5em;
+  background: var(--color-text-light);
+  color: var(--color-text-dark);
+  border: .1em solid var(--color-text-dark);
+  border-radius: .4em;
+  box-shadow: .1em .1em .15em var(--color-shadow);
+  font-family: var(--font-title);
+  font-size: 1.2em;
+  line-height: 1.05;
+  text-transform: uppercase;
+  letter-spacing: .02em;
+  overflow: hidden;
+}
+
+/* modifier cards read as the action card stock */
+.index-card-modifier {
+  background: var(--color-card-bg);
+  color: var(--color-text-light);
 }
 
 .player-hey {
@@ -673,18 +773,26 @@ dialog fieldset {
   background: var(--color-backdrop);
 }
 
-/* table bar (outside card) */
+/* table bar (inside header card) */
 .table-bar {
   position: relative;
   z-index: 1;
   display: flex;
+  flex-wrap: wrap;
   justify-content: center;
   gap: .75em;
-  padding: .75em 0;
+  padding: .5em 0 .25em;
+  width: 100%;
 }
 
 .table-bar button {
   min-width: 8em;
+}
+
+.table-bar button:disabled {
+  opacity: .35;
+  cursor: not-allowed;
+  filter: grayscale(.5);
 }
 
 /* points section (centered in card) */
@@ -706,6 +814,7 @@ dialog fieldset {
 .game-over-standings {
   list-style: none;
   width: 100%;
+  max-width: 20em;
   margin: 0;
   padding: 0;
   display: flex;
@@ -734,10 +843,10 @@ dialog fieldset {
 .status-live {
   display: none;
 }
-.game-subtitle:has(.event) #status-fetch {
+.game-header:has(.event) #status-fetch {
   display: none;
 }
-.game-subtitle:has(.event) .status-live {
+.game-header:has(.event) .status-live {
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -747,12 +856,13 @@ dialog fieldset {
 /* the history button beside the live line */
 .button-more {
   flex: none;
-  padding: .15em .5em;
+  padding: .7em .5em .25em;
   background: var(--color-text-dark);
   color: var(--color-text-light);
+  font-family: var(--font-script);
   border: none;
   border-radius: .3em;
-  font-size: .5em;
+  font-size: .7em;
   line-height: 1.4;
   cursor: pointer;
 }
@@ -769,6 +879,14 @@ dialog fieldset {
   padding: .3em .5em;
   border-bottom: .1em solid var(--color-player-border);
   font-size: .9em;
+}
+
+/* in the full log, stack the message above its card */
+#event-log-full .event {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: .4em;
 }
 
 /* inline: just the newest event (the last item); hide the rest */
@@ -790,16 +908,30 @@ dialog fieldset {
   line-height: 1.3;
   animation: fade-in .4s ease;
 }
+/* the inline ticker is one line; cards only show in the full log */
+.event-log-live .index-card-log {
+  display: none;
+}
 @keyframes fade-in {
   from { opacity: 0; }
   to { opacity: 1; }
 }
 
 /* expanded log: last ~6 events, newest at the bottom, older fading out on top */
+#event-log-dialog {
+  width: 75vw;
+  height: 75vh;
+  max-width: 75vw;
+}
+#event-log-dialog .dialog-body {
+  height: 100%;
+}
 #event-log-full {
   min-width: 16em;
-  max-height: 10em; /* about six lines; scroll up for older */
+  flex: 1 1 auto; /* fill the tall dialog; scroll up for older */
   overflow-y: auto;
+  overscroll-behavior: contain; /* keep iOS from scrolling the page behind */
+  -webkit-overflow-scrolling: touch;
   -webkit-mask-image: linear-gradient(to bottom, transparent 0, black 2.5em);
   mask-image: linear-gradient(to bottom, transparent 0, black 2.5em);
 }
