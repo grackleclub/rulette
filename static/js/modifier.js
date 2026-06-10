@@ -134,9 +134,9 @@
     }, { once: true });
     if (!dialog.open) dialog.showModal();
   }
-  // listen for both camelCase and kebab-case (htmx dispatches both)
+  // htmx dispatches a server trigger under both its given name and the
+  // kebab-cased form, so listen to just one or this fires twice.
   document.body.addEventListener("modifierShredded", showShredNotice);
-  document.body.addEventListener("modifier-shredded", showShredNotice);
 
   // handle card button clicks
   document.body.addEventListener("click", function (e) {
