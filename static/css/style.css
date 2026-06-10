@@ -747,12 +747,12 @@ dialog fieldset {
 /* the history button beside the live line */
 .button-more {
   flex: none;
-  padding: .15em .5em;
+  padding: .3em .7em;
   background: var(--color-text-dark);
   color: var(--color-text-light);
   border: none;
   border-radius: .3em;
-  font-size: .5em;
+  font-size: .7em;
   line-height: 1.4;
   cursor: pointer;
 }
@@ -796,10 +796,20 @@ dialog fieldset {
 }
 
 /* expanded log: last ~6 events, newest at the bottom, older fading out on top */
+#event-log-dialog {
+  width: 75vw;
+  height: 75vh;
+  max-width: 75vw;
+}
+#event-log-dialog .dialog-body {
+  height: 100%;
+}
 #event-log-full {
   min-width: 16em;
-  max-height: 10em; /* about six lines; scroll up for older */
+  flex: 1 1 auto; /* fill the tall dialog; scroll up for older */
   overflow-y: auto;
+  overscroll-behavior: contain; /* keep iOS from scrolling the page behind */
+  -webkit-overflow-scrolling: touch;
   -webkit-mask-image: linear-gradient(to bottom, transparent 0, black 2.5em);
   mask-image: linear-gradient(to bottom, transparent 0, black 2.5em);
 }
