@@ -56,12 +56,18 @@ SELECT
     actor.name AS actor_name,
     target.name AS target_name,
     pc.delta AS points_delta,
-    inf.affirmed AS infraction_affirmed
+    inf.affirmed AS infraction_affirmed,
+    card.front AS card_front,
+    card.back AS card_back,
+    card.type AS card_type,
+    gc.flipped AS card_flipped
 FROM event_log e
 LEFT JOIN players actor ON actor.id = e.actor_id
 LEFT JOIN players target ON target.id = e.target_id
 LEFT JOIN point_changes pc ON pc.id = e.point_change_id
 LEFT JOIN infractions inf ON inf.id = e.infraction_id
+LEFT JOIN game_cards gc ON gc.id = e.game_card_id
+LEFT JOIN cards card ON card.id = gc.card_id
 WHERE e.game_id = $1
     AND e.id > $2
 ORDER BY e.id
@@ -79,6 +85,10 @@ type EventListSinceRow struct {
 	TargetName         pgtype.Text `json:"target_name"`
 	PointsDelta        pgtype.Int4 `json:"points_delta"`
 	InfractionAffirmed pgtype.Bool `json:"infraction_affirmed"`
+	CardFront          pgtype.Text `json:"card_front"`
+	CardBack           pgtype.Text `json:"card_back"`
+	CardType           pgtype.Text `json:"card_type"`
+	CardFlipped        pgtype.Bool `json:"card_flipped"`
 }
 
 // Events for a game newer than a given id, oldest first, with the names and
@@ -99,6 +109,10 @@ func (q *Queries) EventListSince(ctx context.Context, arg EventListSinceParams) 
 			&i.TargetName,
 			&i.PointsDelta,
 			&i.InfractionAffirmed,
+			&i.CardFront,
+			&i.CardBack,
+			&i.CardType,
+			&i.CardFlipped,
 		); err != nil {
 			return nil, err
 		}

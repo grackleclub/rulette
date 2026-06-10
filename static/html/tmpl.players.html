@@ -37,12 +37,12 @@
         {{ if eq .PlayerID.Int32 $pid }}
           {{ if not $rules }}
             {{ $rules = true }}
-      <div class="player-rules"><ul>
+      <div class="player-rules">
           {{ end }}
-            <li>{{ .Content }}</li>
+        <div class="index-card{{ if eq .Type "modifier" }} index-card-modifier{{ end }}">{{ .Content }}</div>
           {{ end }}
       {{ end }}
-      {{ if $rules }}</ul></div>{{ end }}
+      {{ if $rules }}</div>{{ end }}
     </article>
   {{ end }}
 </section>
