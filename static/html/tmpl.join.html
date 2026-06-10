@@ -13,14 +13,19 @@
         <div class="stack game-title">
           <div class="card-logo">rulette</div>
         </div>
-        <div class="help-intro">
-          <p>Only one session cookie is set.</p>
-          <p>No ads or tracking.</p>
+        <div class="stack join-group">
+          <form class="stack" action="/{{ .ID }}/join" method="POST">
+            <div class="input-wrap">
+              <input type="text" id="username" name="username" placeholder="enter name" autocomplete="off" autofocus required />
+              <button type="button" class="info-toggle" aria-label="cookie info">i</button>
+              <div class="info-bubble">
+                <p>Only one session cookie is set.</p>
+                <p>No ads or tracking.</p>
+              </div>
+            </div>
+            <input class="button-create" type="submit" value="JOIN GAME" />
+          </form>
         </div>
-        <form class="stack" action="/{{ .ID }}/join" method="POST">
-          <input type="text" id="username" name="username" placeholder="enter name" autocomplete="off" autofocus required />
-          <input class="button-create" type="submit" value="JOIN GAME" />
-        </form>
       </article>
     </div>
     {{ template "footer" . }}
