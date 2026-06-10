@@ -444,6 +444,33 @@ func TestGame(t *testing.T) {
 		require.Equal(t, int32(stateOver), gs.StateID, "expected game over")
 	})
 
+	// put game back into ending state for the continue test
+	err = queries.GameUpdate(ctx, sqlc.GameUpdateParams{
+		ID:      gameID,
+		StateID: stateEnding,
+		InitiativeCurrent: pgtype.Int4{
+			Int32: 1, Valid: true,
+		},
+	})
+	require.NoError(t, err)
+	cache.Delete(gameID)
+
+	t.Run("POST /{game_id}/action/continue (host continues)", func(t *testing.T) {
+		path := fmt.Sprintf("/%s/action/continue", gameID)
+		req := httptest.NewRequest(http.MethodPost, path, nil)
+		req.AddCookie(cookieByInitiative[0]) // host
+		w := httptest.NewRecorder()
+		cache.Delete(gameID)
+		actionHandler(w, req)
+		require.Equal(t, http.StatusOK, w.Result().StatusCode)
+
+		cache.Delete(gameID)
+		gs, err := queries.GameState(ctx, gameID)
+		require.NoError(t, err)
+		require.Equal(t, int32(stateTurn), gs.StateID, "expected game back to turn")
+		require.NotEqual(t, int32(1), gs.InitiativeCurrent.Int32, "expected initiative to advance")
+	})
+
 	// reset game to a playable state for accuse/decide tests
 	err = queries.GameUpdate(ctx, sqlc.GameUpdateParams{
 		ID:      gameID,

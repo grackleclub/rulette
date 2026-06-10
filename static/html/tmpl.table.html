@@ -48,6 +48,11 @@
             hx-swap="none">
             end game
           </button>
+          <button class="button-action"
+            hx-post="/{{ $gid }}/action/continue"
+            hx-swap="none">
+            continue anyway
+          </button>
         {{ end }}
       {{ end }}
     </div>
