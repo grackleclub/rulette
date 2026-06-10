@@ -613,6 +613,165 @@ func TestGame(t *testing.T) {
 		require.Equal(t, int32(stateTurn), gs.StateID)
 	})
 
+	// modifier-vs-challenge interplay: a transfer modifier owed by the turn
+	// player is interrupted by a challenge. The transfer must defer (423) while
+	// the challenge is live, decide must restore pending (because the modifier
+	// is still in hand), and the retried transfer must then succeed.
+	//
+	// pick the turn player (initiative 1), a target, and an accuser
+	var turnPlayerID, targetPlayerID int32
+	for _, p := range players {
+		if p.Initiative.Int32 == 1 {
+			turnPlayerID = p.PlayerID
+		}
+	}
+	var modAccuserCookie *http.Cookie
+	for _, p := range players {
+		if p.Initiative.Int32 != 0 && p.PlayerID != turnPlayerID {
+			targetPlayerID = p.PlayerID
+			modAccuserCookie = cookieByInitiative[p.Initiative.Int32]
+			break
+		}
+	}
+	require.NotZero(t, turnPlayerID, "need a turn player")
+	require.NotZero(t, targetPlayerID, "need a transfer target")
+	require.NotNil(t, modAccuserCookie, "need an accuser")
+	turnCookie := cookieByInitiative[1]
+	require.NotNil(t, turnCookie, "need the turn player's cookie")
+
+	// seed a pending transfer modifier owned by the turn player, alongside a
+	// rule card to give away. Deal exactly these two so the shred check is exact.
+	var transferGCID, ruleGCID int32
+	require.NoError(t, dbPool.QueryRow(ctx,
+		`SELECT gc.id FROM game_cards gc JOIN cards c ON c.id = gc.card_id
+		 WHERE gc.game_id = $1 AND c.modifier_effect = 'transfer' LIMIT 1`,
+		gameID).Scan(&transferGCID))
+	require.NoError(t, dbPool.QueryRow(ctx,
+		`SELECT gc.id FROM game_cards gc JOIN cards c ON c.id = gc.card_id
+		 WHERE gc.game_id = $1 AND c.type = 'rule' LIMIT 1`,
+		gameID).Scan(&ruleGCID))
+	// clear the turn player's hand by shredding (keeping player_id set so these
+	// don't leak into the wheel view, which keys on player_id IS NULL), then
+	// deal exactly the two seeded cards.
+	_, err = dbPool.Exec(ctx,
+		`UPDATE game_cards SET shredded = true
+		 WHERE game_id = $1 AND player_id = $2`, gameID, turnPlayerID)
+	require.NoError(t, err)
+	_, err = dbPool.Exec(ctx,
+		`UPDATE game_cards SET player_id = $1, shredded = false, slot = NULL
+		 WHERE game_id = $2 AND id IN ($3, $4)`,
+		turnPlayerID, gameID, transferGCID, ruleGCID)
+	require.NoError(t, err)
+	_, err = dbPool.Exec(ctx,
+		`INSERT INTO spins (game_id, player_id, slot, card_id, ts)
+		 SELECT $1, $2, 1, id, now() FROM cards WHERE modifier_effect = 'transfer' LIMIT 1`,
+		gameID, turnPlayerID)
+	require.NoError(t, err)
+	require.NoError(t, queries.GameUpdate(ctx, sqlc.GameUpdateParams{
+		ID:                gameID,
+		StateID:           statePending,
+		InitiativeCurrent: pgtype.Int4{Int32: 1, Valid: true},
+	}))
+	cache.Delete(gameID)
+
+	t.Run("POST /{game_id}/action/transfer (423 during challenge)", func(t *testing.T) {
+		// a non-host accuses the turn player, interrupting the pending modifier
+		accusePath := fmt.Sprintf(
+			"/%s/action/accuse?defendant_id=%d&game_card_id=%d",
+			gameID, turnPlayerID, ruleGCID,
+		)
+		req := httptest.NewRequest(http.MethodPost, accusePath, nil)
+		req.AddCookie(modAccuserCookie)
+		w := httptest.NewRecorder()
+		cache.Delete(gameID)
+		actionHandler(w, req)
+		require.Equal(t, http.StatusOK, w.Result().StatusCode)
+		cache.Delete(gameID)
+		gs, err := queries.GameState(ctx, gameID)
+		require.NoError(t, err)
+		require.Equal(t, int32(stateChallenge), gs.StateID, "accuse should enter challenge")
+
+		// the turn player tries to transfer mid-challenge: deferred, not dead
+		xferPath := fmt.Sprintf(
+			"/%s/action/transfer?game_card_id=%d&target_player_id=%d",
+			gameID, ruleGCID, targetPlayerID,
+		)
+		req = httptest.NewRequest(http.MethodPost, xferPath, nil)
+		req.AddCookie(turnCookie)
+		w = httptest.NewRecorder()
+		cache.Delete(gameID)
+		actionHandler(w, req)
+		require.Equal(t, http.StatusLocked, w.Result().StatusCode,
+			"transfer during challenge should defer with 423")
+
+		// card stays with the turn player
+		cache.Delete(gameID)
+		cards, err := queries.GameCardsPlayerView(ctx, gameID)
+		require.NoError(t, err)
+		for _, c := range cards {
+			if c.ID == ruleGCID {
+				require.Equal(t, turnPlayerID, c.PlayerID.Int32,
+					"rule card must not move on a deferred transfer")
+			}
+		}
+	})
+
+	t.Run("POST /{game_id}/action/decide (restores pending, transfer succeeds)", func(t *testing.T) {
+		var infID int32
+		require.NoError(t, dbPool.QueryRow(ctx,
+			`SELECT id FROM infractions WHERE game_id = $1 AND active = true
+			 ORDER BY id DESC LIMIT 1`, gameID).Scan(&infID))
+
+		decidePath := fmt.Sprintf(
+			"/%s/action/decide?infraction_id=%d&verdict=absolve", gameID, infID,
+		)
+		req := httptest.NewRequest(http.MethodPost, decidePath, nil)
+		req.AddCookie(cookieByInitiative[0]) // host
+		w := httptest.NewRecorder()
+		cache.Delete(gameID)
+		actionHandler(w, req)
+		require.Equal(t, http.StatusOK, w.Result().StatusCode)
+
+		// the turn player still holds the modifier, so pending is restored
+		cache.Delete(gameID)
+		gs, err := queries.GameState(ctx, gameID)
+		require.NoError(t, err)
+		require.Equal(t, int32(statePending), gs.StateID,
+			"decide should restore pending when a modifier is still owed")
+
+		// the retried transfer now goes through
+		xferPath := fmt.Sprintf(
+			"/%s/action/transfer?game_card_id=%d&target_player_id=%d",
+			gameID, ruleGCID, targetPlayerID,
+		)
+		req = httptest.NewRequest(http.MethodPost, xferPath, nil)
+		req.AddCookie(turnCookie)
+		w = httptest.NewRecorder()
+		cache.Delete(gameID)
+		actionHandler(w, req)
+		require.Equal(t, http.StatusOK, w.Result().StatusCode,
+			"retried transfer should succeed once pending is restored")
+
+		// rule card moved to target; modifier card shredded (gone from the view)
+		cache.Delete(gameID)
+		cards, err := queries.GameCardsPlayerView(ctx, gameID)
+		require.NoError(t, err)
+		var moved, modifierGone bool
+		modifierGone = true
+		for _, c := range cards {
+			if c.ID == ruleGCID {
+				require.Equal(t, targetPlayerID, c.PlayerID.Int32,
+					"rule card should move to the target")
+				moved = true
+			}
+			if c.ID == transferGCID {
+				modifierGone = false
+			}
+		}
+		require.True(t, moved, "transferred card should appear under the target")
+		require.True(t, modifierGone, "used modifier card should be shredded")
+	})
+
 	t.Run("POST /{game_id}/action/end", func(t *testing.T) {
 		// ensure game is in a playable state first
 		err := queries.GameUpdate(ctx, sqlc.GameUpdateParams{
