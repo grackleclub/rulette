@@ -15,6 +15,40 @@ import (
 
 const minimumPlayers = 2 // number of non-host players required to start
 
+// modifierNotPending rejects a modifier action (flip, shred, clone, transfer)
+// that can't run because the game is not in the pending state. It returns true
+// when it has written an error and the caller should return.
+//
+// A challenge interrupting a pending modifier is only temporary: the decide
+// handler restores pending once the challenge clears, so we answer 423 (Locked)
+// to signal "retry shortly" rather than a dead end. Any other state means the
+// modifier is genuinely no longer pending, which is a 409 (Conflict).
+func modifierNotPending(
+	w http.ResponseWriter,
+	action, gameID string,
+	stateID int32,
+) bool {
+	switch stateID {
+	case statePending:
+		return false
+	case stateChallenge:
+		log.Info("modifier deferred during challenge",
+			"action", action,
+			"game_id", gameID,
+		)
+		http.Error(w, "challenge in progress", http.StatusLocked)
+		return true
+	default:
+		log.Info("modifier requires pending state",
+			"action", action,
+			"game_id", gameID,
+			"state_id", stateID,
+		)
+		http.Error(w, "no pending modifier", http.StatusConflict)
+		return true
+	}
+}
+
 func actionHandler(w http.ResponseWriter, r *http.Request) {
 	pathLong := strings.TrimPrefix(r.URL.Path, "/")
 	parts := strings.Split(pathLong, "/")
@@ -673,12 +707,7 @@ func actionHandler(w http.ResponseWriter, r *http.Request) {
 				http.Error(w, "not your turn", http.StatusForbidden)
 				return
 			}
-			if state.Game.StateID != statePending {
-				log.Info("flip requires pending state",
-					"game_id", gameID,
-					"state_id", state.Game.StateID,
-				)
-				http.Error(w, "no pending modifier", http.StatusConflict)
+			if modifierNotPending(w, action, gameID, state.Game.StateID) {
 				return
 			}
 			lastSpin, err := queries.SpinPendingModifier(
@@ -825,12 +854,7 @@ func actionHandler(w http.ResponseWriter, r *http.Request) {
 				http.Error(w, "not your turn", http.StatusForbidden)
 				return
 			}
-			if state.Game.StateID != statePending {
-				log.Info("shred requires pending state",
-					"game_id", gameID,
-					"state_id", state.Game.StateID,
-				)
-				http.Error(w, "no pending modifier", http.StatusConflict)
+			if modifierNotPending(w, action, gameID, state.Game.StateID) {
 				return
 			}
 			lastSpin, err := queries.SpinPendingModifier(
@@ -979,12 +1003,7 @@ func actionHandler(w http.ResponseWriter, r *http.Request) {
 				http.Error(w, "not your turn", http.StatusForbidden)
 				return
 			}
-			if state.Game.StateID != statePending {
-				log.Info("clone requires pending state",
-					"game_id", gameID,
-					"state_id", state.Game.StateID,
-				)
-				http.Error(w, "no pending modifier", http.StatusConflict)
+			if modifierNotPending(w, action, gameID, state.Game.StateID) {
 				return
 			}
 			lastSpin, err := queries.SpinPendingModifier(
@@ -1169,12 +1188,7 @@ func actionHandler(w http.ResponseWriter, r *http.Request) {
 				http.Error(w, "not your turn", http.StatusForbidden)
 				return
 			}
-			if state.Game.StateID != statePending {
-				log.Warn("transfer requires pending state",
-					"game_id", gameID,
-					"state_id", state.Game.StateID,
-				)
-				http.Error(w, "no pending modifier", http.StatusConflict)
+			if modifierNotPending(w, action, gameID, state.Game.StateID) {
 				return
 			}
 			lastSpin, err := queries.SpinPendingModifier(
