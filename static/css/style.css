@@ -449,9 +449,13 @@ a {
 }
 
 .card-action {
+  flex: 1 1 0;
+  min-width: 0;
+  font-size: 1.25em;
   font-weight: bold;
   text-transform: uppercase;
   text-align: center;
+  padding: .75em .5em;
   color: var(--color-loop-2);
 }
 
@@ -476,19 +480,27 @@ a {
   align-items: center;
   gap: .5em;
   width: 100%;
-  background: var(--color-text-dark);
-  border-radius: .5em;
-  padding: .75em;
+  max-width: 30em;
+  align-self: center;
+  background: var(--color-text-light);
+  color: var(--color-text-dark);
+  border: .5em solid var(--color-text-dark);
+  border-radius: .9em;
+  padding: 0 .75em .75em;
   box-shadow: 0 .25em .25em var(--color-shadow);
   text-align: center;
-  color: var(--color-text-light);
+  overflow: hidden;
 }
 
 .header-logo {
   font-family: var(--font-script);
   font-size: 2.5em;
-  padding-top: .5em;
   line-height: 1;
+  background: var(--color-text-dark);
+  color: var(--color-text-light);
+  width: calc(100% + 1.5em);
+  margin: 0 -.75em;
+  padding: 1em .5em .2em;
 }
 
 .game-header footer {
@@ -499,7 +511,6 @@ a {
 
 .game-header footer.status {
   padding-top: .3em;
-  opacity: .7;
 }
 
 .game-header footer.playing-as,

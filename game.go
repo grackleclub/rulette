@@ -174,7 +174,7 @@ func dataHandler(w http.ResponseWriter, r *http.Request) {
 		// shows the final screen; the others just clear and stop.
 		const stopPolling = 286
 		switch topic {
-		case "table":
+		case "players":
 			w.WriteHeader(stopPolling)
 			filepath := path.Join("static", "html", "tmpl.gameover.html")
 			if err := renderTemplate(r.Context(), w, filepath, state); err != nil {
@@ -184,7 +184,7 @@ func dataHandler(w http.ResponseWriter, r *http.Request) {
 			// still serve the log so the final events and the history
 			// modal work, but with 286 so the feed stops polling
 			renderEvents(w, r, gameID, stopPolling)
-		case "status", "players", "infraction":
+		case "status", "table", "infraction":
 			w.WriteHeader(stopPolling)
 		default:
 			http.Error(w, "game over", http.StatusGone)
