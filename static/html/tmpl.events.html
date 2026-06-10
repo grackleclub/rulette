@@ -26,10 +26,10 @@
   {{- else }}{{ .EventType }}
   {{- end -}}
   </span>
-  {{- if .CardFront.Valid }}
-  {{- $face := .CardFront.String -}}
-  {{- if and .CardFlipped.Bool (ne .CardBack.String "") }}{{ $face = .CardBack.String }}{{ end }}
-  <div class="index-card index-card-log{{ if eq .CardType.String "modifier" }} index-card-modifier{{ end }}">{{ $face }}</div>
+  {{- if ne .CardFront "" }}
+  {{- $face := .CardFront -}}
+  {{- if and .CardFlipped (ne .CardBack "") }}{{ $face = .CardBack }}{{ end }}
+  <div class="index-card index-card-log{{ if eq .CardType "modifier" }} index-card-modifier{{ end }}">{{ $face }}</div>
   {{- end }}
 </li>
 {{ end }}
