@@ -28,14 +28,14 @@
             hx-target="#status-fetch" hx-trigger="load, every {{ .Config.refresh }}" hx-swap="morph:innerHTML">
           </section>
           <div class="status-live">
+            <button type="button" class="button-more" aria-label="view game log"
+              data-open-dialog="event-log-dialog" data-fetch-event="loadEventLog">game log</button>
             <ul id="event-log" class="event-log event-log-live"
               hx-get="/{{ .Game.ID }}/data/events"
               hx-vals='js:{since: (document.querySelector("#event-log .event:last-child")?.dataset.eventId) || 0}'
               hx-trigger="load, every {{ .Config.refresh }}"
               hx-sync="this:drop" hx-swap="beforeend">
             </ul>
-            <button type="button" class="button-more" aria-label="view game log"
-              data-open-dialog="event-log-dialog" data-fetch-event="loadEventLog">game log</button>
           </div>
           <section id="table" hx-get="/{{ .Game.ID }}/data/table"
             hx-target="#table" hx-trigger="load, refreshTable from:body, every {{ .Config.refresh }}" hx-swap="morph:innerHTML">
