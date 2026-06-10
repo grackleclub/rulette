@@ -126,7 +126,7 @@ func qrHandler(w http.ResponseWriter, r *http.Request) {
 
 	// state 0 = created, 1 = inviting; both are pre-game
 	if state.Game.StateID != stateCreated && state.Game.StateID != stateInviting {
-		log.Info("qr requested outside invite state",
+		log.Warn("qr requested outside invite state",
 			"state_id", state.Game.StateID,
 		)
 		http.Error(w, "game not accepting invites", http.StatusConflict)

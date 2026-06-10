@@ -48,7 +48,7 @@ func (s *state) isHost(cookieKey string) bool {
 			}
 		}
 	}
-	log.Info("player not host", "in_game", inGame)
+	log.Warn("player not host", "in_game", inGame)
 	return false
 }
 
@@ -74,7 +74,7 @@ func (s *state) isPlayerTurn(cookieKey string) bool {
 			}
 		}
 	}
-	log.Info("player not current turn", "in_game", inGame)
+	log.Warn("player not current turn", "in_game", inGame)
 	return false
 }
 
@@ -124,7 +124,7 @@ func cookie(r *http.Request) (string, string, error) {
 	}
 	parts := strings.Split(cookie.Value, ":")
 	if len(parts) != 2 {
-		log.Info("invalid session cookie format",
+		log.Warn("invalid session cookie format",
 			"cookie_value", cookie.Value,
 		)
 		return "", "", ErrCookieInvalid
