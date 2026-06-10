@@ -186,8 +186,8 @@
     seeded = true;
   }
 
-  // server messages/warnings and the "no cards to ..." notice ding. these
-  // events only fire on the screen of the player who triggered them.
+  // server messages/warnings ding. these events only fire on the screen of
+  // the player who triggered them.
   function dingNotice() {
     if (soundOn()) play("alert");
   }
@@ -221,9 +221,8 @@
       if (e.target && e.target.id === "event-log") process();
     });
     document.body.addEventListener("notice", dingNotice);
-    // htmx dispatches a server trigger under both its given name and the
-    // kebab-cased form, so listen to just one or the notice dings twice.
-    document.body.addEventListener("modifierShredded", dingNotice);
+    // a shred doesn't ding: the spin that drew the modifier already dinged
+    // the spinner, so the "no cards" notice would just be a second alert.
     // browsers block audio until a gesture; unlock on the first interaction.
     // listen for several gesture types because iOS Safari unlocks reliably on
     // touchend/click but not always on pointerdown.
