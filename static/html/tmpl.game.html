@@ -100,7 +100,7 @@
     <dialog id="modifier-dialog" data-game-id="{{ .Game.ID }}">
       <div id="modifier-content" class="dialog-body"
         hx-get="/{{ .Game.ID }}/data/modifier"
-        hx-trigger="loadModifier from:body"
+        hx-trigger="load, loadModifier from:body"
         hx-swap="innerHTML"></div>
     </dialog>
 

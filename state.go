@@ -145,6 +145,26 @@ func (s *state) isGameActive() bool {
 	}
 }
 
+// hasPendingModifier reports whether the player whose turn it is still holds
+// an unresolved modifier card. Resolving a modifier shreds the card (and the
+// card view excludes shredded cards), so a modifier still in hand means the
+// choice is owed. Used to restore the pending state after a challenge
+// interrupts it.
+func (s *state) hasPendingModifier() bool {
+	for _, player := range s.Players {
+		if player.Initiative.Int32 != s.Game.InitiativeCurrent.Int32 {
+			continue
+		}
+		for _, card := range s.CardsPlayers {
+			if card.PlayerID.Int32 == player.PlayerID &&
+				card.Type == "modifier" {
+				return true
+			}
+		}
+	}
+	return false
+}
+
 // Standings returns the non-host players ranked by points, highest first.
 // Value receiver so templates can call it on the by-value state data.
 func (s state) Standings() []sqlc.GamePlayerPointsRow {

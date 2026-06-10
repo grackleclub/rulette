@@ -1162,7 +1162,7 @@ func actionHandler(w http.ResponseWriter, r *http.Request) {
 
 		case "transfer":
 			if !state.isPlayerTurn(cookieKey) {
-				log.Info("prohibiting non-turn player from transferring",
+				log.Warn("prohibiting non-turn player from transferring",
 					"game_id", gameID,
 					"cookie_id", cookieID,
 				)
@@ -1170,7 +1170,7 @@ func actionHandler(w http.ResponseWriter, r *http.Request) {
 				return
 			}
 			if state.Game.StateID != statePending {
-				log.Info("transfer requires pending state",
+				log.Warn("transfer requires pending state",
 					"game_id", gameID,
 					"state_id", state.Game.StateID,
 				)
@@ -1691,6 +1691,11 @@ func actionHandler(w http.ResponseWriter, r *http.Request) {
 			nextState := int32(stateTurn) // turn
 			if remaining > 0 {
 				nextState = stateChallenge // challenge
+			} else if state.hasPendingModifier() {
+				// this challenge interrupted a pending modifier choice;
+				// resume it instead of ending the turn, so the player can
+				// still resolve the modifier they drew.
+				nextState = statePending
 			}
 			err = txq.GameUpdate(r.Context(), sqlc.GameUpdateParams{
 				ID:      gameID,

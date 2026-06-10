@@ -101,7 +101,16 @@
       if (res.ok) {
         dialog.close();
         document.body.dispatchEvent(new Event("refreshTable"));
+        return;
       }
+      // surface the failure instead of leaving the dialog silently stuck.
+      // refresh first so the table reflects the real server state.
+      document.body.dispatchEvent(new Event("refreshTable"));
+      res.text().then(function (msg) {
+        alert(msg.trim() || "Could not complete that action. Try again.");
+      });
+    }).catch(function () {
+      alert("Network error. Please try again.");
     });
   });
 })();
