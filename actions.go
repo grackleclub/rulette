@@ -703,7 +703,7 @@ func actionHandler(w http.ResponseWriter, r *http.Request) {
 
 		case "continue":
 			if !state.isHost(cookieKey) {
-				log.Info("prohibiting non-host from continuing game")
+				log.Warn("prohibiting non-host from continuing game")
 				http.Error(w, "only host can continue the game", http.StatusForbidden)
 				return
 			}
