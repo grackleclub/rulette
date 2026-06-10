@@ -284,6 +284,7 @@ func dataHandler(w http.ResponseWriter, r *http.Request) {
 			}
 			for _, inf := range state.Infractions {
 				if inf.Active.Bool {
+					log.Debug("serving infraction to host", "infraction_id", inf.ID)
 					accusedName := ""
 					for _, p := range state.Players {
 						if p.PlayerID == inf.Accused {
