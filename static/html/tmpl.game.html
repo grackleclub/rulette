@@ -110,7 +110,8 @@
 
     <dialog id="confirm-start-dialog">
       <div class="dialog-body stack stack-centered">
-        <p>This game works best with 2 or more non-host players. Continue with only 1?</p>
+        <p>This game works best with 2 or more non-host players.</p>
+        <p>Continue with only 1?</p>
         <button class="button-teal"
           hx-post="/{{ .Game.ID }}/action/start?confirm=1" hx-swap="none"
           data-close-on-success="confirm-start-dialog">
