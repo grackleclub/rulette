@@ -310,7 +310,8 @@ VALUES
 	('flip', 'a card was flipped'),
 	('shred', 'a card was shredded'),
 	('clone', 'a card was cloned'),
-	('transfer', 'a card was transferred')
+	('transfer', 'a card was transferred'),
+	('continue', 'host continued the game after deck exhaustion')
 ON CONFLICT (name) DO UPDATE
 	SET description = EXCLUDED.description;
 
