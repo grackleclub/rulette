@@ -1,66 +1,85 @@
 {{- $gid := .Game.ID -}}
-{{- if ne .Game.StateName "inviting" -}}
-    {{ $cid := .CallerID }}
-    {{ $isHost := false }}
-    {{ range .Players }}
-      {{ if and (eq .Initiative.Int32 0) (eq $cid .PlayerID) }}
-        {{ $isHost = true }}
-      {{ end }}
-    {{ end }}
-    {{ $isTurn := false }}
-    {{ range .Players }}
-      {{ if and (eq $cid .PlayerID) (eq .Initiative.Int32 $.Game.InitiativeCurrent.Int32) }}
-        {{ $isTurn = true }}
-      {{ end }}
-    {{ end }}
-    <div class="table-bar">
-      {{ if and (eq $.Game.StateName "turn") $isTurn }}
-        {{ if $.AwaitingAck }}
-          <button class="button-teal"
-            hx-post="/{{ $gid }}/action/acknowledge"
-            hx-swap="none">
-            end turn
-          </button>
-        {{ else }}
-          <button class="button-teal"
-            hx-post="/{{ $gid }}/action/spin"
-            hx-swap="none">
-            spin
-          </button>
-        {{ end }}
-      {{ end }}
-      {{ if $isHost }}
-        {{ if eq $.Game.StateName "ready" }}
-          <button class="button-action"
-            hx-post="/{{ $gid }}/action/resume"
-            hx-swap="none">
-            resume
-          </button>
-        {{ else if eq $.Game.StateName "turn" }}
-          <button class="button-action"
-            hx-post="/{{ $gid }}/action/pause"
-            hx-swap="none">
-            pause
-          </button>
-        {{ else if eq $.Game.StateName "ending" }}
-          <button class="button-danger"
-            hx-post="/{{ $gid }}/action/endgame"
-            hx-swap="none">
-            end game
-          </button>
-          <button class="button-action"
-            hx-post="/{{ $gid }}/action/continue"
-            hx-swap="none">
-            continue anyway
-          </button>
-        {{ end }}
-      {{ end }}
-    </div>
+{{ $cid := .CallerID }}
+{{ $isHost := false }}
+{{ range .Players }}
+  {{ if and (eq .Initiative.Int32 0) (eq $cid .PlayerID) }}
+    {{ $isHost = true }}
+  {{ end }}
+{{ end }}
+{{ $isTurn := false }}
+{{ range .Players }}
+  {{ if and (eq $cid .PlayerID) (eq .Initiative.Int32 $.Game.InitiativeCurrent.Int32) }}
+    {{ $isTurn = true }}
+  {{ end }}
+{{ end }}
+{{- if eq .Game.StateName "inviting" -}}
+  <div class="table-bar">
+    <button class="button card-action"
+            data-open-dialog="invite-dialog"
+            data-invite-link="/{{ $gid }}/join"
+            data-qr-src="/{{ $gid }}/qr">
+      Invite Players
+    </button>
     {{ if $isHost }}
-      <div class="table-bar">
-        <button class="button-action" data-open-dialog="change-points-dialog" data-fetch-event="loadChangePoints">
-          change points
-        </button>
-      </div>
+    <button id="start" class="button card-action"
+                       hx-post="/{{ $gid }}/action/start"
+                       hx-swap="none">
+      Start<br>Game
+    </button>
     {{ end }}
+  </div>
+{{- else -}}
+  <div class="table-bar">
+    {{ if not $isHost }}
+      {{ if and (eq $.Game.StateName "turn") $isTurn $.AwaitingAck }}
+        <button class="button-teal"
+          hx-post="/{{ $gid }}/action/acknowledge"
+          hx-swap="none">
+          end turn
+        </button>
+        <button class="button-teal" disabled>
+          spin
+        </button>
+      {{ else if and (eq $.Game.StateName "turn") $isTurn }}
+        <button class="button-teal"
+          hx-post="/{{ $gid }}/action/spin"
+          hx-swap="none">
+          spin
+        </button>
+      {{ else }}
+        <button class="button-teal" disabled>
+          spin
+        </button>
+      {{ end }}
+    {{ end }}
+    {{ if $isHost }}
+      {{ if eq $.Game.StateName "ready" }}
+        <button class="button-action"
+          hx-post="/{{ $gid }}/action/resume"
+          hx-swap="none">
+          resume
+        </button>
+      {{ else if eq $.Game.StateName "turn" }}
+        <button class="button-action"
+          hx-post="/{{ $gid }}/action/pause"
+          hx-swap="none">
+          pause
+        </button>
+      {{ else if eq $.Game.StateName "ending" }}
+        <button class="button-danger"
+          hx-post="/{{ $gid }}/action/endgame"
+          hx-swap="none">
+          end game
+        </button>
+        <button class="button-action"
+          hx-post="/{{ $gid }}/action/continue"
+          hx-swap="none">
+          continue anyway
+        </button>
+      {{ end }}
+      <button class="button-action" data-open-dialog="change-points-dialog" data-fetch-event="loadChangePoints">
+        change points
+      </button>
+    {{ end }}
+  </div>
 {{- end -}}
