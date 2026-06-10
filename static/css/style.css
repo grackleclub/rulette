@@ -22,6 +22,12 @@
   font-display: swap;
 }
 
+@font-face {
+  font-family: 'Bebas Neue';
+  src: url('/static/fonts/BebasNeue-Regular.ttf') format('truetype');
+  font-display: swap;
+}
+
 :root {
   --color-bg: #afafaf;
   --color-card-bg: #00a0b8;
@@ -43,6 +49,7 @@
   --font-script: 'Borel', cursive;
   --font-score: 'DSEG7', monospace;
   --font-body: 'Roboto', sans-serif;
+  --font-title: 'Bebas Neue', 'Secular One', sans-serif;
 }
 
 
@@ -529,15 +536,42 @@ a {
 }
 
 .player-rules {
-  font-size: .875em;
-  color: var(--color-text-dark);
-  padding-left: 2.5em;
   margin-top: 1em;
+  margin-bottom: .75em;
+  padding-left: 2.5em;
+  display: flex;
+  flex-wrap: wrap;
+  gap: .5em;
 }
 
-.player-rules ul {
-  list-style: disc;
-  padding-left: 1.5em;
+/* shared boxed card: 6x4 index-card proportions, used in the player pill
+   and the game log so cards look the same everywhere */
+.index-card {
+  aspect-ratio: 6 / 4;
+  width: 9em;
+  box-sizing: border-box;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  padding: .5em;
+  background: var(--color-text-light);
+  color: var(--color-text-dark);
+  border: .1em solid var(--color-text-dark);
+  border-radius: .4em;
+  box-shadow: .1em .1em .15em var(--color-shadow);
+  font-family: var(--font-title);
+  font-size: 1.2em;
+  line-height: 1.05;
+  text-transform: uppercase;
+  letter-spacing: .02em;
+  overflow: hidden;
+}
+
+/* modifier cards read as the action card stock */
+.index-card-modifier {
+  background: var(--color-card-bg);
+  color: var(--color-text-light);
 }
 
 .player-hey {
@@ -747,12 +781,12 @@ dialog fieldset {
 /* the history button beside the live line */
 .button-more {
   flex: none;
-  padding: .15em .5em;
+  padding: .3em .7em;
   background: var(--color-text-dark);
   color: var(--color-text-light);
   border: none;
   border-radius: .3em;
-  font-size: .5em;
+  font-size: .7em;
   line-height: 1.4;
   cursor: pointer;
 }
@@ -769,6 +803,14 @@ dialog fieldset {
   padding: .3em .5em;
   border-bottom: .1em solid var(--color-player-border);
   font-size: .9em;
+}
+
+/* in the full log, stack the message above its card */
+#event-log-full .event {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: .4em;
 }
 
 /* inline: just the newest event (the last item); hide the rest */
@@ -790,16 +832,30 @@ dialog fieldset {
   line-height: 1.3;
   animation: fade-in .4s ease;
 }
+/* the inline ticker is one line; cards only show in the full log */
+.event-log-live .index-card-log {
+  display: none;
+}
 @keyframes fade-in {
   from { opacity: 0; }
   to { opacity: 1; }
 }
 
 /* expanded log: last ~6 events, newest at the bottom, older fading out on top */
+#event-log-dialog {
+  width: 75vw;
+  height: 75vh;
+  max-width: 75vw;
+}
+#event-log-dialog .dialog-body {
+  height: 100%;
+}
 #event-log-full {
   min-width: 16em;
-  max-height: 10em; /* about six lines; scroll up for older */
+  flex: 1 1 auto; /* fill the tall dialog; scroll up for older */
   overflow-y: auto;
+  overscroll-behavior: contain; /* keep iOS from scrolling the page behind */
+  -webkit-overflow-scrolling: touch;
   -webkit-mask-image: linear-gradient(to bottom, transparent 0, black 2.5em);
   mask-image: linear-gradient(to bottom, transparent 0, black 2.5em);
 }
