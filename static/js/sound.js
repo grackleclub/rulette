@@ -221,8 +221,9 @@
       if (e.target && e.target.id === "event-log") process();
     });
     document.body.addEventListener("notice", dingNotice);
+    // htmx dispatches a server trigger under both its given name and the
+    // kebab-cased form, so listen to just one or the notice dings twice.
     document.body.addEventListener("modifierShredded", dingNotice);
-    document.body.addEventListener("modifier-shredded", dingNotice);
     // browsers block audio until a gesture; unlock on the first interaction.
     // listen for several gesture types because iOS Safari unlocks reliably on
     // touchend/click but not always on pointerdown.
