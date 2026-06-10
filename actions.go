@@ -34,7 +34,7 @@ func actionHandler(w http.ResponseWriter, r *http.Request) {
 		"game_id", gameID,
 		"action", action,
 	)
-	log.Info("actionHandler called")
+	log.Debug("actionHandler called")
 	cookieID, cookieKey, err := cookie(r)
 	if err != nil {
 		setCookieErr(w, err)
@@ -44,7 +44,7 @@ func actionHandler(w http.ResponseWriter, r *http.Request) {
 	state, err := stateFromCacheOrDB(r.Context(), &cache, gameID)
 	if err != nil {
 		if err == ErrStateNoGame {
-			log.Info(ErrStateNoGame.Error(), "game_id", gameID)
+			log.Warn(ErrStateNoGame.Error(), "game_id", gameID)
 			http.Error(w, "game not found", http.StatusNotFound)
 			return
 		}
@@ -53,7 +53,7 @@ func actionHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if !state.isPlayerInGame(cookieKey) {
-		log.Info(
+		log.Warn(
 			"prohibiting unauthorized player access",
 			"cookie_key", cookieKey,
 			"cookie_id", cookieID,
@@ -73,7 +73,7 @@ func actionHandler(w http.ResponseWriter, r *http.Request) {
 	)
 	switch state.Game.StateID {
 	case stateOver: // game over
-		log.Info("request to ended game", "game_id", gameID)
+		log.Warn("request to ended game", "game_id", gameID)
 		http.Error(w, "game over", http.StatusGone)
 		return
 	case stateInviting, stateCreated: // pregame
@@ -174,7 +174,7 @@ func actionHandler(w http.ResponseWriter, r *http.Request) {
 			w.WriteHeader(http.StatusOK)
 			return
 		default:
-			log.Info(ErrActionInvalid.Error())
+			log.Warn(ErrActionInvalid.Error())
 			http.Error(w, ErrActionInvalid.Error(), http.StatusTooEarly)
 			return
 		}
@@ -182,7 +182,7 @@ func actionHandler(w http.ResponseWriter, r *http.Request) {
 		switch action {
 		case "points":
 			if !state.isHost(cookieKey) {
-				log.Info("prohibiting non-host from updating points")
+				log.Warn("prohibiting non-host from updating points")
 				http.Error(w, "only host can update points", http.StatusForbidden)
 				return
 			}
@@ -193,13 +193,13 @@ func actionHandler(w http.ResponseWriter, r *http.Request) {
 			}
 			playerStr := r.FormValue("player_id")
 			if playerStr == "" {
-				log.Info("missing player_id", "game_id", gameID)
+				log.Warn("missing player_id", "game_id", gameID)
 				http.Error(w, "missing player_id", http.StatusBadRequest)
 				return
 			}
 			amountStr := r.FormValue("amount")
 			if amountStr == "" {
-				log.Info("missing amount", "game_id", gameID)
+				log.Warn("missing amount", "game_id", gameID)
 				http.Error(w, "missing amount", http.StatusBadRequest)
 				return
 			}
@@ -292,7 +292,7 @@ func actionHandler(w http.ResponseWriter, r *http.Request) {
 
 		case "spin":
 			if state.Game.StateID != stateTurn {
-				log.Info("spin requires turn state",
+				log.Warn("spin requires turn state",
 					"game_id", gameID,
 					"state_id", state.Game.StateID,
 				)
@@ -300,7 +300,7 @@ func actionHandler(w http.ResponseWriter, r *http.Request) {
 				return
 			}
 			if !state.isPlayerTurn(cookieKey) {
-				log.Info("prohibiting non-turn player from spinning",
+				log.Warn("prohibiting non-turn player from spinning",
 					"cookie_id", cookieID,
 				)
 				http.Error(w, "not your turn", http.StatusForbidden)
@@ -324,7 +324,7 @@ func actionHandler(w http.ResponseWriter, r *http.Request) {
 			if err == nil &&
 				prevSpin.PlayerID.Int32 == int32(id) &&
 				!prevSpin.ModifierEffect.Valid {
-				log.Info("player already spun this turn",
+				log.Warn("player already spun this turn",
 					"game_id", gameID,
 					"player_id", id,
 				)
@@ -503,7 +503,7 @@ func actionHandler(w http.ResponseWriter, r *http.Request) {
 			// they drew. only valid mid-turn for the player whose spin is
 			// waiting to be acknowledged.
 			if state.Game.StateID != stateTurn {
-				log.Info("acknowledge requires turn state",
+				log.Warn("acknowledge requires turn state",
 					"game_id", gameID,
 					"state_id", state.Game.StateID,
 				)
@@ -511,7 +511,7 @@ func actionHandler(w http.ResponseWriter, r *http.Request) {
 				return
 			}
 			if !state.isPlayerTurn(cookieKey) {
-				log.Info("prohibiting non-turn player from acknowledging",
+				log.Warn("prohibiting non-turn player from acknowledging",
 					"cookie_id", cookieID,
 				)
 				http.Error(w, "not your turn", http.StatusForbidden)
@@ -527,7 +527,7 @@ func actionHandler(w http.ResponseWriter, r *http.Request) {
 			if errors.Is(err, pgx.ErrNoRows) ||
 				(err == nil && (lastSpin.PlayerID.Int32 != int32(id) ||
 					lastSpin.ModifierEffect.Valid)) {
-				log.Info("nothing to acknowledge",
+				log.Warn("nothing to acknowledge",
 					"game_id", gameID,
 					"player_id", id,
 				)
@@ -551,12 +551,12 @@ func actionHandler(w http.ResponseWriter, r *http.Request) {
 
 		case "pause":
 			if !state.isHost(cookieKey) {
-				log.Info("prohibiting non-host from pausing")
+				log.Warn("prohibiting non-host from pausing")
 				http.Error(w, "only host can pause", http.StatusForbidden)
 				return
 			}
 			if state.Game.StateID != stateTurn {
-				log.Info("pause requires turn state",
+				log.Warn("pause requires turn state",
 					"game_id", gameID,
 					"state_id", state.Game.StateID,
 				)
@@ -590,12 +590,12 @@ func actionHandler(w http.ResponseWriter, r *http.Request) {
 
 		case "resume":
 			if !state.isHost(cookieKey) {
-				log.Info("prohibiting non-host from resuming")
+				log.Warn("prohibiting non-host from resuming")
 				http.Error(w, "only host can resume", http.StatusForbidden)
 				return
 			}
 			if state.Game.StateID != stateReady {
-				log.Info("resume requires ready state",
+				log.Warn("resume requires ready state",
 					"game_id", gameID,
 					"state_id", state.Game.StateID,
 				)
@@ -631,12 +631,12 @@ func actionHandler(w http.ResponseWriter, r *http.Request) {
 			// the host finalizes a game whose deck has run out. only valid in
 			// the "ending" state, which a spent deck puts the game into.
 			if !state.isHost(cookieKey) {
-				log.Info("prohibiting non-host from ending game")
+				log.Warn("prohibiting non-host from ending game")
 				http.Error(w, "only host can end the game", http.StatusForbidden)
 				return
 			}
 			if state.Game.StateID != stateEnding {
-				log.Info("endgame requires ending state",
+				log.Warn("endgame requires ending state",
 					"game_id", gameID,
 					"state_id", state.Game.StateID,
 				)
@@ -666,7 +666,7 @@ func actionHandler(w http.ResponseWriter, r *http.Request) {
 
 		case "flip":
 			if !state.isPlayerTurn(cookieKey) {
-				log.Info("prohibiting non-turn player from flipping",
+				log.Warn("prohibiting non-turn player from flipping",
 					"game_id", gameID,
 					"cookie_id", cookieID,
 				)
@@ -674,7 +674,7 @@ func actionHandler(w http.ResponseWriter, r *http.Request) {
 				return
 			}
 			if state.Game.StateID != statePending {
-				log.Info("flip requires pending state",
+				log.Warn("flip requires pending state",
 					"game_id", gameID,
 					"state_id", state.Game.StateID,
 				)
@@ -693,14 +693,14 @@ func actionHandler(w http.ResponseWriter, r *http.Request) {
 				return
 			}
 			if !lastSpin.ModifierEffect.Valid {
-				log.Info("no pending modifier",
+				log.Warn("no pending modifier",
 					"game_id", gameID,
 				)
 				http.Error(w, "no pending modifier", http.StatusConflict)
 				return
 			}
 			if lastSpin.ModifierEffect.String != modFlip {
-				log.Info("no pending flip modifier",
+				log.Warn("no pending flip modifier",
 					"game_id", gameID,
 				)
 				http.Error(w, "no pending flip", http.StatusConflict)
@@ -708,7 +708,7 @@ func actionHandler(w http.ResponseWriter, r *http.Request) {
 			}
 			gcStr := r.URL.Query().Get("game_card_id")
 			if gcStr == "" {
-				log.Info("flip: missing game_card_id", "game_id", gameID)
+				log.Warn("flip: missing game_card_id", "game_id", gameID)
 				http.Error(w, "missing game_card_id", http.StatusBadRequest)
 				return
 			}
@@ -735,7 +735,7 @@ func actionHandler(w http.ResponseWriter, r *http.Request) {
 				}
 			}
 			if !ownedCard {
-				log.Info("flip: card not owned by player",
+				log.Warn("flip: card not owned by player",
 					"game_id", gameID,
 					"game_card_id", gcID,
 					"player_id", playerID,
@@ -818,7 +818,7 @@ func actionHandler(w http.ResponseWriter, r *http.Request) {
 			w.WriteHeader(http.StatusOK)
 		case "shred":
 			if !state.isPlayerTurn(cookieKey) {
-				log.Info("prohibiting non-turn player from shredding",
+				log.Warn("prohibiting non-turn player from shredding",
 					"game_id", gameID,
 					"cookie_id", cookieID,
 				)
@@ -826,7 +826,7 @@ func actionHandler(w http.ResponseWriter, r *http.Request) {
 				return
 			}
 			if state.Game.StateID != statePending {
-				log.Info("shred requires pending state",
+				log.Warn("shred requires pending state",
 					"game_id", gameID,
 					"state_id", state.Game.StateID,
 				)
@@ -845,14 +845,14 @@ func actionHandler(w http.ResponseWriter, r *http.Request) {
 				return
 			}
 			if !lastSpin.ModifierEffect.Valid {
-				log.Info("no pending modifier",
+				log.Warn("no pending modifier",
 					"game_id", gameID,
 				)
 				http.Error(w, "no pending modifier", http.StatusConflict)
 				return
 			}
 			if lastSpin.ModifierEffect.String != modShred {
-				log.Info("pending modifier is not shred",
+				log.Warn("pending modifier is not shred",
 					"game_id", gameID,
 					"effect", lastSpin.ModifierEffect.String,
 				)
@@ -861,7 +861,7 @@ func actionHandler(w http.ResponseWriter, r *http.Request) {
 			}
 			cardStr := r.URL.Query().Get("game_card_id")
 			if cardStr == "" {
-				log.Info("missing game_card_id", "game_id", gameID)
+				log.Warn("missing game_card_id", "game_id", gameID)
 				http.Error(w, "missing game_card_id", http.StatusBadRequest)
 				return
 			}
@@ -889,7 +889,7 @@ func actionHandler(w http.ResponseWriter, r *http.Request) {
 				}
 			}
 			if !ownedShred {
-				log.Info("shred: card not owned by player",
+				log.Warn("shred: card not owned by player",
 					"game_id", gameID,
 					"game_card_id", cardID,
 					"player_id", shredPlayerID,
@@ -972,7 +972,7 @@ func actionHandler(w http.ResponseWriter, r *http.Request) {
 			w.WriteHeader(http.StatusOK)
 		case "clone":
 			if !state.isPlayerTurn(cookieKey) {
-				log.Info("prohibiting non-turn player from cloning",
+				log.Warn("prohibiting non-turn player from cloning",
 					"game_id", gameID,
 					"cookie_id", cookieID,
 				)
@@ -980,7 +980,7 @@ func actionHandler(w http.ResponseWriter, r *http.Request) {
 				return
 			}
 			if state.Game.StateID != statePending {
-				log.Info("clone requires pending state",
+				log.Warn("clone requires pending state",
 					"game_id", gameID,
 					"state_id", state.Game.StateID,
 				)
@@ -999,14 +999,14 @@ func actionHandler(w http.ResponseWriter, r *http.Request) {
 				return
 			}
 			if !lastSpin.ModifierEffect.Valid {
-				log.Info("no pending modifier",
+				log.Warn("no pending modifier",
 					"game_id", gameID,
 				)
 				http.Error(w, "no pending modifier", http.StatusConflict)
 				return
 			}
 			if lastSpin.ModifierEffect.String != modClone {
-				log.Info("pending modifier is not clone",
+				log.Warn("pending modifier is not clone",
 					"game_id", gameID,
 					"effect", lastSpin.ModifierEffect.String,
 				)
@@ -1015,13 +1015,13 @@ func actionHandler(w http.ResponseWriter, r *http.Request) {
 			}
 			cardStr := r.URL.Query().Get("game_card_id")
 			if cardStr == "" {
-				log.Info("missing game_card_id", "game_id", gameID)
+				log.Warn("missing game_card_id", "game_id", gameID)
 				http.Error(w, "missing game_card_id", http.StatusBadRequest)
 				return
 			}
 			targetStr := r.URL.Query().Get("target_player_id")
 			if targetStr == "" {
-				log.Info("missing target_player_id", "game_id", gameID)
+				log.Warn("missing target_player_id", "game_id", gameID)
 				http.Error(w, "missing target_player_id", http.StatusBadRequest)
 				return
 			}
@@ -1058,7 +1058,7 @@ func actionHandler(w http.ResponseWriter, r *http.Request) {
 				}
 			}
 			if !ownedClone {
-				log.Info("clone: source card not owned by player",
+				log.Warn("clone: source card not owned by player",
 					"game_id", gameID,
 					"game_card_id", cardID,
 					"player_id", clonePlayerID,
@@ -1074,7 +1074,7 @@ func actionHandler(w http.ResponseWriter, r *http.Request) {
 				}
 			}
 			if !targetInGame {
-				log.Info("clone: target player not in game",
+				log.Warn("clone: target player not in game",
 					"game_id", gameID,
 					"target_player_id", targetID,
 				)
@@ -1162,7 +1162,7 @@ func actionHandler(w http.ResponseWriter, r *http.Request) {
 
 		case "transfer":
 			if !state.isPlayerTurn(cookieKey) {
-				log.Info("prohibiting non-turn player from transferring",
+				log.Warn("prohibiting non-turn player from transferring",
 					"game_id", gameID,
 					"cookie_id", cookieID,
 				)
@@ -1170,7 +1170,7 @@ func actionHandler(w http.ResponseWriter, r *http.Request) {
 				return
 			}
 			if state.Game.StateID != statePending {
-				log.Info("transfer requires pending state",
+				log.Warn("transfer requires pending state",
 					"game_id", gameID,
 					"state_id", state.Game.StateID,
 				)
@@ -1189,14 +1189,14 @@ func actionHandler(w http.ResponseWriter, r *http.Request) {
 				return
 			}
 			if !lastSpin.ModifierEffect.Valid {
-				log.Info("no pending modifier",
+				log.Warn("no pending modifier",
 					"game_id", gameID,
 				)
 				http.Error(w, "no pending modifier", http.StatusConflict)
 				return
 			}
 			if lastSpin.ModifierEffect.String != modTransfer {
-				log.Info("pending modifier is not transfer",
+				log.Warn("pending modifier is not transfer",
 					"game_id", gameID,
 					"effect", lastSpin.ModifierEffect.String,
 				)
@@ -1205,13 +1205,13 @@ func actionHandler(w http.ResponseWriter, r *http.Request) {
 			}
 			cardStr := r.URL.Query().Get("game_card_id")
 			if cardStr == "" {
-				log.Info("missing game_card_id", "game_id", gameID)
+				log.Warn("missing game_card_id", "game_id", gameID)
 				http.Error(w, "missing game_card_id", http.StatusBadRequest)
 				return
 			}
 			targetStr := r.URL.Query().Get("target_player_id")
 			if targetStr == "" {
-				log.Info("missing target_player_id", "game_id", gameID)
+				log.Warn("missing target_player_id", "game_id", gameID)
 				http.Error(w, "missing target_player_id", http.StatusBadRequest)
 				return
 			}
@@ -1248,7 +1248,7 @@ func actionHandler(w http.ResponseWriter, r *http.Request) {
 				}
 			}
 			if !ownedXfer {
-				log.Info("transfer: card not owned by player",
+				log.Warn("transfer: card not owned by player",
 					"game_id", gameID,
 					"game_card_id", cardID,
 					"player_id", xferPlayerID,
@@ -1264,7 +1264,7 @@ func actionHandler(w http.ResponseWriter, r *http.Request) {
 				}
 			}
 			if !xferTargetInGame {
-				log.Info("transfer: target player not in game",
+				log.Warn("transfer: target player not in game",
 					"game_id", gameID,
 					"target_player_id", targetID,
 				)
@@ -1352,7 +1352,7 @@ func actionHandler(w http.ResponseWriter, r *http.Request) {
 
 		case "accuse":
 			if !state.isGameActive() {
-				log.Info("accuse requires active game state",
+				log.Warn("accuse requires active game state",
 					"game_id", gameID,
 					"state_id", state.Game.StateID,
 				)
@@ -1361,13 +1361,13 @@ func actionHandler(w http.ResponseWriter, r *http.Request) {
 			}
 			defendantStr := r.FormValue("defendant_id")
 			if defendantStr == "" {
-				log.Info("missing defendant_id", "game_id", gameID)
+				log.Warn("missing defendant_id", "game_id", gameID)
 				http.Error(w, "missing defendant_id", http.StatusBadRequest)
 				return
 			}
 			gcStr := r.FormValue("game_card_id")
 			if gcStr == "" {
-				log.Info("missing game_card_id", "game_id", gameID)
+				log.Warn("missing game_card_id", "game_id", gameID)
 				http.Error(w, "missing game_card_id", http.StatusBadRequest)
 				return
 			}
@@ -1400,7 +1400,7 @@ func actionHandler(w http.ResponseWriter, r *http.Request) {
 				}
 			}
 			if !validCard {
-				log.Info("invalid accusation target",
+				log.Warn("invalid accusation target",
 					"game_id", gameID,
 					"game_card_id", gcID,
 					"defendant_id", defendantID,
@@ -1491,12 +1491,12 @@ func actionHandler(w http.ResponseWriter, r *http.Request) {
 
 		case "decide":
 			if !state.isHost(cookieKey) {
-				log.Info("prohibiting non-host from deciding")
+				log.Warn("prohibiting non-host from deciding")
 				http.Error(w, "only host can decide", http.StatusForbidden)
 				return
 			}
 			if state.Game.StateID != stateChallenge {
-				log.Info("decide requires challenge state",
+				log.Warn("decide requires challenge state",
 					"game_id", gameID,
 					"state_id", state.Game.StateID,
 				)
@@ -1505,18 +1505,18 @@ func actionHandler(w http.ResponseWriter, r *http.Request) {
 			}
 			infStr := r.FormValue("infraction_id")
 			if infStr == "" {
-				log.Info("missing infraction_id", "game_id", gameID)
+				log.Warn("missing infraction_id", "game_id", gameID)
 				http.Error(w, "missing infraction_id", http.StatusBadRequest)
 				return
 			}
 			verdict := r.FormValue("verdict")
 			if verdict == "" {
-				log.Info("missing verdict", "game_id", gameID)
+				log.Warn("missing verdict", "game_id", gameID)
 				http.Error(w, "missing verdict", http.StatusBadRequest)
 				return
 			}
 			if verdict != "affirm" && verdict != "absolve" {
-				log.Info("invalid verdict",
+				log.Warn("invalid verdict",
 					"game_id", gameID,
 					"verdict", verdict,
 				)
@@ -1536,7 +1536,7 @@ func actionHandler(w http.ResponseWriter, r *http.Request) {
 			// verify infraction exists, is active, and belongs to this game
 			infraction, err := queries.InfractionGet(r.Context(), int32(infID))
 			if errors.Is(err, pgx.ErrNoRows) {
-				log.Info("infraction not found",
+				log.Warn("infraction not found",
 					"game_id", gameID,
 					"infraction_id", infID,
 				)
@@ -1553,7 +1553,7 @@ func actionHandler(w http.ResponseWriter, r *http.Request) {
 				return
 			}
 			if !infraction.Active.Bool {
-				log.Info("infraction already decided",
+				log.Warn("infraction already decided",
 					"game_id", gameID,
 					"infraction_id", infID,
 				)
@@ -1561,7 +1561,7 @@ func actionHandler(w http.ResponseWriter, r *http.Request) {
 				return
 			}
 			if infraction.GameID != gameID {
-				log.Info("infraction does not belong to this game",
+				log.Warn("infraction does not belong to this game",
 					"game_id", gameID,
 					"infraction_game_id", infraction.GameID,
 					"infraction_id", infID,
@@ -1576,7 +1576,7 @@ func actionHandler(w http.ResponseWriter, r *http.Request) {
 			if affirmed {
 				ptsStr := r.FormValue("amount")
 				if ptsStr == "" {
-					log.Info("missing amount for affirm", "game_id", gameID)
+					log.Warn("missing amount for affirm", "game_id", gameID)
 					http.Error(w, "missing amount", http.StatusBadRequest)
 					return
 				}
@@ -1612,7 +1612,7 @@ func actionHandler(w http.ResponseWriter, r *http.Request) {
 				Affirmed: pgtype.Bool{Bool: affirmed, Valid: true},
 			})
 			if errors.Is(err, pgx.ErrNoRows) {
-				log.Info("infraction already decided (race)",
+				log.Warn("infraction already decided (race)",
 					"game_id", gameID,
 					"infraction_id", infID,
 				)
@@ -1739,7 +1739,7 @@ func actionHandler(w http.ResponseWriter, r *http.Request) {
 			w.WriteHeader(http.StatusOK)
 		case "end":
 			if !state.isHost(cookieKey) {
-				log.Info("prohibiting non-host from ending game")
+				log.Warn("prohibiting non-host from ending game")
 				http.Error(w, "only host can end game", http.StatusForbidden)
 				return
 			}
@@ -1764,7 +1764,7 @@ func actionHandler(w http.ResponseWriter, r *http.Request) {
 			w.WriteHeader(http.StatusGone)
 			return
 		default:
-			log.Info("unsupported action requested")
+			log.Warn("unsupported action requested")
 			http.Error(w, "unsupported action", http.StatusNotImplemented)
 		}
 	}
