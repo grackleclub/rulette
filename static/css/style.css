@@ -359,12 +359,6 @@ a {
   margin-top: .25em;
 }
 
-.help-intro-sm {
-  font-size: .75em;
-  padding: .75em 1em;
-  border-width: 5px;
-}
-
 .input-wrap {
   position: relative;
 }
@@ -408,8 +402,7 @@ a {
   z-index: 10;
 }
 
-.info-toggle:focus + .info-bubble,
-.info-toggle:active + .info-bubble {
+.info-bubble[aria-hidden="false"] {
   display: block;
 }
 

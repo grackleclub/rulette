@@ -691,19 +691,19 @@ func actionHandler(w http.ResponseWriter, r *http.Request) {
 				http.Error(w, "server error", http.StatusInternalServerError)
 				return
 			}
+			log.Info("game continued by host", "game_id", gameID)
+			if err := writeEvent(w, r, log, queries, sqlc.EventCreateParams{
+				GameID:    gameID,
+				EventType: "continue",
+			}); err != nil {
+				return
+			}
 			if err := advanceTurn(r.Context(), log, queries, gameID); err != nil {
 				log.Error("advance initiative after continue",
 					"error", err,
 					"game_id", gameID,
 				)
 				http.Error(w, "server error", http.StatusInternalServerError)
-				return
-			}
-			log.Info("game continued by host", "game_id", gameID)
-			if err := writeEvent(w, r, log, queries, sqlc.EventCreateParams{
-				GameID:    gameID,
-				EventType: "continue",
-			}); err != nil {
 				return
 			}
 			cache.Delete(gameID)

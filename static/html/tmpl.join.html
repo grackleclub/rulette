@@ -16,9 +16,10 @@
         <div class="stack join-group">
           <form class="stack" action="/{{ .ID }}/join" method="POST">
             <div class="input-wrap">
-              <input type="text" id="username" name="username" placeholder="enter name" autocomplete="off" autofocus required />
-              <button type="button" class="info-toggle" aria-label="cookie info">i</button>
-              <div class="info-bubble">
+              <input type="text" id="username" name="username" placeholder="enter name" autocomplete="off" autofocus required aria-describedby="cookie-info" />
+              <button type="button" class="info-toggle" aria-expanded="false" aria-controls="cookie-info"
+                onclick="var b=document.getElementById('cookie-info'),v=b.getAttribute('aria-hidden')==='true';b.setAttribute('aria-hidden',!v);this.setAttribute('aria-expanded',v)">i</button>
+              <div class="info-bubble" id="cookie-info" role="note" aria-hidden="true">
                 <p>Only one session cookie is set.</p>
                 <p>No ads or tracking.</p>
               </div>
