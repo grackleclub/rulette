@@ -159,12 +159,12 @@ func joinHandler(w http.ResponseWriter, r *http.Request) {
 
 		switch game.StateID {
 		case stateOver:
-			log.Info("join attempt to closed game")
+			log.Warn("join attempt to closed game")
 			http.Error(w, "game over", http.StatusGone)
 			return
 
 		case statePending, stateTurn, stateReady:
-			log.Info("join attempt to game in progress",
+			log.Warn("join attempt to game in progress",
 				"state_id", game.StateID,
 				"state_name", game.StateName,
 			)
