@@ -278,12 +278,13 @@ func dataHandler(w http.ResponseWriter, r *http.Request) {
 				return
 			}
 			if !state.isHost(cookieKey) {
-				log.Warn("infraction submitted by non-host")
-				w.WriteHeader(http.StatusForbidden)
+				log.Debug("infraction poll by non-host")
+				w.WriteHeader(http.StatusNoContent)
 				return
 			}
 			for _, inf := range state.Infractions {
 				if inf.Active.Bool {
+					log.Debug("serving infraction to host", "infraction_id", inf.ID)
 					accusedName := ""
 					for _, p := range state.Players {
 						if p.PlayerID == inf.Accused {

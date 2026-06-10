@@ -6,9 +6,77 @@
     return document.getElementById("modifier-data");
   }
 
-  // after modifier content is fetched, check if we should open the dialog
+  // a modifier action the player committed to but that the server deferred
+  // because a challenge is in progress. it completes automatically once the
+  // challenge resolves and the game returns to the pending state.
+  var pending = null; // { url, effect }
+  var inFlight = false;
+
+  // show that a committed action is waiting on a challenge to clear. disables
+  // the choices so the player can't double-submit while we retry for them.
+  function showWaiting(effect) {
+    var data = getData();
+    if (!data) return;
+    data.querySelectorAll(
+      ".modifier-card-btn, input[name='target_player_id']"
+    ).forEach(function (el) {
+      el.disabled = true;
+    });
+    var status = document.getElementById("modifier-status");
+    if (!status) {
+      status = document.createElement("p");
+      status.id = "modifier-status";
+      data.appendChild(status);
+    }
+    status.textContent =
+      "A challenge is in progress — your " + (effect || "modifier") +
+      " will complete automatically once it's resolved.";
+  }
+
+  // post a modifier action. on success the dialog closes; while a challenge
+  // blocks it (423) the action is queued and retried on the next table poll;
+  // any other failure is surfaced and the dialog is dismissed.
+  function attempt(url, effect) {
+    if (inFlight) return;
+    inFlight = true;
+    fetch(url, { method: "POST" }).then(function (res) {
+      inFlight = false;
+      if (res.ok) {
+        pending = null;
+        var d = getDialog();
+        if (d) d.close();
+        document.body.dispatchEvent(new Event("refreshTable"));
+        return;
+      }
+      if (res.status === 423) {
+        pending = { url: url, effect: effect };
+        showWaiting(effect);
+        return;
+      }
+      pending = null;
+      var dialog = getDialog();
+      if (dialog) dialog.close();
+      document.body.dispatchEvent(new Event("refreshTable"));
+      res.text().then(function (msg) {
+        alert(msg.trim() || "Could not complete that action.");
+      });
+    }).catch(function () {
+      inFlight = false;
+      // keep a queued action queued; a transient blip shouldn't drop it.
+      if (!pending) alert("Network error. Please try again.");
+    });
+  }
+
   document.body.addEventListener("htmx:afterSettle", function (e) {
-    if (!e.detail || !e.detail.elt || e.detail.elt.id !== "modifier-content") return;
+    if (!e.detail || !e.detail.elt) return;
+    // every table poll is a chance to complete a queued modifier action once
+    // the blocking challenge has resolved.
+    if (e.detail.elt.id === "table" && pending && !inFlight) {
+      attempt(pending.url, pending.effect);
+      return;
+    }
+    // after modifier content is fetched, check if we should open the dialog
+    if (e.detail.elt.id !== "modifier-content") return;
     var dialog = getDialog();
     var data = getData();
     if (!data || !dialog) return;
@@ -76,32 +144,24 @@
     if (!btn) return;
     e.preventDefault();
 
-    var dialog = getDialog();
     var data = getData();
     var action = btn.dataset.action;
     var cardId = btn.dataset.gameCardId;
     var url = action + "?game_card_id=" + cardId;
+    var effect = data ? data.dataset.effect : "";
 
     // for clone/transfer, include target player
-    if (data) {
-      var effect = data.dataset.effect;
-      if (effect === "clone" || effect === "transfer") {
-        var radio = data.querySelector(
-          'input[name="target_player_id"]:checked'
-        );
-        if (!radio) {
-          alert("Select a target player first.");
-          return;
-        }
-        url += "&target_player_id=" + radio.value;
+    if (effect === "clone" || effect === "transfer") {
+      var radio = data.querySelector(
+        'input[name="target_player_id"]:checked'
+      );
+      if (!radio) {
+        alert("Select a target player first.");
+        return;
       }
+      url += "&target_player_id=" + radio.value;
     }
 
-    fetch(url, { method: "POST" }).then(function (res) {
-      if (res.ok) {
-        dialog.close();
-        document.body.dispatchEvent(new Event("refreshTable"));
-      }
-    });
+    attempt(url, effect);
   });
 })();
