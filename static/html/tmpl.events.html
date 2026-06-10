@@ -16,7 +16,7 @@
   {{- else if eq .EventType "resume" }}game resumed
   {{- else if eq .EventType "turn" }}{{ $target }}'s turn
   {{- else if eq .EventType "spin" }}{{ $actor }} spun the wheel
-  {{- else if eq .EventType "points" }}{{ if .PointsDelta.Valid }}{{ $target }} {{ if gt .PointsDelta.Int32 0 }}gained {{ .PointsDelta.Int32 }}{{ else }}lost {{ .PointsDelta.Int32 }}{{ end }} points{{ else }}{{ $target }} points changed{{ end }}
+  {{- else if eq .EventType "points" }}{{ if .PointsDelta.Valid }}{{ $target }} {{ if gt .PointsDelta.Int32 0 }}gained {{ .PointsDelta.Int32 }}{{ else }}lost {{ abs .PointsDelta.Int32 }}{{ end }} points{{ else }}{{ $target }} points changed{{ end }}
   {{- else if eq .EventType "accuse" }}{{ $actor }} accused {{ $target }}
   {{- else if eq .EventType "decide" }}{{ if .InfractionAffirmed.Valid }}verdict: {{ if .InfractionAffirmed.Bool }}guilty{{ else }}not guilty{{ end }}{{ else }}verdict decided{{ end }}
   {{- else if eq .EventType "flip" }}{{ $actor }} flipped a card
