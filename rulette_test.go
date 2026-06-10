@@ -248,6 +248,81 @@ func TestGame(t *testing.T) {
 		dataHandler(w, req)
 		require.Equal(t, http.StatusOK, w.Result().StatusCode)
 	})
+	// a game with a single non-host player can start, but only after the host
+	// confirms. this is self-contained: its own game and players, so the shared
+	// gameID and the package-level users slice are untouched.
+	t.Run("POST /{game_id}/action/start (one player confirm)", func(t *testing.T) {
+		// fresh game
+		req := httptest.NewRequest(http.MethodPost, "/create", nil)
+		w := httptest.NewRecorder()
+		createHandler(w, req)
+		require.Equal(t, http.StatusSeeOther, w.Result().StatusCode)
+		parts := strings.Split(w.Result().Header.Get("Location"), "/")
+		require.Len(t, parts, 3)
+		soloGameID := parts[1]
+
+		// host (first joiner) plus a single non-host player
+		solo := []testuser{{username: "Anna"}, {username: "Oscar"}}
+		for i, user := range solo {
+			values := url.Values{}
+			values.Set("username", user.username)
+			u := &url.URL{
+				Path:     fmt.Sprintf("/%s/join", soloGameID),
+				RawQuery: values.Encode(),
+			}
+			req := httptest.NewRequest(http.MethodPost, u.String(), nil)
+			w := httptest.NewRecorder()
+			joinHandler(w, req)
+			require.Equal(t, http.StatusSeeOther, w.Result().StatusCode,
+				"failed to join with username: %s", user.username,
+			)
+			for _, c := range w.Result().Cookies() {
+				if c.Name == "session" {
+					solo[i].cookie = c
+				}
+			}
+			require.NotNil(t, solo[i].cookie,
+				"no session cookie for username: %s", user.username,
+			)
+		}
+		host := solo[0]
+
+		startPath := fmt.Sprintf("/%s/action/start", soloGameID)
+		statusPath := fmt.Sprintf("/%s/data/status", soloGameID)
+
+		// first attempt: the host is asked to confirm, the game does not start
+		req = httptest.NewRequest(http.MethodPost, startPath, nil)
+		req.AddCookie(host.cookie)
+		w = httptest.NewRecorder()
+		actionHandler(w, req)
+		require.Equal(t, http.StatusOK, w.Result().StatusCode)
+		require.Equal(t, `{"confirmStart":""}`,
+			w.Result().Header.Get("HX-Trigger"),
+		)
+		req = httptest.NewRequest(http.MethodGet, statusPath, nil)
+		req.AddCookie(host.cookie)
+		w = httptest.NewRecorder()
+		dataHandler(w, req)
+		require.Equal(t, http.StatusOK, w.Result().StatusCode)
+		require.Contains(t, w.Body.String(), "inviting",
+			"game should not start before the host confirms",
+		)
+
+		// confirmed attempt: the game starts and play begins
+		req = httptest.NewRequest(http.MethodPost, startPath+"?confirm=1", nil)
+		req.AddCookie(host.cookie)
+		w = httptest.NewRecorder()
+		actionHandler(w, req)
+		require.Equal(t, http.StatusOK, w.Result().StatusCode)
+		req = httptest.NewRequest(http.MethodGet, statusPath, nil)
+		req.AddCookie(host.cookie)
+		w = httptest.NewRecorder()
+		dataHandler(w, req)
+		require.Equal(t, http.StatusOK, w.Result().StatusCode)
+		require.Contains(t, w.Body.String(), "turn",
+			"game should start once the host confirms",
+		)
+	})
 	t.Run("POST /{game_id}/action/start", func(t *testing.T) {
 		path := fmt.Sprintf("/%s/action/start", gameID)
 		req := httptest.NewRequest(http.MethodPost, path, nil)
