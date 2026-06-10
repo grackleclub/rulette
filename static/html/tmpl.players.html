@@ -2,29 +2,6 @@
 {{ $cid := .CallerID }}
 {{ $gid := .Game.ID }}
 <section class="stack">
-  {{ if eq .Game.StateName "inviting" }}
-  <div class="invite stack">
-    <button class="button card-action"
-            data-open-dialog="invite-dialog"
-            data-invite-link="/{{ $gid }}/join"
-            data-qr-src="/{{ $gid }}/qr">
-      Invite<br>Players
-    </button>
-    {{ $isHost := false }}
-    {{ range .Players }}
-    {{ if and (eq .Initiative.Int32 0) (eq $cid .PlayerID) }}
-    {{ $isHost = true }}
-    {{ end }}
-    {{ end }}
-    {{ if $isHost }}
-    <button id="start" class="button card-action"
-                       hx-post="/{{ $gid }}/action/start"
-                       hx-swap="none">
-      Start<br>Game
-    </button>
-    {{ end }}
-  </div>
-  {{ end }}
   {{ range .Players }}
     {{ if eq .Initiative.Int32 0 }}{{ continue }}{{ end }}
     {{ $pid := .PlayerID }}
