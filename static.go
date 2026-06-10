@@ -46,6 +46,12 @@ func readParse(fs embed.FS, path string) (*template.Template, error) {
 	funcs := template.FuncMap{
 		"version": func() string { return version },
 		"add":     func(a, b int) int { return a + b },
+		"abs": func(n int32) int32 {
+			if n < 0 {
+				return -n
+			}
+			return n
+		},
 		"inGame": func(data any) bool {
 			_, ok := data.(state)
 			return ok

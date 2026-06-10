@@ -48,7 +48,7 @@ func (s *state) isHost(cookieKey string) bool {
 			}
 		}
 	}
-	log.Info("player not host", "in_game", inGame)
+	log.Warn("player not host", "in_game", inGame)
 	return false
 }
 
@@ -74,7 +74,7 @@ func (s *state) isPlayerTurn(cookieKey string) bool {
 			}
 		}
 	}
-	log.Info("player not current turn", "in_game", inGame)
+	log.Warn("player not current turn", "in_game", inGame)
 	return false
 }
 
@@ -124,7 +124,7 @@ func cookie(r *http.Request) (string, string, error) {
 	}
 	parts := strings.Split(cookie.Value, ":")
 	if len(parts) != 2 {
-		log.Info("invalid session cookie format",
+		log.Warn("invalid session cookie format",
 			"cookie_value", cookie.Value,
 		)
 		return "", "", ErrCookieInvalid
@@ -143,6 +143,26 @@ func (s *state) isGameActive() bool {
 	default:
 		return false
 	}
+}
+
+// hasPendingModifier reports whether the player whose turn it is still holds
+// an unresolved modifier card. Resolving a modifier shreds the card (and the
+// card view excludes shredded cards), so a modifier still in hand means the
+// choice is owed. Used to restore the pending state after a challenge
+// interrupts it.
+func (s *state) hasPendingModifier() bool {
+	for _, player := range s.Players {
+		if player.Initiative.Int32 != s.Game.InitiativeCurrent.Int32 {
+			continue
+		}
+		for _, card := range s.CardsPlayers {
+			if card.PlayerID.Int32 == player.PlayerID &&
+				card.Type == "modifier" {
+				return true
+			}
+		}
+	}
+	return false
 }
 
 // Standings returns the non-host players ranked by points, highest first.

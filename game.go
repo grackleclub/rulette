@@ -77,7 +77,7 @@ func gameHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if !state.isPlayerInGame(cookieKey) {
-		log.Info(
+		log.Warn(
 			"prohibiting unauthorized player access",
 			"cookie_key", cookieKey,
 			"cookie_id", cookieID,
@@ -148,7 +148,7 @@ func dataHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if !state.isPlayerInGame(cookieKey) {
-		log.Info(
+		log.Warn(
 			"prohibiting unauthorized player access",
 			"cookie_key", cookieKey,
 			"cookie_id", cookieID,
@@ -243,7 +243,7 @@ func dataHandler(w http.ResponseWriter, r *http.Request) {
 				if err != nil {
 					log.Warn("change-points can't get player id", "game_id", gameID)
 				}
-				log.Info("change-points requested by non-host",
+				log.Warn("change-points requested by non-host",
 					"caller_name", name,
 					"caller_id", id,
 					"game_id", gameID,
@@ -278,12 +278,13 @@ func dataHandler(w http.ResponseWriter, r *http.Request) {
 				return
 			}
 			if !state.isHost(cookieKey) {
-				log.Info("infraction submitted by non-host")
-				w.WriteHeader(http.StatusForbidden)
+				log.Debug("infraction poll by non-host")
+				w.WriteHeader(http.StatusNoContent)
 				return
 			}
 			for _, inf := range state.Infractions {
 				if inf.Active.Bool {
+					log.Debug("serving infraction to host", "infraction_id", inf.ID)
 					accusedName := ""
 					for _, p := range state.Players {
 						if p.PlayerID == inf.Accused {
@@ -312,7 +313,7 @@ func dataHandler(w http.ResponseWriter, r *http.Request) {
 			w.WriteHeader(http.StatusNoContent)
 			return
 		default:
-			log.Info(ErrTopicInvalid.Error())
+			log.Warn(ErrTopicInvalid.Error())
 			http.Error(w, ErrTopicInvalid.Error(), http.StatusBadRequest)
 			return
 		}
