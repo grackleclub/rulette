@@ -708,7 +708,7 @@ func actionHandler(w http.ResponseWriter, r *http.Request) {
 				return
 			}
 			if state.Game.StateID != stateEnding {
-				log.Info("continue requires ending state",
+				log.Warn("continue requires ending state",
 					"game_id", gameID,
 					"state_id", state.Game.StateID,
 				)
