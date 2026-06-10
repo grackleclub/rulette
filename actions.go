@@ -13,7 +13,14 @@ import (
 	"go.opentelemetry.io/otel/trace"
 )
 
-const minimumPlayers = 2 // number of non-host players required to start
+const (
+	// minimumPlayers is the number of non-host players required to start, so
+	// that someone holds the starting initiative and the game can't soft-lock.
+	minimumPlayers = 1
+	// recommendedPlayers is how many non-host players the game plays best with.
+	// fewer than this still starts, but only after the host confirms.
+	recommendedPlayers = 2
+)
 
 // modifierNotPending rejects a modifier action (flip, shred, clone, transfer)
 // that can't run because the game is not in the pending state. It returns true
@@ -131,9 +138,23 @@ func actionHandler(w http.ResponseWriter, r *http.Request) {
 					"minimum", minimumPlayers,
 				)
 				w.Header().Set("HX-Trigger", fmt.Sprintf(
-					`{"notice":"Need at least %d non-host players to start the game."}`,
+					`{"notice":"Need at least %d non-host player to start the game."}`,
 					minimumPlayers,
 				))
+				w.WriteHeader(http.StatusOK)
+				return
+			}
+			// the game plays best with two or more, but a single non-host
+			// player is allowed once the host confirms via the start dialog.
+			// without confirmation, ask first instead of starting.
+			if state.nonHostPlayers() < recommendedPlayers &&
+				r.URL.Query().Get("confirm") != "1" {
+				log.Info("prompting host to start with deficit of players",
+					"game_id", gameID,
+					"non_host_players", state.nonHostPlayers(),
+					"recommended", recommendedPlayers,
+				)
+				w.Header().Set("HX-Trigger", `{"confirmStart":""}`)
 				w.WriteHeader(http.StatusOK)
 				return
 			}

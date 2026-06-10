@@ -71,6 +71,15 @@
   }
   document.body.addEventListener("notice", showNotice);
 
+  // host tried to start with fewer than the recommended players: confirm first.
+  // HX-Trigger {"confirmStart":""} -> the dialog's "continue" reposts start with
+  // ?confirm=1 so the server proceeds.
+  function showConfirmStart() {
+    var dialog = document.getElementById("confirm-start-dialog");
+    if (dialog && !dialog.open) dialog.showModal();
+  }
+  document.body.addEventListener("confirmStart", showConfirmStart);
+
   // a drawn rule card opens its own dialog; its "got it" button posts
   // /action/acknowledge, which advances the turn. it stays silent (the spin
   // event already dings the spinner) -- see sound.js dingNotice.
