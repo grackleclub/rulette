@@ -63,15 +63,6 @@
       </article>
     </div>
 
-    <dialog id="hey-dialog">
-      <div id="accuse-content" class="dialog-body stack"
-        hx-get="/{{ .Game.ID }}/data/accuse"
-        hx-trigger="loadAccuse from:body"
-        hx-swap="morph:innerHTML">
-        <p>Loading...</p>
-      </div>
-    </dialog>
-
     <div id="infraction-poll"
       hx-get="/{{ .Game.ID }}/data/infraction"
       hx-trigger="every {{ .Config.refresh }}"

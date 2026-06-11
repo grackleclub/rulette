@@ -83,6 +83,16 @@
   }
   document.body.addEventListener("newCard", showNewCard);
 
+  document.body.addEventListener("htmx:afterSettle", function (e) {
+    if (!e.target || e.target.id !== "table") return;
+    var dialog = document.getElementById("newcard-dialog");
+    if (!dialog || !dialog.open) return;
+    var bar = document.querySelector(".table-bar");
+    if (bar && bar.dataset.awaitingAck !== "true") {
+      dialog.close();
+    }
+  });
+
   // close a dialog: data-close-dialog="dialog-id"
   document.body.addEventListener("click", function (e) {
     var btn = e.target.closest("[data-close-dialog]");

@@ -29,7 +29,7 @@
     {{ end }}
   </div>
 {{- else -}}
-  <div class="table-bar">
+  <div class="table-bar" data-awaiting-ack="{{ $.AwaitingAck }}">
     {{ if not $isHost }}
       {{ if and (eq $.Game.StateName "turn") $isTurn $.AwaitingAck }}
         <button class="button-teal"
@@ -60,6 +60,12 @@
           resume
         </button>
       {{ else if eq $.Game.StateName "turn" }}
+        <button class="button-action"
+          hx-post="/{{ $gid }}/action/advance"
+          hx-swap="none"
+          {{ if not $.AwaitingAck }}disabled{{ end }}>
+          advance
+        </button>
         <button class="button-action"
           hx-post="/{{ $gid }}/action/pause"
           hx-swap="none">

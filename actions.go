@@ -586,6 +586,38 @@ func actionHandler(w http.ResponseWriter, r *http.Request) {
 			w.WriteHeader(http.StatusOK)
 			return
 
+		case "advance":
+			if !state.isHost(cookieKey) {
+				log.Warn("prohibiting non-host from advancing")
+				http.Error(w, "only host can advance", http.StatusForbidden)
+				return
+			}
+			if state.Game.StateID != stateTurn {
+				log.Warn("advance requires turn state",
+					"game_id", gameID,
+					"state_id", state.Game.StateID,
+				)
+				http.Error(w, "cannot advance in current state", http.StatusConflict)
+				return
+			}
+			if !state.AwaitingAck {
+				log.Warn("advance requires pending acknowledgement",
+					"game_id", gameID,
+				)
+				http.Error(w, "nothing to advance", http.StatusConflict)
+				return
+			}
+			if err := advanceTurn(r.Context(), log, queries, gameID); err != nil {
+				log.Error("advance turn by host", "error", err, "game_id", gameID)
+				http.Error(w, "server error", http.StatusInternalServerError)
+				return
+			}
+			log.Info("host advanced initiative", "game_id", gameID)
+			cache.Delete(gameID)
+			w.Header().Set("HX-Trigger", "refreshTable")
+			w.WriteHeader(http.StatusOK)
+			return
+
 		case "pause":
 			if !state.isHost(cookieKey) {
 				log.Warn("prohibiting non-host from pausing")
