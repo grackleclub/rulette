@@ -545,9 +545,9 @@ a {
   position: relative;
   background: var(--color-loop-2);
   border: .8em solid var(--color-player-border);
-  border-radius: 5em;
+  border-radius: 6em;
   padding: 1.25em 1em;
-  min-height: 10em;
+  min-height: 12em;
   width: 100%;
 }
 .player.active-turn {

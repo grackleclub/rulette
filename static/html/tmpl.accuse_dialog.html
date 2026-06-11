@@ -1,14 +1,21 @@
 <h2><span class="script">which</span> RULE?</h2>
 {{ range .Players }}
+  {{ if eq .Initiative.Int32 0 }}{{ continue }}{{ end }}
+  {{ if eq .PlayerID $.CallerID }}{{ continue }}{{ end }}
+  {{ $pid := .PlayerID }}
+  {{ $hasCards := false }}
+  {{ range $.CardsPlayers }}
+    {{ if and (eq .PlayerID.Int32 $pid) (eq .Type "rule") }}{{ $hasCards = true }}{{ end }}
+  {{ end }}
+  {{ if not $hasCards }}{{ continue }}{{ end }}
   <article class="stack">
     <span>{{ .Name }}</span>
-    {{ $pid := .PlayerID }}
     {{ range $.CardsPlayers }}
-      {{ if eq .PlayerID.Int32 $pid }}
+      {{ if and (eq .PlayerID.Int32 $pid) (eq .Type "rule") }}
         <form method="POST" action="/{{ $.Game.ID }}/action/accuse"
           hx-post="/{{ $.Game.ID }}/action/accuse"
           hx-swap="none"
-          data-close-on-success="hey-dialog">
+          data-close-on-success="accuse-dialog">
           <input type="hidden" name="defendant_id" value="{{ $pid }}">
           <input type="hidden" name="game_card_id" value="{{ .ID }}">
           <button type="submit" class="button-teal">{{ .Content }}</button>
@@ -17,4 +24,4 @@
     {{ end }}
   </article>
 {{ end }}
-<button class="button" data-close-dialog="hey-dialog">close</button>
+<button class="button" data-close-dialog="accuse-dialog">close</button>
