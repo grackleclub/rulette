@@ -16,10 +16,15 @@
       <div class="player-rules">
           {{ end }}
           {{ if eq .Type "rule" }}
+            {{ $active := or (eq $.Game.StateName "turn") (eq $.Game.StateName "pending") (eq $.Game.StateName "challenge") }}
+            {{ if and $active (ne $pid $cid) }}
         <button class="index-card index-card-accuse"
           hx-post="/{{ $gid }}/action/accuse"
           hx-vals='{"defendant_id":"{{ $pid }}","game_card_id":"{{ .ID }}"}'
           hx-swap="none">{{ .Content }}</button>
+            {{ else }}
+        <div class="index-card">{{ .Content }}</div>
+            {{ end }}
           {{ else }}
         <div class="index-card index-card-modifier">{{ .Content }}</div>
           {{ end }}
