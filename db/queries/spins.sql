@@ -11,7 +11,7 @@ SELECT
 FROM spins
 JOIN cards ON cards.id = spins.card_id
 WHERE spins.game_id = $1
-  AND spins.ts > COALESCE(
+  AND spins.ts >= COALESCE(
       (SELECT MAX(ts) FROM event_log
        WHERE game_id = $1 AND event_type = 'turn'),
       '1970-01-01'
