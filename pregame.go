@@ -40,7 +40,8 @@ func setCookieErr(w http.ResponseWriter, err error) {
 // from which a user can start a new game with a POST to /create.
 func rootHandler(w http.ResponseWriter, r *http.Request) {
 	indexPath := path.Join("static", "html", "index.html")
-	if err := renderTemplate(r.Context(), w, indexPath, nil); err != nil {
+	data := pageData{BaseURL: baseURL(r)}
+	if err := renderTemplate(r.Context(), w, indexPath, data); err != nil {
 		http.Error(w, "server error", http.StatusInternalServerError)
 		return
 	}
@@ -118,7 +119,8 @@ func joinHandler(w http.ResponseWriter, r *http.Request) {
 		}
 		w.Header().Set("Content-Type", "text/html")
 		templateFilepath := path.Join("static", "html", "tmpl.join.html")
-		if err := renderTemplate(r.Context(), w, templateFilepath, game); err != nil {
+		data := pageData{BaseURL: baseURL(r), Data: game}
+		if err := renderTemplate(r.Context(), w, templateFilepath, data); err != nil {
 			log.Error("render template",
 				"error", err,
 				"template", templateFilepath,

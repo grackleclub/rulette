@@ -3,7 +3,21 @@
   <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Rulette | {{ .ID }}</title>
+    <title>Rulette | {{ .Data.ID }}</title>
+    <meta name="description" content="You're invited to a game of Rulette. Enter your name to join and start stacking rules.">
+    <!-- link preview (Open Graph + Twitter Card) -->
+    <meta property="og:type" content="website">
+    <meta property="og:site_name" content="Rulette">
+    <meta property="og:title" content="Join a game of Rulette">
+    <meta property="og:description" content="You're invited to a game of Rulette. Enter your name to join and start stacking rules.">
+    <meta property="og:url" content="{{ .BaseURL }}/{{ .Data.ID }}/join">
+    <meta property="og:image" content="{{ .BaseURL }}/static/img/preview.png">
+    <meta property="og:image:width" content="1080">
+    <meta property="og:image:height" content="644">
+    <meta name="twitter:card" content="summary_large_image">
+    <meta name="twitter:title" content="Join a game of Rulette">
+    <meta name="twitter:description" content="You're invited to a game of Rulette. Enter your name to join.">
+    <meta name="twitter:image" content="{{ .BaseURL }}/static/img/preview.png">
     <link rel="stylesheet" href="/static/css/style.css">
     <link rel="icon" type="image/svg+xml" href="/static/img/favicon.svg">
   </head>
@@ -14,7 +28,7 @@
           <div class="card-logo">rulette</div>
         </div>
         <div class="stack join-group">
-          <form class="stack" action="/{{ .ID }}/join" method="POST">
+          <form class="stack" action="/{{ .Data.ID }}/join" method="POST">
             <div class="input-wrap">
               <input type="text" id="username" name="username" placeholder="enter name" autocomplete="off" autofocus required aria-describedby="cookie-info" />
               <button type="button" class="info-toggle" aria-expanded="false" aria-controls="cookie-info"
