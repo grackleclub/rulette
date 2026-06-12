@@ -29,56 +29,57 @@
     {{ end }}
   </div>
 {{- else -}}
-  <div class="table-bar">
+  <div class="table-bar" data-awaiting-ack="{{ $.AwaitingAck }}" data-initiative="{{ $.Game.InitiativeCurrent.Int32 }}">
     {{ if not $isHost }}
-      {{ if and (eq $.Game.StateName "turn") $isTurn $.AwaitingAck }}
-        <button class="button-teal"
-          hx-post="/{{ $gid }}/action/acknowledge"
-          hx-swap="none">
-          end turn
-        </button>
-        <button class="button-teal" disabled>
-          spin
-        </button>
-      {{ else if and (eq $.Game.StateName "turn") $isTurn }}
-        <button class="button-teal"
-          hx-post="/{{ $gid }}/action/spin"
-          hx-swap="none">
-          spin
-        </button>
-      {{ else }}
-        <button class="button-teal" disabled>
-          spin
-        </button>
-      {{ end }}
+      <button class="button-teal"
+        hx-post="/{{ $gid }}/action/acknowledge"
+        hx-swap="none"
+        {{ if not (and (eq $.Game.StateName "turn") $isTurn $.AwaitingAck) }}disabled{{ end }}>
+        end turn
+      </button>
+      <button class="button-teal"
+        hx-post="/{{ $gid }}/action/spin"
+        hx-swap="none"
+        {{ if not (and (eq $.Game.StateName "turn") $isTurn (not $.AwaitingAck)) }}disabled{{ end }}>
+        spin
+      </button>
     {{ end }}
     {{ if $isHost }}
+      <button class="button-action"
+        hx-post="/{{ $gid }}/action/advance"
+        hx-swap="none"
+        {{ if not (and (eq $.Game.StateName "turn") $.AwaitingAck) }}disabled{{ end }}>
+        advance
+      </button>
       {{ if eq $.Game.StateName "ready" }}
         <button class="button-action"
           hx-post="/{{ $gid }}/action/resume"
           hx-swap="none">
           resume
         </button>
-      {{ else if eq $.Game.StateName "turn" }}
+      {{ else }}
         <button class="button-action"
           hx-post="/{{ $gid }}/action/pause"
-          hx-swap="none">
+          hx-swap="none"
+          {{ if not (eq $.Game.StateName "turn") }}disabled{{ end }}>
           pause
         </button>
-      {{ else if eq $.Game.StateName "ending" }}
-        <button class="button-danger"
-          hx-post="/{{ $gid }}/action/endgame"
-          hx-swap="none">
-          end game
-        </button>
-        <button class="button-action"
-          hx-post="/{{ $gid }}/action/continue"
-          hx-swap="none">
-          continue anyway
-        </button>
       {{ end }}
-      <button class="button-action" data-open-dialog="change-points-dialog" data-fetch-event="loadChangePoints">
-        change points
+    {{ end }}
+    <button class="button-danger" data-open-dialog="accuse-dialog" data-fetch-event="loadAccuse"
+      {{ if not (or (eq $.Game.StateName "turn") (eq $.Game.StateName "pending") (eq $.Game.StateName "challenge")) }}disabled{{ end }}>
+      accuse
+    </button>
+    {{ if and $isHost (eq $.Game.StateName "ending") }}
+      <button class="button-danger"
+        hx-post="/{{ $gid }}/action/endgame"
+        hx-swap="none">
+        end game
+      </button>
+      <button class="button-action"
+        hx-post="/{{ $gid }}/action/continue"
+        hx-swap="none">
+        continue anyway
       </button>
     {{ end }}
   </div>

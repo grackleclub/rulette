@@ -1,17 +1,4 @@
 (function() {
-  // open hey-dialog if navigated to directly via hash
-  if (window.location.hash === '#hey') {
-    window.location.hash = '';
-    var target = document.querySelector("#accuse-content");
-    if (target) {
-      target.addEventListener("htmx:afterSettle", function once() {
-        target.removeEventListener("htmx:afterSettle", once);
-        document.getElementById('hey-dialog').showModal();
-      });
-      document.body.dispatchEvent(new Event("loadAccuse"));
-    }
-  }
-
   // tracks the last infraction id the host has already decided on,
   // so polls returning stale state don't reopen the dialog for it
   var lastDecidedId = null;
@@ -25,7 +12,7 @@
     var d = document.getElementById('decide-dialog');
     var infoName = d.querySelector('.decide-info-name');
     var infoRule = d.querySelector('.decide-info-rule');
-    if (infoName) infoName.textContent = 'did ' + data.accused + ' break the rule?';
+    if (infoName) infoName.textContent = 'did ' + data.accused + ' break the rule';
     if (infoRule) infoRule.textContent = data.rule;
     if (!d.open) d.showModal();
   }
@@ -101,10 +88,4 @@
     }
   });
 
-  // cancel accuse panel: data-cancel-accuse
-  document.body.addEventListener("click", function(e) {
-    if (!e.target.closest("[data-cancel-accuse]")) return;
-    var panel = e.target.closest(".accuse-panel");
-    if (panel) panel.remove();
-  });
 })();

@@ -8,7 +8,6 @@
     <article id="player-{{ .PlayerID }}" class="player{{ if eq .Initiative.Int32 $.Game.InitiativeCurrent.Int32 }} active-turn{{ end }}{{ if eq $.Game.StateName "inviting" }} player-dimmed{{ end }}">
       <span class="player-name">{{ .Name }}</span>
       <span class="player-score">{{ .Points.Value }}</span>
-      <button class="player-hey" data-open-dialog="hey-dialog" data-fetch-event="loadAccuse">hey!</button>
       {{ $rules := false }}
       {{ range $cards }}
         {{ if eq .PlayerID.Int32 $pid }}
@@ -16,7 +15,19 @@
             {{ $rules = true }}
       <div class="player-rules">
           {{ end }}
-        <div class="index-card{{ if eq .Type "modifier" }} index-card-modifier{{ end }}">{{ .Content }}</div>
+          {{ if eq .Type "rule" }}
+            {{ $active := or (eq $.Game.StateName "turn") (eq $.Game.StateName "pending") (eq $.Game.StateName "challenge") }}
+            {{ if and $active (ne $pid $cid) }}
+        <button class="index-card index-card-accuse"
+          hx-post="/{{ $gid }}/action/accuse"
+          hx-vals='{"defendant_id":"{{ $pid }}","game_card_id":"{{ .ID }}"}'
+          hx-swap="none">{{ .Content }}</button>
+            {{ else }}
+        <div class="index-card">{{ .Content }}</div>
+            {{ end }}
+          {{ else }}
+        <div class="index-card index-card-modifier">{{ .Content }}</div>
+          {{ end }}
           {{ end }}
       {{ end }}
       {{ if $rules }}</div>{{ end }}

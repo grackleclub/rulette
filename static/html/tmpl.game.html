@@ -42,10 +42,10 @@
           </section>
         </div>
 
-        <dialog id="change-points-dialog">
+        <dialog id="accuse-dialog">
           <div class="dialog-body stack"
-            hx-get="/{{ .Game.ID }}/data/change-points"
-            hx-trigger="loadChangePoints from:body"
+            hx-get="/{{ .Game.ID }}/data/accuse"
+            hx-trigger="loadAccuse from:body"
             hx-swap="morph:innerHTML">
           </div>
         </dialog>
@@ -62,15 +62,6 @@
 
       </article>
     </div>
-
-    <dialog id="hey-dialog">
-      <div id="accuse-content" class="dialog-body stack"
-        hx-get="/{{ .Game.ID }}/data/accuse"
-        hx-trigger="loadAccuse from:body"
-        hx-swap="morph:innerHTML">
-        <p>Loading...</p>
-      </div>
-    </dialog>
 
     <div id="infraction-poll"
       hx-get="/{{ .Game.ID }}/data/infraction"

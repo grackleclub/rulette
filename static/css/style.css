@@ -412,16 +412,6 @@ a {
   display: block;
 }
 
-.player-hey.player-hey-inline {
-  position: static;
-  transform: none;
-  width: 2.25em;
-  height: 2.25em;
-  font-size: 0.85em;
-  padding: 0;
-  vertical-align: middle;
-  cursor: default;
-}
 
 .site-footer a,
 .site-footer a:visited,
@@ -555,9 +545,9 @@ a {
   position: relative;
   background: var(--color-loop-2);
   border: .8em solid var(--color-player-border);
-  border-radius: 5em;
-  padding: 1.25em 1em 1.25em 4em;
-  min-height: 10em;
+  border-radius: 6em;
+  padding: 1.25em 1em;
+  min-height: 12em;
   width: 100%;
 }
 .player.active-turn {
@@ -604,9 +594,9 @@ a {
 .player-rules {
   margin-top: 1em;
   margin-bottom: .75em;
-  padding-left: 2.5em;
   display: flex;
   flex-wrap: wrap;
+  justify-content: center;
   gap: .5em;
 }
 
@@ -614,20 +604,20 @@ a {
    and the game log so cards look the same everywhere */
 .index-card {
   aspect-ratio: 6 / 4;
-  width: 9em;
+  width: 6.75em;
   box-sizing: border-box;
   display: flex;
   align-items: center;
   justify-content: center;
   text-align: center;
-  padding: .5em;
+  padding: .25em;
   background: var(--color-text-light);
   color: var(--color-text-dark);
   border: .1em solid var(--color-text-dark);
   border-radius: .4em;
   box-shadow: .1em .1em .15em var(--color-shadow);
   font-family: var(--font-title);
-  font-size: 1.2em;
+  font-size: 1.33em;
   line-height: 1.05;
   text-transform: uppercase;
   letter-spacing: .02em;
@@ -640,27 +630,16 @@ a {
   color: var(--color-text-light);
 }
 
-.player-hey {
-  position: absolute;
-  left: 1em;
-  top: 50%;
-  transform: translateY(-50%);
-  width: 5em;
-  height: 5em;
-  border-radius: 5em;
-  border: none;
-  background: var(--color-loop-1);
-  color: var(--color-text-light);
-  font-family: var(--font-display);
-  font-size: 1em;
+/* clickable rule cards for accusing */
+.index-card-accuse {
   cursor: pointer;
-  box-shadow: .125em .125em .25em var(--color-shadow);
-  z-index: 1;
 }
 
-.player-hey:hover {
-  background: var(--color-card-bg);
+.index-card-accuse:hover {
+  border-color: var(--color-loop-1);
+  box-shadow: 0 0 0 .15em var(--color-loop-1);
 }
+
 
 /* action popup (spin, destroy, points, etc.) */
 .action-popup {

@@ -92,6 +92,22 @@
   }
   document.body.addEventListener("newCard", showNewCard);
 
+  var newcardInitiative = null;
+  document.body.addEventListener("newCard", function () {
+    var bar = document.querySelector(".table-bar");
+    if (bar) newcardInitiative = bar.dataset.initiative;
+  });
+  document.body.addEventListener("htmx:afterSettle", function (e) {
+    if (!e.target || e.target.id !== "table") return;
+    var dialog = document.getElementById("newcard-dialog");
+    if (!dialog || !dialog.open) return;
+    var bar = document.querySelector(".table-bar");
+    if (bar && newcardInitiative !== null && bar.dataset.initiative !== newcardInitiative) {
+      dialog.close();
+      newcardInitiative = null;
+    }
+  });
+
   // close a dialog: data-close-dialog="dialog-id"
   document.body.addEventListener("click", function (e) {
     var btn = e.target.closest("[data-close-dialog]");

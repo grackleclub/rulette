@@ -12,8 +12,8 @@ import (
 )
 
 const gameCardClone = `-- name: GameCardClone :exec
-INSERT INTO game_cards (game_id, card_id, player_id, from_clone)
-SELECT game_id, card_id, $2, TRUE
+INSERT INTO game_cards (game_id, card_id, player_id, from_clone, flipped)
+SELECT game_id, card_id, $2, TRUE, flipped
 FROM game_cards
 WHERE game_cards.id = $1
     AND game_cards.game_id = $3

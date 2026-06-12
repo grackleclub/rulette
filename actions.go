@@ -238,116 +238,6 @@ func actionHandler(w http.ResponseWriter, r *http.Request) {
 		}
 	case stateEnding, stateChallenge, statePending, stateTurn, stateReady: // in progress (6 = deck spent, host to end)
 		switch action {
-		case "points":
-			if !state.isHost(cookieKey) {
-				log.Warn("prohibiting non-host from updating points")
-				http.Error(w, "only host can update points", http.StatusForbidden)
-				return
-			}
-			if err := r.ParseForm(); err != nil {
-				log.Error("parse form", "error", err, "game_id", gameID)
-				http.Error(w, "bad request", http.StatusBadRequest)
-				return
-			}
-			playerStr := r.FormValue("player_id")
-			if playerStr == "" {
-				log.Warn("missing player_id", "game_id", gameID)
-				http.Error(w, "missing player_id", http.StatusBadRequest)
-				return
-			}
-			amountStr := r.FormValue("amount")
-			if amountStr == "" {
-				log.Warn("missing amount", "game_id", gameID)
-				http.Error(w, "missing amount", http.StatusBadRequest)
-				return
-			}
-			targetID, err := strconv.Atoi(playerStr)
-			if err != nil {
-				log.Error("invalid player_id",
-					"error", err,
-					"game_id", gameID,
-				)
-				http.Error(w, "invalid player_id", http.StatusBadRequest)
-				return
-			}
-			amount, err := strconv.Atoi(amountStr)
-			if err != nil {
-				log.Error("invalid amount",
-					"error", err,
-					"game_id", gameID,
-				)
-				http.Error(w, "invalid amount", http.StatusBadRequest)
-				return
-			}
-			if amount == 0 {
-				// no-op adjustment: nothing to record
-				w.Header().Set("HX-Trigger", "refreshTable")
-				w.WriteHeader(http.StatusOK)
-				return
-			}
-			tx, err := dbPool.Begin(r.Context())
-			if err != nil {
-				log.Error("begin transaction", "error", err, "game_id", gameID)
-				http.Error(w, "server error", http.StatusInternalServerError)
-				return
-			}
-			defer tx.Rollback(r.Context())
-			txq := queries.WithTx(tx)
-
-			err = txq.GamePointsAdjust(r.Context(), sqlc.GamePointsAdjustParams{
-				Points:   pgtype.Int4{Int32: int32(amount), Valid: true},
-				GameID:   gameID,
-				PlayerID: int32(targetID),
-			})
-			if err != nil {
-				log.Error("adjust points",
-					"error", err,
-					"game_id", gameID,
-					"player_id", targetID,
-					"amount", amount,
-				)
-				http.Error(w, "server error", http.StatusInternalServerError)
-				return
-			}
-			// record the points change; no infraction here, just a host adjustment
-			pcID, err := txq.PointChangeCreate(r.Context(), sqlc.PointChangeCreateParams{
-				GameID:       gameID,
-				PlayerID:     pgtype.Int4{Int32: int32(targetID), Valid: true},
-				Delta:        int32(amount),
-				InfractionID: pgtype.Int4{Valid: false},
-			})
-			if err != nil {
-				log.Error("record point change",
-					"error", err,
-					"game_id", gameID,
-					"player_id", targetID,
-				)
-				http.Error(w, "server error", http.StatusInternalServerError)
-				return
-			}
-			// add an event so the change shows in the feed and plays a sound
-			if err := writeEvent(w, r, log, txq, sqlc.EventCreateParams{
-				GameID:        gameID,
-				EventType:     "points",
-				TargetID:      pgInt(int32(targetID)),
-				PointChangeID: pgInt(pcID),
-			}); err != nil {
-				return
-			}
-			if err = tx.Commit(r.Context()); err != nil {
-				log.Error("commit points transaction", "error", err, "game_id", gameID)
-				http.Error(w, "server error", http.StatusInternalServerError)
-				return
-			}
-			log.Info("points adjusted",
-				"game_id", gameID,
-				"player_id", targetID,
-				"amount", amount,
-			)
-			cache.Delete(gameID)
-			w.Header().Set("HX-Trigger", "refreshTable")
-			w.WriteHeader(http.StatusOK)
-
 		case "spin":
 			if state.Game.StateID != stateTurn {
 				log.Warn("spin requires turn state",
@@ -531,6 +421,35 @@ func actionHandler(w http.ResponseWriter, r *http.Request) {
 				return
 			}
 
+			if (lastSpin.ModifierEffect.String == "clone" ||
+				lastSpin.ModifierEffect.String == "transfer") &&
+				state.nonHostPlayers() < 2 {
+				err = queries.GameCardShred(r.Context(), sqlc.GameCardShredParams{
+					ID:     gcID,
+					GameID: gameID,
+				})
+				if err != nil {
+					log.Error("shred unresolvable modifier",
+						"error", err,
+						"game_id", gameID,
+						"game_card_id", gcID,
+					)
+					http.Error(w, "server error", http.StatusInternalServerError)
+					return
+				}
+				log.Info("modifier drawn but no other player to target, shredded and skipping pending",
+					"game_id", gameID,
+					"effect", lastSpin.ModifierEffect.String,
+					"player_id", id,
+					"game_card_id", gcID,
+				)
+				cache.Delete(gameID)
+				w.Header().Set("HX-Trigger",
+					`{"refreshTable":null,"modifierShredded":"`+lastSpin.ModifierEffect.String+`"}`)
+				w.WriteHeader(http.StatusOK)
+				return
+			}
+
 			log.Info("modifier drawn, entering pending state",
 				"game_id", gameID,
 				"effect", lastSpin.ModifierEffect.String,
@@ -602,6 +521,38 @@ func actionHandler(w http.ResponseWriter, r *http.Request) {
 				http.Error(w, "server error", http.StatusInternalServerError)
 				return
 			}
+			cache.Delete(gameID)
+			w.Header().Set("HX-Trigger", "refreshTable")
+			w.WriteHeader(http.StatusOK)
+			return
+
+		case "advance":
+			if !state.isHost(cookieKey) {
+				log.Warn("prohibiting non-host from advancing")
+				http.Error(w, "only host can advance", http.StatusForbidden)
+				return
+			}
+			if state.Game.StateID != stateTurn {
+				log.Warn("advance requires turn state",
+					"game_id", gameID,
+					"state_id", state.Game.StateID,
+				)
+				http.Error(w, "cannot advance in current state", http.StatusConflict)
+				return
+			}
+			if !state.AwaitingAck {
+				log.Warn("advance requires pending acknowledgement",
+					"game_id", gameID,
+				)
+				http.Error(w, "nothing to advance", http.StatusConflict)
+				return
+			}
+			if err := advanceTurn(r.Context(), log, queries, gameID); err != nil {
+				log.Error("advance turn by host", "error", err, "game_id", gameID)
+				http.Error(w, "server error", http.StatusInternalServerError)
+				return
+			}
+			log.Info("host advanced initiative", "game_id", gameID)
 			cache.Delete(gameID)
 			w.Header().Set("HX-Trigger", "refreshTable")
 			w.WriteHeader(http.StatusOK)
