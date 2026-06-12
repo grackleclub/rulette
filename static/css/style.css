@@ -594,9 +594,9 @@ a {
 .player-rules {
   margin-top: 1em;
   margin-bottom: .75em;
-  padding-left: 2.5em;
   display: flex;
   flex-wrap: wrap;
+  justify-content: center;
   gap: .5em;
 }
 
@@ -604,20 +604,20 @@ a {
    and the game log so cards look the same everywhere */
 .index-card {
   aspect-ratio: 6 / 4;
-  width: 9em;
+  width: 6.75em;
   box-sizing: border-box;
   display: flex;
   align-items: center;
   justify-content: center;
   text-align: center;
-  padding: .5em;
+  padding: .25em;
   background: var(--color-text-light);
   color: var(--color-text-dark);
   border: .1em solid var(--color-text-dark);
   border-radius: .4em;
   box-shadow: .1em .1em .15em var(--color-shadow);
   font-family: var(--font-title);
-  font-size: 1.2em;
+  font-size: 1.33em;
   line-height: 1.05;
   text-transform: uppercase;
   letter-spacing: .02em;

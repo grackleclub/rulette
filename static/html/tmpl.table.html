@@ -66,22 +66,22 @@
           pause
         </button>
       {{ end }}
-      {{ if eq $.Game.StateName "ending" }}
-        <button class="button-danger"
-          hx-post="/{{ $gid }}/action/endgame"
-          hx-swap="none">
-          end game
-        </button>
-        <button class="button-action"
-          hx-post="/{{ $gid }}/action/continue"
-          hx-swap="none">
-          continue anyway
-        </button>
-      {{ end }}
     {{ end }}
     <button class="button-danger" data-open-dialog="accuse-dialog" data-fetch-event="loadAccuse"
       {{ if not (or (eq $.Game.StateName "turn") (eq $.Game.StateName "pending") (eq $.Game.StateName "challenge")) }}disabled{{ end }}>
       accuse
     </button>
+    {{ if and $isHost (eq $.Game.StateName "ending") }}
+      <button class="button-danger"
+        hx-post="/{{ $gid }}/action/endgame"
+        hx-swap="none">
+        end game
+      </button>
+      <button class="button-action"
+        hx-post="/{{ $gid }}/action/continue"
+        hx-swap="none">
+        continue anyway
+      </button>
+    {{ end }}
   </div>
 {{- end -}}
