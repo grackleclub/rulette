@@ -81,24 +81,34 @@ func pageTemplate(path string) (*template.Template, error) {
 	return t, nil
 }
 
-// readParse reads a template file from an embedded filesystem and
-// parses it together with the shared footer.
+// sharedPartials are parsed into every page so their {{define}} blocks
+// are callable from any template: the footer, and the link-preview meta
+// tags (og:image and friends) shared by the full pages.
+var sharedPartials = []string{
+	"static/html/tmpl.footer.html",
+	"static/html/tmpl.preview.html",
+}
+
+// readParse reads a template file from an embedded filesystem and parses
+// it together with the shared partials.
 func readParse(fs embed.FS, path string) (*template.Template, error) {
 	f, err := fs.ReadFile(path)
 	if err != nil {
 		return nil, fmt.Errorf("read file %q from embed.FS: %w", path, err)
-	}
-	footer, err := fs.ReadFile("static/html/tmpl.footer.html")
-	if err != nil {
-		return nil, fmt.Errorf("read footer template: %w", err)
 	}
 	name := filepath.Base(path)
 	tmpl, err := template.New(name).Funcs(tmplFuncs).Parse(string(f))
 	if err != nil {
 		return nil, fmt.Errorf("parse template %q: %w", name, err)
 	}
-	if _, err := tmpl.Parse(string(footer)); err != nil {
-		return nil, fmt.Errorf("parse footer template: %w", err)
+	for _, p := range sharedPartials {
+		b, err := fs.ReadFile(p)
+		if err != nil {
+			return nil, fmt.Errorf("read partial %q: %w", p, err)
+		}
+		if _, err := tmpl.Parse(string(b)); err != nil {
+			return nil, fmt.Errorf("parse partial %q: %w", p, err)
+		}
 	}
 	return tmpl, nil
 }
