@@ -45,7 +45,6 @@
       </button>
     {{ end }}
     {{ if $isHost }}
-      {{ $active := or (eq $.Game.StateName "turn") (eq $.Game.StateName "pending") (eq $.Game.StateName "challenge") }}
       <button class="button-action"
         hx-post="/{{ $gid }}/action/advance"
         hx-swap="none"
