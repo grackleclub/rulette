@@ -8,7 +8,6 @@ import (
 	"image/draw"
 	"image/png"
 	"net/http"
-	"strings"
 
 	"github.com/grackleclub/rulette/internal/qr"
 	"golang.org/x/image/font"
@@ -133,15 +132,11 @@ func qrHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	scheme := "https"
-	if r.TLS == nil && !strings.EqualFold(r.Header.Get("X-Forwarded-Proto"), "https") {
-		scheme = "http"
-	}
 	if len(r.Host) > maxlenDNS {
 		http.Error(w, "bad request", http.StatusBadRequest)
 		return
 	}
-	joinURL := fmt.Sprintf("%s://%s/%s/join", scheme, r.Host, gameID)
+	joinURL := fmt.Sprintf("%s/%s/join", baseURL(r), gameID)
 
 	code, err := qr.Encode(joinURL, 0)
 	if err != nil {
