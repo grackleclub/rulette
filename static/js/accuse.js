@@ -12,7 +12,7 @@
     var d = document.getElementById('decide-dialog');
     var infoName = d.querySelector('.decide-info-name');
     var infoRule = d.querySelector('.decide-info-rule');
-    if (infoName) infoName.textContent = 'did ' + data.accused + ' break the rule?';
+    if (infoName) infoName.textContent = 'did ' + data.accused + ' break the rule';
     if (infoRule) infoRule.textContent = data.rule;
     if (!d.open) d.showModal();
   }
