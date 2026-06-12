@@ -531,6 +531,35 @@ func actionHandler(w http.ResponseWriter, r *http.Request) {
 				return
 			}
 
+			if (lastSpin.ModifierEffect.String == "clone" ||
+				lastSpin.ModifierEffect.String == "transfer") &&
+				state.nonHostPlayers() < 2 {
+				err = queries.GameCardShred(r.Context(), sqlc.GameCardShredParams{
+					ID:     gcID,
+					GameID: gameID,
+				})
+				if err != nil {
+					log.Error("shred unresolvable modifier",
+						"error", err,
+						"game_id", gameID,
+						"game_card_id", gcID,
+					)
+					http.Error(w, "server error", http.StatusInternalServerError)
+					return
+				}
+				log.Info("modifier drawn but no other player to target, shredded and skipping pending",
+					"game_id", gameID,
+					"effect", lastSpin.ModifierEffect.String,
+					"player_id", id,
+					"game_card_id", gcID,
+				)
+				cache.Delete(gameID)
+				w.Header().Set("HX-Trigger",
+					`{"refreshTable":null,"modifierShredded":"`+lastSpin.ModifierEffect.String+`"}`)
+				w.WriteHeader(http.StatusOK)
+				return
+			}
+
 			log.Info("modifier drawn, entering pending state",
 				"game_id", gameID,
 				"effect", lastSpin.ModifierEffect.String,
