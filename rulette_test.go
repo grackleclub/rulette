@@ -546,6 +546,74 @@ func TestGame(t *testing.T) {
 		require.NotEqual(t, int32(1), gs.InitiativeCurrent.Int32, "expected initiative to advance")
 	})
 
+	// set up for advance tests: put the game in turn state with a pending
+	// rule-card spin so AwaitingAck is true for the current player.
+	err = queries.GameUpdate(ctx, sqlc.GameUpdateParams{
+		ID:      gameID,
+		StateID: stateTurn,
+		InitiativeCurrent: pgtype.Int4{
+			Int32: 1, Valid: true,
+		},
+	})
+	require.NoError(t, err)
+	// find the player_id for initiative 1
+	var advancePlayerID int32
+	for _, p := range players {
+		if p.Initiative.Int32 == 1 {
+			advancePlayerID = p.PlayerID
+			break
+		}
+	}
+	require.NotZero(t, advancePlayerID, "need a player at initiative 1")
+	// seed a rule-card spin for the current turn player so AwaitingAck fires
+	_, err = dbPool.Exec(ctx,
+		`INSERT INTO spins (game_id, player_id, slot, card_id)
+		 SELECT $1, $2, 1, c.id FROM cards c WHERE c.type = 'rule' LIMIT 1`,
+		gameID, advancePlayerID)
+	require.NoError(t, err)
+	cache.Delete(gameID)
+
+	t.Run("POST /{game_id}/action/advance (non-host rejected)", func(t *testing.T) {
+		path := fmt.Sprintf("/%s/action/advance", gameID)
+		req := httptest.NewRequest(http.MethodPost, path, nil)
+		req.AddCookie(cookieByInitiative[1]) // not the host
+		w := httptest.NewRecorder()
+		cache.Delete(gameID)
+		actionHandler(w, req)
+		require.Equal(t, http.StatusForbidden, w.Result().StatusCode)
+	})
+
+	t.Run("POST /{game_id}/action/advance (host succeeds)", func(t *testing.T) {
+		gsBefore, err := queries.GameState(ctx, gameID)
+		require.NoError(t, err)
+		initBefore := gsBefore.InitiativeCurrent.Int32
+
+		path := fmt.Sprintf("/%s/action/advance", gameID)
+		req := httptest.NewRequest(http.MethodPost, path, nil)
+		req.AddCookie(cookieByInitiative[0]) // host
+		w := httptest.NewRecorder()
+		cache.Delete(gameID)
+		actionHandler(w, req)
+		require.Equal(t, http.StatusOK, w.Result().StatusCode)
+
+		cache.Delete(gameID)
+		gsAfter, err := queries.GameState(ctx, gameID)
+		require.NoError(t, err)
+		require.Equal(t, int32(stateTurn), gsAfter.StateID)
+		require.NotEqual(t, initBefore, gsAfter.InitiativeCurrent.Int32,
+			"initiative should advance after host advance")
+	})
+
+	t.Run("POST /{game_id}/action/advance (no pending ack rejected)", func(t *testing.T) {
+		path := fmt.Sprintf("/%s/action/advance", gameID)
+		req := httptest.NewRequest(http.MethodPost, path, nil)
+		req.AddCookie(cookieByInitiative[0]) // host
+		w := httptest.NewRecorder()
+		cache.Delete(gameID)
+		actionHandler(w, req)
+		require.Equal(t, http.StatusConflict, w.Result().StatusCode)
+	})
+
 	// reset game to a playable state for accuse/decide tests
 	err = queries.GameUpdate(ctx, sqlc.GameUpdateParams{
 		ID:      gameID,
