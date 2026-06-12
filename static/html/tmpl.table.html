@@ -29,7 +29,7 @@
     {{ end }}
   </div>
 {{- else -}}
-  <div class="table-bar" data-awaiting-ack="{{ $.AwaitingAck }}">
+  <div class="table-bar" data-awaiting-ack="{{ $.AwaitingAck }}" data-initiative="{{ $.Game.InitiativeCurrent.Int32 }}">
     {{ if not $isHost }}
       <button class="button-teal"
         hx-post="/{{ $gid }}/action/acknowledge"
