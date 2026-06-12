@@ -7,7 +7,6 @@ import (
 	"log/slog"
 	"net/http"
 	"os"
-	"strings"
 
 	sqlc "github.com/grackleclub/rulette/db/sqlc"
 	"github.com/jackc/pgx/v5"
@@ -28,36 +27,6 @@ func envRequired(key string) string {
 // pgInt wraps a player or row id as a non-NULL pgtype.Int4.
 func pgInt(v int32) pgtype.Int4 {
 	return pgtype.Int4{Int32: v, Valid: true}
-}
-
-// baseURL returns the absolute "scheme://host" for the request, so
-// templates can build absolute links (link-preview crawlers require
-// absolute og:image and og:url). Honors the X-Forwarded-Proto and
-// X-Forwarded-Host headers a reverse proxy sets in production.
-func baseURL(r *http.Request) string {
-	scheme := "http"
-	if r.TLS != nil {
-		scheme = "https"
-	}
-	if proto := firstToken(r.Header.Get("X-Forwarded-Proto")); proto != "" {
-		scheme = proto
-	}
-	host := r.Host
-	if fwd := firstToken(r.Header.Get("X-Forwarded-Host")); fwd != "" {
-		host = fwd
-	}
-	return scheme + "://" + host
-}
-
-// firstToken returns the first comma-separated value of a header,
-// trimmed. Across a proxy chain X-Forwarded-* arrives comma-joined
-// ("https, http"); only the left-most value — set by the proxy closest
-// to the client — is meaningful, so use it rather than the raw header.
-func firstToken(v string) string {
-	if i := strings.IndexByte(v, ','); i >= 0 {
-		v = v[:i]
-	}
-	return strings.TrimSpace(v)
 }
 
 // recordEvent adds one row to the event log. Detail references that don't

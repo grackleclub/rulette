@@ -15,8 +15,6 @@ import (
 	"golang.org/x/image/math/fixed"
 )
 
-const maxlenDNS = 253
-
 // brandFont is the cursive face used for the "rulette" banner above the QR,
 // the same Borel font the page logo uses. parsed once from the embedded FS.
 var brandFont = func() *opentype.Font {
