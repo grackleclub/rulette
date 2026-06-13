@@ -65,5 +65,6 @@ func validHost(h string) bool {
 	if err != nil || u.Host != h {
 		return false
 	}
-	return len(u.Hostname()) <= maxlenDNS
+	hn := u.Hostname()
+	return hn != "" && len(hn) <= maxlenDNS
 }
