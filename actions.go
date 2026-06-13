@@ -366,7 +366,7 @@ func actionHandler(w http.ResponseWriter, r *http.Request) {
 			if lastSpin.Type == "prompt" {
 				// a prompt card: a timed challenge the spinner performs and the
 				// host judges. enter the prompt state so the host gets the
-				// complete/not-complete controls and other actions hold off.
+				// succeed/fail controls and other actions hold off.
 				// the turn advances only once the host rules on it.
 				err = queries.GameUpdate(r.Context(), sqlc.GameUpdateParams{
 					ID:      gameID,
@@ -1821,9 +1821,9 @@ func actionHandler(w http.ResponseWriter, r *http.Request) {
 			cache.Delete(gameID)
 			w.Header().Set("HX-Trigger", "refreshTable")
 			w.WriteHeader(http.StatusOK)
-		case "complete", "incomplete":
-			// the host rules on a prompt challenge. "complete" awards the
-			// spinner points and may be called at any time; "incomplete"
+		case "succeed", "fail":
+			// the host rules on a prompt challenge. "succeed" awards the
+			// spinner points and may be called at any time; "fail"
 			// awards nothing and is gated by the grace allowance so it can't
 			// be called before the spinner's time is genuinely up. either
 			// way the prompt card leaves play and the turn advances.
@@ -1849,7 +1849,7 @@ func actionHandler(w http.ResponseWriter, r *http.Request) {
 				http.Error(w, "no active prompt", http.StatusConflict)
 				return
 			}
-			if action == "incomplete" {
+			if action == "fail" {
 				elapsed, err := queries.SpinLatestElapsedSeconds(r.Context(), gameID)
 				if err != nil {
 					log.Error("measure prompt elapsed",
@@ -1913,7 +1913,7 @@ func actionHandler(w http.ResponseWriter, r *http.Request) {
 				}
 			}
 
-			if action == "complete" {
+			if action == "succeed" {
 				award := rulesHeld + 1
 				if err := txq.GamePointsAdjust(r.Context(), sqlc.GamePointsAdjustParams{
 					Points:   pgInt(award),

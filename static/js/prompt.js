@@ -2,7 +2,8 @@
   // ---- spinner side: the challenge popup with a local countdown ----
 
   var spinnerTimer = null;
-  var spinnerInitiative = null;
+  var spinnerActive = false; // a challenge of mine is open this session
+  var lastOutcomeId = null; // event id of the last result I've shown
 
   function clearSpinnerTimer() {
     if (spinnerTimer) {
@@ -18,24 +19,32 @@
     var dialog = document.getElementById("newprompt-dialog");
     var content = document.getElementById("newprompt-content");
     var countdown = document.getElementById("newprompt-countdown");
+    var waiting = document.getElementById("newprompt-waiting");
+    var title = document.getElementById("newprompt-title");
+    var outcome = document.getElementById("newprompt-outcome");
+    var dismiss = document.getElementById("newprompt-dismiss");
     if (!dialog || !content || !countdown) return;
     content.textContent = e.detail && e.detail.value ? e.detail.value : "";
 
-    // remember whose turn it is now so we can tell when the host's ruling has
-    // advanced it (which is our cue to close the popup).
-    var bar = document.querySelector(".table-bar");
-    spinnerInitiative = bar ? bar.dataset.initiative : null;
+    // a fresh challenge: show the countdown view, clear any prior outcome.
+    spinnerActive = true;
+    if (title) title.textContent = "prompt challenge!";
+    if (waiting) waiting.hidden = true;
+    if (outcome) outcome.hidden = true;
+    if (dismiss) dismiss.hidden = true;
+    countdown.hidden = false;
 
     var deadline = Date.now() + 60 * 1000;
     clearSpinnerTimer();
     function tick() {
       var remaining = Math.ceil((deadline - Date.now()) / 1000);
       if (remaining > 0) {
-        countdown.textContent = remaining + "s";
+        countdown.textContent = remaining;
         countdown.classList.remove("prompt-countdown-done");
       } else {
-        countdown.textContent = "time's up!";
+        countdown.textContent = "0";
         countdown.classList.add("prompt-countdown-done");
+        if (waiting) waiting.hidden = false;
         clearSpinnerTimer();
       }
     }
@@ -45,18 +54,77 @@
   }
   document.body.addEventListener("newPrompt", showPrompt);
 
-  // close the spinner popup once the host has ruled: the turn advances, so the
-  // table-bar's initiative changes (mirrors the new-rule card behavior).
-  document.body.addEventListener("htmx:afterSettle", function (e) {
-    if (!e.target || e.target.id !== "table") return;
+  // once the host rules, the result lands in the event feed as a "prompt" event
+  // targeting me: swap the popup from the countdown to the outcome and wait for
+  // me to dismiss it. whichever poll (feed or table) settles first triggers
+  // this; the event-id guard makes the other a no-op.
+  function maybeShowOutcome() {
+    if (!spinnerActive) return; // no challenge of mine in flight this session
     var dialog = document.getElementById("newprompt-dialog");
-    if (!dialog || !dialog.open) return;
-    var bar = document.querySelector(".table-bar");
-    if (bar && spinnerInitiative !== null &&
-        bar.dataset.initiative !== spinnerInitiative) {
-      clearSpinnerTimer();
-      dialog.close();
-      spinnerInitiative = null;
+    var self = document.getElementById("self");
+    if (!dialog || !self) return;
+    var myName = self.textContent.trim();
+    if (!myName) return;
+
+    var items = document.querySelectorAll(
+      '#event-log .event[data-event-type="prompt"]'
+    );
+    var ev = null;
+    for (var i = items.length - 1; i >= 0; i--) {
+      if (items[i].getAttribute("data-target") === myName) {
+        ev = items[i];
+        break;
+      }
+    }
+    if (!ev) return;
+    var id = ev.getAttribute("data-event-id");
+    if (id === lastOutcomeId) return; // already shown this result
+    lastOutcomeId = id;
+    spinnerActive = false;
+    clearSpinnerTimer();
+
+    // a delta means points were awarded (success); its absence means a fail.
+    var deltaAttr = ev.getAttribute("data-delta");
+    var delta = deltaAttr === null ? NaN : parseInt(deltaAttr, 10);
+    var title = document.getElementById("newprompt-title");
+    var countdown = document.getElementById("newprompt-countdown");
+    var waiting = document.getElementById("newprompt-waiting");
+    var outcome = document.getElementById("newprompt-outcome");
+    var dismiss = document.getElementById("newprompt-dismiss");
+    if (countdown) countdown.hidden = true;
+    if (waiting) waiting.hidden = true;
+    if (!isNaN(delta) && delta > 0) {
+      if (title) title.textContent = "nice!";
+      if (outcome) {
+        outcome.textContent =
+          "You earned " + delta + " points! (1 + " + (delta - 1) + " cards)";
+        outcome.classList.remove("prompt-outcome-fail");
+      }
+      if (dismiss) dismiss.textContent = "nice";
+    } else {
+      if (title) title.textContent = "time's up";
+      if (outcome) {
+        outcome.textContent = "Failed, no points awarded.";
+        outcome.classList.add("prompt-outcome-fail");
+      }
+      if (dismiss) dismiss.textContent = "ok";
+    }
+    if (outcome) outcome.hidden = false;
+    if (dismiss) dismiss.hidden = false;
+    if (!dialog.open) dialog.showModal();
+  }
+
+  document.body.addEventListener("click", function (e) {
+    if (!e.target.closest("#newprompt-dismiss")) return;
+    e.preventDefault();
+    var dialog = document.getElementById("newprompt-dialog");
+    if (dialog && dialog.open) dialog.close();
+  });
+
+  document.body.addEventListener("htmx:afterSettle", function (e) {
+    if (!e.target) return;
+    if (e.target.id === "event-log" || e.target.id === "table") {
+      maybeShowOutcome();
     }
   });
 
@@ -85,20 +153,25 @@
           clearHostTimer();
           dialog.close();
           document.body.dispatchEvent(new Event("refreshTable"));
+        } else if (res.status === 425) {
+          // too early: the server's grace window is a touch longer than the
+          // local countdown, so a fail can land in the gap. tell the host and
+          // leave the dialog open; the button re-enables on the next tick.
+          document.body.dispatchEvent(new CustomEvent("notice", {
+            detail: { value: "Player's time is not up yet." },
+          }));
         }
-        // a 425 (too early) just leaves the dialog open; the "not complete"
-        // button re-enables itself on the next tick once the window passes.
       }
     );
   }
 
   document.body.addEventListener("click", function (e) {
-    if (e.target.closest("#prompt-complete-btn")) {
+    if (e.target.closest("#prompt-succeed-btn")) {
       e.preventDefault();
-      rule("complete");
-    } else if (e.target.closest("#prompt-incomplete-btn")) {
+      rule("succeed");
+    } else if (e.target.closest("#prompt-fail-btn")) {
       e.preventDefault();
-      rule("incomplete");
+      rule("fail");
     }
   });
 
@@ -136,24 +209,24 @@
     var window_ = data.window || 60;
     var anchor = Date.now() - (data.elapsed || 0) * 1000;
     var countdown = document.getElementById("prompt-decide-countdown");
-    var incompleteBtn = document.getElementById("prompt-incomplete-btn");
-    if (incompleteBtn) incompleteBtn.disabled = true;
+    var failBtn = document.getElementById("prompt-fail-btn");
+    if (failBtn) failBtn.disabled = true;
 
     clearHostTimer();
     function tick() {
       var remaining = Math.ceil((window_ * 1000 - (Date.now() - anchor)) / 1000);
       if (remaining > 0) {
         if (countdown) {
-          countdown.textContent = remaining + "s — they're working on it";
+          countdown.textContent = remaining;
           countdown.classList.remove("prompt-countdown-done");
         }
-        if (incompleteBtn) incompleteBtn.disabled = true;
+        if (failBtn) failBtn.disabled = true;
       } else {
         if (countdown) {
-          countdown.textContent = "time's up";
+          countdown.textContent = "0";
           countdown.classList.add("prompt-countdown-done");
         }
-        if (incompleteBtn) incompleteBtn.disabled = false;
+        if (failBtn) failBtn.disabled = false;
         clearHostTimer();
       }
     }

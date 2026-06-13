@@ -516,7 +516,7 @@ func TestGame(t *testing.T) {
 
 				// the grace allowance: the host can't fail a fresh prompt yet.
 				failReq := httptest.NewRequest(http.MethodPost,
-					fmt.Sprintf("/%s/action/incomplete", gameID), nil)
+					fmt.Sprintf("/%s/action/fail", gameID), nil)
 				failReq.AddCookie(cookieByInitiative[0]) // host
 				failW := httptest.NewRecorder()
 				cache.Delete(gameID)
@@ -524,16 +524,16 @@ func TestGame(t *testing.T) {
 				require.Equal(t, http.StatusTooEarly, failW.Result().StatusCode,
 					"spin %d: failing a fresh prompt should be too early", i)
 
-				// completing is allowed at any time and advances the turn.
-				t.Logf("spin %d: prompt, host completing (rules held=%d)", i, rulesHeld)
+				// succeeding is allowed at any time and advances the turn.
+				t.Logf("spin %d: prompt, host succeeding (rules held=%d)", i, rulesHeld)
 				doneReq := httptest.NewRequest(http.MethodPost,
-					fmt.Sprintf("/%s/action/complete", gameID), nil)
+					fmt.Sprintf("/%s/action/succeed", gameID), nil)
 				doneReq.AddCookie(cookieByInitiative[0]) // host
 				doneW := httptest.NewRecorder()
 				cache.Delete(gameID)
 				actionHandler(doneW, doneReq)
 				require.Equal(t, http.StatusOK, doneW.Result().StatusCode,
-					"spin %d prompt complete failed", i)
+					"spin %d prompt succeed failed", i)
 
 				cache.Delete(gameID)
 				pts, err = queries.GamePlayerPoints(ctx, gameID)

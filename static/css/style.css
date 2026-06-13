@@ -630,7 +630,7 @@ a {
   color: var(--color-text-light);
 }
 
-/* clickable rule cards for accusing */
+/* clickable rule cards: accusing, and picking one in the modifier chooser */
 .index-card-accuse {
   cursor: pointer;
 }
@@ -768,7 +768,8 @@ dialog fieldset {
   min-width: 8em;
 }
 
-.table-bar button:disabled {
+.table-bar button:disabled,
+dialog button:disabled {
   opacity: .35;
   cursor: not-allowed;
   filter: grayscale(.5);
@@ -916,10 +917,14 @@ dialog fieldset {
 }
 
 /* prompt challenge popups (spinner countdown + host ruling) */
-.prompt-text {
-  font-size: 1.4em;
-  font-weight: bold;
-  text-align: center;
+/* a drawn card shown at full size in a dialog, on the same stock as .index-card */
+.index-card-dialog {
+  width: 14em;
+  max-width: 100%;
+  aspect-ratio: 6 / 4;
+  font-size: 1.1em;
+  margin-inline: auto;
+  overflow: visible;
 }
 
 .prompt-decide-spinner {
@@ -939,6 +944,17 @@ dialog fieldset {
 
 .prompt-waiting {
   opacity: 0.7;
+}
+
+/* the spinner's result, shown in place of the countdown once the host rules */
+.prompt-outcome {
+  font-size: 1.4em;
+  font-weight: bold;
+  text-align: center;
+}
+
+.prompt-outcome-fail {
+  color: var(--color-loop-1);
 }
 
 

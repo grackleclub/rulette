@@ -251,7 +251,7 @@ func dataHandler(w http.ResponseWriter, r *http.Request) {
 			// host-only poll: while a prompt challenge is live, hand the host
 			// the spinner's name, the prompt text, and how many seconds have
 			// already elapsed so their popup can sync its countdown and enable
-			// the "not complete" choice on time.
+			// the "fail" choice on time.
 			if state.Game.StateID != statePrompt {
 				w.WriteHeader(http.StatusNoContent)
 				return

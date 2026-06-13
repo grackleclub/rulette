@@ -29,7 +29,7 @@
         <div class="actions">
           {{ range $.CardsPlayers }}
             {{ if and (eq .PlayerID.Int32 $pid) (eq .Type "rule") }}
-              <button class="button-teal modifier-card-btn"
+              <button class="index-card index-card-accuse modifier-card-btn"
                 data-game-card-id="{{ .ID }}"
                 data-action="/{{ $.Game.ID }}/action/{{ $effect }}">
                 {{ .Content }}

@@ -69,10 +69,22 @@
 
   document.body.addEventListener("htmx:afterSettle", function (e) {
     if (!e.detail || !e.detail.elt) return;
-    // every table poll is a chance to complete a queued modifier action once
-    // the blocking challenge has resolved.
-    if (e.detail.elt.id === "table" && pending && !inFlight) {
-      attempt(pending.url, pending.effect);
+    if (e.detail.elt.id === "table") {
+      // every table poll is a chance to complete a queued modifier action once
+      // the blocking challenge has resolved.
+      if (pending && !inFlight) {
+        attempt(pending.url, pending.effect);
+        return;
+      }
+      // recover a missed chooser: if it's my pending modifier and the dialog
+      // isn't already up, (re)load it. the server only sets this flag for the
+      // turn player, and we skip it while the dialog is open so an in-progress
+      // clone/transfer selection isn't reset by polling.
+      var bar = document.querySelector(".table-bar");
+      var dlg = getDialog();
+      if (bar && bar.dataset.modifierPending === "true" && dlg && !dlg.open) {
+        document.body.dispatchEvent(new Event("loadModifier"));
+      }
       return;
     }
     // after modifier content is fetched, check if we should open the dialog
