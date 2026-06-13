@@ -6,7 +6,7 @@ import (
 )
 
 // maxlenDNS is the maximum length of a DNS name (RFC 1035). Host values
-// are clamped to it before going into a URL or a QR code.
+// are validated against it before going into a URL or a QR code.
 const maxlenDNS = 253
 
 // baseURL returns the absolute "scheme://host" for the request, so
@@ -25,9 +25,15 @@ func baseURL(r *http.Request) string {
 	if proto == "http" || proto == "https" {
 		scheme = proto
 	}
-	host := r.Host
-	if fwd := firstToken(r.Header.Get("X-Forwarded-Host")); validHost(fwd) {
-		host = fwd
+	// Prefer a forwarded host, fall back to the host the server received,
+	// but require either to look like a host so an over-long or malformed
+	// Host header can't reflect into the absolute URL.
+	host := firstToken(r.Header.Get("X-Forwarded-Host"))
+	if !validHost(host) {
+		host = r.Host
+	}
+	if !validHost(host) {
+		host = ""
 	}
 	return scheme + "://" + host
 }
