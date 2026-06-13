@@ -82,6 +82,7 @@ func gameHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	span.SetAttributes(attrPlayerID.String(cookieID))
+	log = log.With("cookie_id", cookieID)
 
 	state, err := stateFromCacheOrDB(r.Context(), &cache, gameID)
 	if err != nil {
@@ -95,9 +96,7 @@ func gameHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if !state.isPlayerInGame(cookieKey) {
-		log.Warn("prohibiting unauthorized player access",
-			"cookie_id", cookieID,
-		)
+		log.Warn("prohibiting unauthorized player access")
 		span.SetAttributes(attrAlert.String(alertNotMember))
 		http.Redirect(w, r, fmt.Sprintf("/%s/join", gameID), http.StatusSeeOther)
 		return
@@ -153,6 +152,7 @@ func dataHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	span.SetAttributes(attrPlayerID.String(cookieID))
+	log = log.With("cookie_id", cookieID)
 	state, err := stateFromCacheOrDB(r.Context(), &cache, gameID)
 	if err != nil {
 		if err == ErrStateNoGame {
@@ -165,10 +165,7 @@ func dataHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if !state.isPlayerInGame(cookieKey) {
-		log.Warn(
-			"prohibiting unauthorized player access",
-			"cookie_id", cookieID,
-		)
+		log.Warn("prohibiting unauthorized player access")
 		http.Error(w, "player not in game", http.StatusForbidden)
 		return
 	}

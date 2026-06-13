@@ -172,19 +172,31 @@ func joinHandler(w http.ResponseWriter, r *http.Request) {
 				return
 			}
 		}
-		// only a game still gathering players is joinable; in-progress or
-		// finished games bounce home with a popup instead of a dead form, so
-		// an invite link to a started or over game says so on load.
-		if game.StateID != stateCreated && game.StateID != stateInviting {
-			code := alertInProgress
-			if game.StateID == stateOver {
-				code = alertOver
-			}
-			log.Warn("redirecting visitor home, game not joinable",
+		// only a game still gathering players is joinable; for any other state
+		// bounce home with a popup instead of rendering a dead form, so an
+		// invite link to a started or over game says so on load.
+		switch game.StateID {
+		case stateCreated, stateInviting:
+			// joinable: fall through to render the form below.
+		case stateOver:
+			log.Warn("redirecting visitor home, game over")
+			redirectAlert(w, r, alertOver)
+			return
+		case stateReady, stateTurn, statePending, stateChallenge, stateEnding:
+			log.Warn("redirecting visitor home, game in progress",
 				"state_id", game.StateID,
 				"state_name", game.StateName,
 			)
-			redirectAlert(w, r, code)
+			redirectAlert(w, r, alertInProgress)
+			return
+		default:
+			// every defined state is handled above; reaching here means an
+			// unknown state id, which is a bug.
+			log.Error("unexpected game state on join page",
+				"state_id", game.StateID,
+				"state_name", game.StateName,
+			)
+			redirectAlert(w, r, alertError)
 			return
 		}
 		w.Header().Set("Content-Type", "text/html")
@@ -234,8 +246,7 @@ func joinHandler(w http.ResponseWriter, r *http.Request) {
 			log.Warn("join attempt to closed game")
 			redirectAlert(w, r, alertOver)
 			return
-
-		case statePending, stateTurn, stateReady:
+		case stateReady, stateTurn, statePending, stateChallenge, stateEnding:
 			log.Warn("join attempt to game in progress",
 				"state_id", game.StateID,
 				"state_name", game.StateName,
@@ -346,6 +357,15 @@ func joinHandler(w http.ResponseWriter, r *http.Request) {
 			// that doesn't yet know about their join.
 			cache.Delete(gameID)
 			http.Redirect(w, r, fmt.Sprintf("/%s", gameID), http.StatusSeeOther)
+		default:
+			// every defined state is handled above; reaching here means an
+			// unknown state id, which is a bug.
+			log.Error("unexpected game state on join",
+				"state_id", game.StateID,
+				"state_name", game.StateName,
+			)
+			redirectAlert(w, r, alertError)
+			return
 		}
 	default:
 		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
