@@ -83,6 +83,13 @@ body {
   body {
     max-width: 100%;
   }
+  .table-bar {
+    flex-direction: column;
+    align-items: center;
+  }
+  .card-action {
+    flex: none;
+  }
 }
 
 ul,
