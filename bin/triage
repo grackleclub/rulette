@@ -1,0 +1,16 @@
+#!/usr/bin/env bash
+# Triage submitted bug reports and rule suggestions one by one.
+# Sources dev.env (for RULETTE_ADMIN_PASSWORD) when present, then runs the CLI.
+# Pass flags through, e.g. bin/triage --kind bugs --base-url https://rulette.grackle.club
+
+set -euo pipefail
+
+if [ -f "dev.env" ]; then
+  source "dev.env"
+fi
+
+if command -v mise >/dev/null 2>&1; then
+  mise exec -- go run ./cmd/triage "$@"
+else
+  go run ./cmd/triage "$@"
+fi

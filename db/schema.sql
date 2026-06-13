@@ -355,3 +355,33 @@ CREATE TABLE IF NOT EXISTS event_log (
 	FOREIGN KEY (point_change_id) REFERENCES point_changes(id) ON DELETE SET NULL
 );
 CREATE INDEX IF NOT EXISTS event_log_game_id_idx ON event_log (game_id, id);
+
+-- bugs: player-submitted bug reports awaiting moderation. mirrors the fields
+-- of the old GitHub bug template. status moves new -> filed (a GitHub issue
+-- was opened) or new -> rejected. issue_url and notes are filled in by the
+-- triage CLI when a report is filed.
+CREATE TABLE IF NOT EXISTS bugs (
+	id SERIAL PRIMARY KEY,
+	game_url TEXT NOT NULL,
+	os TEXT NOT NULL,
+	browser TEXT NOT NULL,
+	version TEXT,
+	description TEXT NOT NULL,
+	status TEXT NOT NULL DEFAULT 'new', -- new | filed | rejected
+	issue_url TEXT, -- GitHub issue, set when filed
+	notes TEXT, -- developer notes, added at triage
+	created TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- suggestions: player-submitted rule cards awaiting moderation. mirrors the
+-- fields of the old GitHub new-rule template. status and the triage columns
+-- behave the same as bugs above.
+CREATE TABLE IF NOT EXISTS suggestions (
+	id SERIAL PRIMARY KEY,
+	front TEXT NOT NULL,
+	back TEXT NOT NULL,
+	status TEXT NOT NULL DEFAULT 'new', -- new | filed | rejected
+	issue_url TEXT, -- GitHub issue, set when filed
+	notes TEXT, -- developer notes, added at triage
+	created TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);

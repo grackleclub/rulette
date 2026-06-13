@@ -118,6 +118,9 @@ func main() {
 	mux.Handle("/{game_id}/qr", logMW(rateMW(http.HandlerFunc(qrHandler))))
 	mux.Handle("/{game_id}/data/{topic}", logMW(rateMW(http.HandlerFunc(dataHandler))))
 	mux.Handle("/{game_id}/action/{action}", logMW(rateMW(http.HandlerFunc(actionHandler))))
+	// feedback.go: public POST to submit, admin-only GET/PATCH/DELETE to triage
+	mux.Handle("/bugs", logMW(rateMW(http.HandlerFunc(bugsHandler))))
+	mux.Handle("/suggestions", logMW(rateMW(http.HandlerFunc(suggestionsHandler))))
 
 	// RULETTE_PG_URL is a postgres connection string, e.g.:
 	// postgres://user@host/rulette or postgres://user:pass@host:5432/db?sslmode=require
@@ -179,6 +182,12 @@ func main() {
 		log.Info("metrics initialized")
 	}
 	go cacheJanitor(ctx, &cache)
+	// RULETTE_ADMIN_PASSWORD guards the bug/suggestion triage endpoints. When
+	// unset, those admin endpoints fail closed (see middleware.go).
+	adminPassword = os.Getenv("RULETTE_ADMIN_PASSWORD")
+	if adminPassword == "" {
+		log.Warn("RULETTE_ADMIN_PASSWORD unset; bug/suggestion admin endpoints disabled")
+	}
 	port := os.Getenv("RULETTE_PORT")
 	if port == "" {
 		port = os.Getenv("PORT")

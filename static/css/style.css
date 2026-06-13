@@ -752,6 +752,33 @@ dialog fieldset {
   background: var(--color-backdrop);
 }
 
+/* feedback dialogs (suggest a rule / report a bug) */
+.feedback-field {
+  display: flex;
+  flex-direction: column;
+  gap: .25em;
+  text-align: left;
+}
+
+.feedback-field span {
+  font-size: .85em;
+}
+
+.feedback-field input,
+.feedback-field select,
+.feedback-field textarea {
+  width: 100%;
+}
+
+.feedback-guidelines {
+  font-size: .85em;
+  opacity: .8;
+}
+
+.feedback-thanks {
+  text-align: center;
+}
+
 /* table bar (inside header card) */
 .table-bar {
   position: relative;

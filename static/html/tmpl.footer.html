@@ -30,13 +30,79 @@
       This project is completely unaffiliated with Dropout. Be cool, Sam!
     </p>
     <div class="stack help-actions">
-      <a class="button-teal" href="https://github.com/grackleclub/rulette/issues/new?template=new-rule.yml" target="_blank" rel="noopener">💡 suggest a rule</a>
-      <a class="button-teal" href="https://github.com/grackleclub/rulette/issues/new?template=bug.yml&amp;version={{version}}" target="_blank" rel="noopener">🐛 report a bug</a>
+      <button type="button" class="button-teal" data-open-dialog="suggest-dialog">💡 suggest a rule</button>
+      <button type="button" class="button-teal" data-open-dialog="bug-dialog">🐛 report a bug</button>
       {{ if inGame . }}
         <button type="button" class="button-danger" data-open-dialog="exit-dialog">exit game</button>
       {{ end }}
       <button type="button" class="button" data-close-dialog="help-dialog">close</button>
     </div>
+  </div>
+</dialog>
+
+<dialog id="suggest-dialog" aria-labelledby="suggest-dialog-title">
+  <div class="dialog-body stack">
+    <h2 id="suggest-dialog-title">suggest a rule</h2>
+    <form class="stack" data-feedback-form data-feedback-endpoint="/suggestions">
+      <div class="feedback-guidelines">
+        <p>Rules are spoken only — no props, gestures, or costumes. Be nice: no hate.</p>
+      </div>
+      <label class="feedback-field">
+        <span>Front text</span>
+        <input type="text" name="front" placeholder="no filler words" autocomplete="off" required>
+      </label>
+      <label class="feedback-field">
+        <span>Back text</span>
+        <input type="text" name="back" placeholder="mostly filler words" autocomplete="off" required>
+      </label>
+      <button type="submit" class="button-teal">submit</button>
+    </form>
+    <p class="feedback-thanks" data-feedback-thanks hidden>thanks! we'll take a look.</p>
+    <button type="button" class="button" data-close-dialog="suggest-dialog">close</button>
+  </div>
+</dialog>
+
+<dialog id="bug-dialog" aria-labelledby="bug-dialog-title">
+  <div class="dialog-body stack">
+    <h2 id="bug-dialog-title">report a bug</h2>
+    <form class="stack" data-feedback-form data-feedback-endpoint="/bugs">
+      <input type="hidden" name="version" value="{{version}}">
+      <label class="feedback-field">
+        <span>Game URL</span>
+        <input type="text" name="game_url" data-feedback-url placeholder="https://rulette.grackle.club/abc123" autocomplete="off" required>
+      </label>
+      <label class="feedback-field">
+        <span>Operating system</span>
+        <select name="os" required>
+          <option value="">choose…</option>
+          <option>Windows</option>
+          <option>macOS</option>
+          <option>Linux</option>
+          <option>Android</option>
+          <option>iOS</option>
+          <option>Other</option>
+        </select>
+      </label>
+      <label class="feedback-field">
+        <span>Browser</span>
+        <select name="browser" required>
+          <option value="">choose…</option>
+          <option>Firefox</option>
+          <option>Chrome</option>
+          <option>Chromium</option>
+          <option>Brave</option>
+          <option>Safari</option>
+          <option>Opera</option>
+        </select>
+      </label>
+      <label class="feedback-field">
+        <span>What happened?</span>
+        <textarea name="description" rows="4" placeholder="What did you see? What did you expect? Steps to reproduce help." required></textarea>
+      </label>
+      <button type="submit" class="button-teal">submit</button>
+    </form>
+    <p class="feedback-thanks" data-feedback-thanks hidden>thanks! we'll take a look.</p>
+    <button type="button" class="button" data-close-dialog="bug-dialog">close</button>
   </div>
 </dialog>
 
@@ -51,4 +117,5 @@
 {{ end }}
 
 <script src="/static/js/dialogs.js" defer></script>
-<script src="/static/js/sound.js" defer></script>{{end}}
+<script src="/static/js/sound.js" defer></script>
+<script src="/static/js/feedback.js" defer></script>{{end}}

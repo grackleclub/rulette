@@ -2,6 +2,7 @@ version: "2"
 sql:
   - engine: "postgresql"
     queries: 
+      - "queries/bugs.sql"
       - "queries/cache.sql"
       - "queries/cards.sql"
       - "queries/event.sql"
@@ -12,6 +13,7 @@ sql:
       - "queries/player.sql"
       - "queries/point_changes.sql"
       - "queries/spins.sql"
+      - "queries/suggestions.sql"
     schema: "schema.sql"
     gen:
       go:
