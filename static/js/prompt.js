@@ -13,8 +13,9 @@
   }
 
   // newPrompt fires on the spinner's own spin response: open the popup and run
-  // a local 60s countdown from this moment. Per the rules the clock starts when
-  // the popup appears, so this is purely the spinner's local time.
+  // a local countdown from this moment, the length set by the server's window.
+  // Per the rules the clock starts when the popup appears, so this is purely
+  // the spinner's local time.
   function showPrompt(e) {
     var dialog = document.getElementById("newprompt-dialog");
     var content = document.getElementById("newprompt-content");
@@ -24,7 +25,8 @@
     var outcome = document.getElementById("newprompt-outcome");
     var dismiss = document.getElementById("newprompt-dismiss");
     if (!dialog || !content || !countdown) return;
-    content.textContent = e.detail && e.detail.value ? e.detail.value : "";
+    var detail = e.detail || {};
+    content.textContent = detail.prompt || "";
 
     // a fresh challenge: show the countdown view, clear any prior outcome.
     spinnerActive = true;
@@ -34,7 +36,8 @@
     if (dismiss) dismiss.hidden = true;
     countdown.hidden = false;
 
-    var deadline = Date.now() + 60 * 1000;
+    var windowSecs = detail.window || 60;
+    var deadline = Date.now() + windowSecs * 1000;
     clearSpinnerTimer();
     function tick() {
       var remaining = Math.ceil((deadline - Date.now()) / 1000);
@@ -94,17 +97,17 @@
     if (countdown) countdown.hidden = true;
     if (waiting) waiting.hidden = true;
     if (!isNaN(delta) && delta > 0) {
-      if (title) title.textContent = "nice!";
+      if (title) title.textContent = "prompt complete";
       if (outcome) {
         outcome.textContent =
-          "You earned " + delta + " points! (1 + " + (delta - 1) + " cards)";
+          "You earned " + delta + " points (1 + " + (delta - 1) + " cards).";
         outcome.classList.remove("prompt-outcome-fail");
       }
-      if (dismiss) dismiss.textContent = "nice";
+      if (dismiss) dismiss.textContent = "ok";
     } else {
-      if (title) title.textContent = "time's up";
+      if (title) title.textContent = "prompt failed";
       if (outcome) {
-        outcome.textContent = "Failed, no points awarded.";
+        outcome.textContent = "No points awarded.";
         outcome.classList.add("prompt-outcome-fail");
       }
       if (dismiss) dismiss.textContent = "ok";
@@ -133,6 +136,7 @@
   var hostTimer = null;
   var hostSpinId = null; // spin currently shown in the decide dialog
   var lastRuledSpinId = null; // spin we've already ruled on; don't reopen it
+  var ruling = false; // a ruling POST is in flight; blocks double-submits
 
   function clearHostTimer() {
     if (hostTimer) {
@@ -142,11 +146,14 @@
   }
 
   function rule(action) {
+    if (ruling) return; // a ruling is already in flight; ignore extra taps
     var dialog = document.getElementById("prompt-decide-dialog");
     if (!dialog) return;
+    ruling = true;
     var gameId = dialog.dataset.gameId;
     fetch("/" + gameId + "/action/" + action, { method: "POST" }).then(
       function (res) {
+        ruling = false;
         if (res.ok) {
           lastRuledSpinId = hostSpinId;
           hostSpinId = null;
@@ -160,9 +167,19 @@
           document.body.dispatchEvent(new CustomEvent("notice", {
             detail: { value: "Player's time is not up yet." },
           }));
+        } else {
+          // any other non-OK: surface it so the host can retry on purpose.
+          document.body.dispatchEvent(new CustomEvent("notice", {
+            detail: { value: "Could not record that ruling. Try again." },
+          }));
         }
       }
-    );
+    ).catch(function () {
+      ruling = false;
+      document.body.dispatchEvent(new CustomEvent("notice", {
+        detail: { value: "Network error. Please try again." },
+      }));
+    });
   }
 
   document.body.addEventListener("click", function (e) {

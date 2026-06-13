@@ -392,8 +392,10 @@ func actionHandler(w http.ResponseWriter, r *http.Request) {
 				cache.Delete(gameID)
 				// newPrompt opens the spinner's challenge popup and starts their
 				// local countdown; the spin event already dinged the spinner.
-				trigger := `{"refreshTable":null,"newPrompt":` +
-					strconv.Quote(lastSpin.Front) + `}`
+				// carry the window so the client matches the server's promptSeconds.
+				trigger := `{"refreshTable":null,"newPrompt":{"prompt":` +
+					strconv.Quote(lastSpin.Front) +
+					`,"window":` + strconv.Itoa(promptSeconds) + `}}`
 				w.Header().Set("HX-Trigger", trigger)
 				w.WriteHeader(http.StatusOK)
 				return
