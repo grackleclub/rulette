@@ -2,6 +2,7 @@ package main
 
 import (
 	"net/http"
+	"net/url"
 	"strings"
 )
 
@@ -50,23 +51,19 @@ func firstToken(v string) string {
 }
 
 // validHost reports whether h is a plausible "host" or "host:port" safe
-// to drop into an absolute URL: non-empty, within DNS length, and built
-// only from hostname and port characters, so a forwarded value can't
-// smuggle whitespace, a path, or a second scheme into the URL.
+// to drop into an absolute URL. It parses h as a URL authority and
+// requires the whole value to land in the host, so a forwarded value
+// can't smuggle a path, userinfo, query, whitespace, or a second scheme
+// past it. Bracketed IPv6 literals like "[::1]:7777" are accepted, and
+// the DNS length limit is checked against the hostname alone, not the
+// host:port pair.
 func validHost(h string) bool {
-	if h == "" || len(h) > maxlenDNS {
+	if h == "" {
 		return false
 	}
-	for _, c := range h {
-		switch {
-		case c >= 'a' && c <= 'z',
-			c >= 'A' && c <= 'Z',
-			c >= '0' && c <= '9',
-			c == '.', c == '-', c == ':',
-			c == '[', c == ']':
-		default:
-			return false
-		}
+	u, err := url.Parse("//" + h)
+	if err != nil || u.Host != h {
+		return false
 	}
-	return true
+	return len(u.Hostname()) <= maxlenDNS
 }
