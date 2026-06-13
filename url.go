@@ -33,7 +33,7 @@ func baseURL(r *http.Request) string {
 		host = r.Host
 	}
 	if !validHost(host) {
-		host = ""
+		return ""
 	}
 	return scheme + "://" + host
 }
@@ -62,7 +62,8 @@ func validHost(h string) bool {
 		case c >= 'a' && c <= 'z',
 			c >= 'A' && c <= 'Z',
 			c >= '0' && c <= '9',
-			c == '.', c == '-', c == ':':
+			c == '.', c == '-', c == ':',
+			c == '[', c == ']':
 		default:
 			return false
 		}

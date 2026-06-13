@@ -130,11 +130,16 @@ func qrHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if len(r.Host) > maxlenDNS {
+	base := baseURL(r)
+	if base == "" {
+		log.Error("no valid base url for qr",
+			"forwarded_host", r.Header.Get("X-Forwarded-Host"),
+			"host", r.Host,
+		)
 		http.Error(w, "bad request", http.StatusBadRequest)
 		return
 	}
-	joinURL := fmt.Sprintf("%s/%s/join", baseURL(r), gameID)
+	joinURL := fmt.Sprintf("%s/%s/join", base, gameID)
 
 	code, err := qr.Encode(joinURL, 0)
 	if err != nil {

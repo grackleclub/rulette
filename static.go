@@ -12,11 +12,17 @@ import (
 	"go.opentelemetry.io/otel/attribute"
 )
 
-// sharedPartials are parsed into every page so their {{define}} blocks
-// are callable from any template: the footer, and the link-preview meta
-// tags (og:image and friends) shared by the full pages.
+// sharedPartials are parsed into every template so their {{define}}
+// blocks are callable from any page or fragment: currently just the
+// footer.
 var sharedPartials = []string{
 	"static/html/tmpl.footer.html",
+}
+
+// previewPartials hold the link-preview meta tags (og:image and friends)
+// only full pages emit. They are parsed on demand, so the frequently
+// polled HTMX fragments don't read and parse them on every render.
+var previewPartials = []string{
 	"static/html/tmpl.preview.html",
 }
 
@@ -24,20 +30,22 @@ var sharedPartials = []string{
 // such as an HTMX fragment or an in-game view. Full pages that emit
 // link-preview tags use renderPage instead.
 func renderTemplate(ctx context.Context, w io.Writer, path string, data any) error {
-	return renderPage(ctx, w, path, "", data)
+	return renderPage(ctx, w, path, "", false, data)
 }
 
 // renderPage parses the named template (with the shared partials) and
 // executes it against data, writing to w. base is the absolute
 // "scheme://host" a template reads via {{ baseURL }} to build
-// link-preview links; pass "" when the template emits none. Wraps the
-// work in a "template.render" span tagged with the path so handler
-// traces show template time as a child span.
-func renderPage(ctx context.Context, w io.Writer, path, base string, data any) error {
+// link-preview links; pass "" when the template emits none. Set preview
+// when the template calls the link-preview partial, so its {{define}}
+// blocks are parsed; leave it false for fragments to skip that read.
+// Wraps the work in a "template.render" span tagged with the path so
+// handler traces show template time as a child span.
+func renderPage(ctx context.Context, w io.Writer, path, base string, preview bool, data any) error {
 	_, span := otel.Tracer(otelScope).Start(ctx, "template.render")
 	defer span.End()
 	span.SetAttributes(attribute.String("template", path))
-	tmpl, err := readParse(static, path, base)
+	tmpl, err := readParse(static, path, base, preview)
 	if err != nil {
 		return fmt.Errorf("read parse %q: %w", path, err)
 	}
@@ -49,8 +57,9 @@ func renderPage(ctx context.Context, w io.Writer, path, base string, data any) e
 
 // readParse reads a template from the embedded filesystem and parses it
 // together with the shared partials. base is exposed to the template as
-// {{ baseURL }}.
-func readParse(fs embed.FS, path, base string) (*template.Template, error) {
+// {{ baseURL }}. When preview is set, the link-preview partials are
+// parsed too, so a full page can call them.
+func readParse(fs embed.FS, path, base string, preview bool) (*template.Template, error) {
 	f, err := fs.ReadFile(path)
 	if err != nil {
 		return nil, fmt.Errorf("read file %q from embed.FS: %w", path, err)
@@ -75,7 +84,11 @@ func readParse(fs embed.FS, path, base string) (*template.Template, error) {
 	if err != nil {
 		return nil, fmt.Errorf("parse template %q: %w", name, err)
 	}
-	for _, p := range sharedPartials {
+	partials := sharedPartials
+	if preview {
+		partials = append(partials, previewPartials...)
+	}
+	for _, p := range partials {
 		b, err := fs.ReadFile(p)
 		if err != nil {
 			return nil, fmt.Errorf("read partial %q: %w", p, err)
