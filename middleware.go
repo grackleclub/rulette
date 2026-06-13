@@ -1,6 +1,7 @@
 package main
 
 import (
+	"crypto/subtle"
 	"net"
 	"net/http"
 	"sync"
@@ -8,6 +9,25 @@ import (
 
 	"golang.org/x/time/rate"
 )
+
+// adminHeader carries the admin password on requests to the moderation
+// endpoints (GET/PATCH/DELETE on /bugs and /suggestions).
+const adminHeader = "X-Rulette-Admin"
+
+// adminPassword is the expected value of adminHeader, read once from
+// RULETTE_ADMIN_PASSWORD at startup. When empty, admin endpoints fail closed.
+var adminPassword string
+
+// isAdmin reports whether the request carries the correct admin password. It
+// fails closed when no password is configured, and uses a constant-time
+// compare so a wrong guess leaks no timing signal.
+func isAdmin(r *http.Request) bool {
+	if adminPassword == "" {
+		return false
+	}
+	got := r.Header.Get(adminHeader)
+	return subtle.ConstantTimeCompare([]byte(got), []byte(adminPassword)) == 1
+}
 
 // logMW logs every incoming request.
 func logMW(next http.Handler) http.Handler {

@@ -8,6 +8,19 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 )
 
+type Bugs struct {
+	ID          int32            `json:"id"`
+	GameUrl     string           `json:"game_url"`
+	Os          string           `json:"os"`
+	Browser     string           `json:"browser"`
+	Version     pgtype.Text      `json:"version"`
+	Description string           `json:"description"`
+	Status      string           `json:"status"`
+	IssueUrl    pgtype.Text      `json:"issue_url"`
+	Notes       pgtype.Text      `json:"notes"`
+	Created     pgtype.Timestamp `json:"created"`
+}
+
 type CardTypes struct {
 	Name        string      `json:"name"`
 	Description pgtype.Text `json:"description"`
@@ -125,4 +138,14 @@ type Spins struct {
 	Slot     int32            `json:"slot"`
 	CardID   pgtype.Int4      `json:"card_id"`
 	Ts       pgtype.Timestamp `json:"ts"`
+}
+
+type Suggestions struct {
+	ID       int32            `json:"id"`
+	Front    string           `json:"front"`
+	Back     string           `json:"back"`
+	Status   string           `json:"status"`
+	IssueUrl pgtype.Text      `json:"issue_url"`
+	Notes    pgtype.Text      `json:"notes"`
+	Created  pgtype.Timestamp `json:"created"`
 }

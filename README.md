@@ -58,6 +58,26 @@ bin/sqlc
   ```go
   data, err := queries.DataAccessLayerQueryHere(ctx, args)```
 
+### feedback
+
+Players submit bug reports and rule suggestions from the in-app help dialog;
+both land in the `bugs` and `suggestions` tables rather than going straight to
+GitHub. Submission (`POST /bugs`, `POST /suggestions`) is public.
+
+The read/triage endpoints (`GET`/`PATCH`/`DELETE` on `/bugs` and
+`/suggestions`) require the `X-Rulette-Admin` header to match the
+`RULETTE_ADMIN_PASSWORD` environment variable. When that variable is unset,
+those admin endpoints fail closed (always `401`).
+
+Review the queue one ticket at a time, filing the good ones as GitHub issues
+(via the `gh` CLI) and dropping abusive ones:
+```sh
+RULETTE_ADMIN_PASSWORD=... bin/triage --kind all
+```
+Flags: `--base-url` (default `http://localhost:7777`), `--kind`
+(`bugs|suggestions|all`), `--repo` (default `grackleclub/rulette`). Requires
+`gh` on `PATH`.
+
 ### htmx
 
 [htmx](https://htmx.org) is a JavaScript library for lightweight frontends using HTML as the engine of application state[^HATEOAS].
