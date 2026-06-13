@@ -1,0 +1,8 @@
+{{define "notice"}}{{ if .Alert }}
+<dialog id="notice-dialog" data-autoshow>
+  <div class="dialog-body stack stack-centered">
+    <p id="notice-message">{{ .Alert }}</p>
+    <button class="button" data-close-dialog="notice-dialog">ok</button>
+  </div>
+</dialog>
+{{ end }}{{end}}

@@ -34,6 +34,7 @@ var (
 	attrTopic      = attribute.Key("game.topic")
 	attrStateID    = attribute.Key("game.state_id")
 	attrCallerName = attribute.Key("game.caller_name")
+	attrAlert      = attribute.Key("game.alert")
 )
 
 var (

@@ -71,6 +71,40 @@
   }
   document.body.addEventListener("notice", showNotice);
 
+  // server-rendered notice shown on page load: <dialog data-autoshow>. used by
+  // the home and join pages after a redirect carrying ?alert=<code>.
+  var autoshow = document.querySelector("dialog[data-autoshow]");
+  if (autoshow && !autoshow.open) {
+    autoshow.showModal();
+    // drop ?alert= so a refresh, back, or shared link doesn't re-pop the popup
+    if (window.history.replaceState) {
+      var alertUrl = new URL(window.location.href);
+      alertUrl.searchParams.delete("alert");
+      window.history.replaceState({}, "", alertUrl);
+    }
+  }
+
+  // a user-initiated action (POST) that 500s: show a popup so they know it
+  // didn't take and can retry. we scope this deliberately:
+  //   - only htmx:responseError (a real 5xx response), never htmx:sendError --
+  //     a dropped connection / offline blip stays silent and the next poll
+  //     recovers on its own.
+  //   - only POST. a transient 500 on a background GET poll self-heals on the
+  //     next tick, so there's no point interrupting play with a modal for it.
+  // htmx doesn't swap on an error response, so the triggering button is still
+  // in the DOM: dismissing the popup leaves them able to click again.
+  document.body.addEventListener("htmx:responseError", function (e) {
+    var xhr = e.detail && e.detail.xhr;
+    if (!xhr || xhr.status < 500) return;
+    var cfg = e.detail.requestConfig;
+    if (!cfg || cfg.verb !== "post") return;
+    var dialog = document.getElementById("notice-dialog");
+    var message = document.getElementById("notice-message");
+    if (!dialog || !message) return;
+    message.textContent = "Server error, please try again.";
+    if (!dialog.open) dialog.showModal();
+  });
+
   // host tried to start with fewer than the recommended players: confirm first.
   // HX-Trigger {"confirmStart":""} -> the dialog's "continue" reposts start with
   // ?confirm=1 so the server proceeds.

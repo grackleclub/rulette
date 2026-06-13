@@ -158,8 +158,14 @@ func TestGame(t *testing.T) {
 		req := httptest.NewRequest(http.MethodPost, u.String(), nil)
 		w := httptest.NewRecorder()
 		joinHandler(w, req)
-		require.Equal(t, http.StatusConflict, w.Result().StatusCode,
-			"should not be able to join game with duplicate username: %s", users[0].username,
+		// a duplicate name bounces back to the join page with a popup code
+		// rather than dead-ending on a raw 409.
+		require.Equal(t, http.StatusSeeOther, w.Result().StatusCode,
+			"duplicate username should redirect back to join: %s", users[0].username,
+		)
+		require.Equal(t, fmt.Sprintf("/%s/join?alert=name-taken", gameID),
+			w.Result().Header.Get("Location"),
+			"redirect target should be the join page with name-taken alert",
 		)
 	})
 

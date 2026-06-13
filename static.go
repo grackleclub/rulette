@@ -19,11 +19,13 @@ var sharedPartials = []string{
 	"static/html/tmpl.footer.html",
 }
 
-// previewPartials hold the link-preview meta tags (og:image and friends)
-// only full pages emit. They are parsed on demand, so the frequently
-// polled HTMX fragments don't read and parse them on every render.
-var previewPartials = []string{
+// pagePartials hold {{define}} blocks only full pages need: the link-preview
+// meta tags (og:image and friends) and the page-load notice popup. They are
+// parsed on demand, so the frequently polled HTMX fragments don't read and
+// parse them on every render.
+var pagePartials = []string{
 	"static/html/tmpl.preview.html",
+	"static/html/tmpl.notice.html",
 }
 
 // renderTemplate executes a template that needs no absolute base URL,
@@ -86,7 +88,7 @@ func readParse(fs embed.FS, path, base string, preview bool) (*template.Template
 	}
 	partials := sharedPartials
 	if preview {
-		partials = append(partials, previewPartials...)
+		partials = append(partials, pagePartials...)
 	}
 	for _, p := range partials {
 		b, err := fs.ReadFile(p)

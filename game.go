@@ -2,6 +2,7 @@ package main
 
 import (
 	"encoding/json"
+	"fmt"
 	"math"
 	"net/http"
 	"path"
@@ -60,7 +61,16 @@ func gameHandler(w http.ResponseWriter, r *http.Request) {
 
 	cookieID, cookieKey, err := cookie(r)
 	if err != nil {
-		setCookieErr(w, err)
+		// no/invalid session means this visitor hasn't joined yet: send them
+		// to the game's join page rather than a raw error.
+		if err == ErrCookieMissing || err == ErrCookieInvalid {
+			log.Debug("no session for game page, redirecting to join", "error", err)
+			span.SetAttributes(attrAlert.String("no-session"))
+			http.Redirect(w, r, fmt.Sprintf("/%s/join", gameID), http.StatusSeeOther)
+			return
+		}
+		log.Error("unexpected error getting cookie", "error", err)
+		redirectAlert(w, r, "error")
 		return
 	}
 	span.SetAttributes(attrPlayerID.String(cookieID))
@@ -69,11 +79,11 @@ func gameHandler(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		if err == ErrStateNoGame {
 			log.Warn("game not found", "game_id", gameID)
-			http.Error(w, "game not found", http.StatusNotFound)
+			redirectAlert(w, r, "not-found")
 			return
 		}
 		log.Error("unexpected error fetching game state", "error", err)
-		http.Error(w, "internal server error", http.StatusInternalServerError)
+		redirectAlert(w, r, "error")
 		return
 	}
 	if !state.isPlayerInGame(cookieKey) {
@@ -82,13 +92,14 @@ func gameHandler(w http.ResponseWriter, r *http.Request) {
 			"cookie_key", cookieKey,
 			"cookie_id", cookieID,
 		)
-		http.Error(w, "player not in game", http.StatusForbidden)
+		span.SetAttributes(attrAlert.String("not-member"))
+		http.Redirect(w, r, fmt.Sprintf("/%s/join", gameID), http.StatusSeeOther)
 		return
 	}
 	err = state.callerInfo(cookieKey)
 	if err != nil {
 		log.Error("populate caller info", "error", err)
-		http.Error(w, "server error", http.StatusInternalServerError)
+		redirectAlert(w, r, "error")
 		return
 	}
 	span.SetAttributes(
