@@ -2,6 +2,7 @@ package main
 
 import (
 	"encoding/json"
+	"fmt"
 	"math"
 	"net/http"
 	"path"
@@ -9,6 +10,7 @@ import (
 	"strings"
 
 	sqlc "github.com/grackleclub/rulette/db/sqlc"
+	semconv "go.opentelemetry.io/otel/semconv/v1.32.0"
 	"go.opentelemetry.io/otel/trace"
 )
 
@@ -60,35 +62,49 @@ func gameHandler(w http.ResponseWriter, r *http.Request) {
 
 	cookieID, cookieKey, err := cookie(r)
 	if err != nil {
-		setCookieErr(w, err)
+		switch err {
+		case ErrCookieMissing:
+			// visitor simply hasn't joined yet: send them to the join page.
+			log.Debug("no session for game page, redirecting to join")
+		case ErrCookieInvalid:
+			// a malformed or tampered cookie is a user mistake or abuse path.
+			log.Warn("redirecting visitor to join, invalid session cookie", "error", err)
+		default:
+			log.Error("unexpected error getting cookie", "error", err)
+			redirectAlert(w, r, alertError)
+			return
+		}
+		span.SetAttributes(
+			attrAlert.String(alertNoSession),
+			semconv.ErrorMessage(err.Error()),
+		)
+		http.Redirect(w, r, fmt.Sprintf("/%s/join", gameID), http.StatusSeeOther)
 		return
 	}
 	span.SetAttributes(attrPlayerID.String(cookieID))
+	log = log.With("cookie_id", cookieID)
 
 	state, err := stateFromCacheOrDB(r.Context(), &cache, gameID)
 	if err != nil {
 		if err == ErrStateNoGame {
 			log.Warn("game not found", "game_id", gameID)
-			http.Error(w, "game not found", http.StatusNotFound)
+			redirectAlert(w, r, alertNotFound)
 			return
 		}
 		log.Error("unexpected error fetching game state", "error", err)
-		http.Error(w, "internal server error", http.StatusInternalServerError)
+		redirectAlert(w, r, alertError)
 		return
 	}
 	if !state.isPlayerInGame(cookieKey) {
-		log.Warn(
-			"prohibiting unauthorized player access",
-			"cookie_key", cookieKey,
-			"cookie_id", cookieID,
-		)
-		http.Error(w, "player not in game", http.StatusForbidden)
+		log.Warn("prohibiting unauthorized player access")
+		span.SetAttributes(attrAlert.String(alertNotMember))
+		http.Redirect(w, r, fmt.Sprintf("/%s/join", gameID), http.StatusSeeOther)
 		return
 	}
 	err = state.callerInfo(cookieKey)
 	if err != nil {
 		log.Error("populate caller info", "error", err)
-		http.Error(w, "server error", http.StatusInternalServerError)
+		redirectAlert(w, r, alertError)
 		return
 	}
 	span.SetAttributes(
@@ -136,6 +152,7 @@ func dataHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	span.SetAttributes(attrPlayerID.String(cookieID))
+	log = log.With("cookie_id", cookieID)
 	state, err := stateFromCacheOrDB(r.Context(), &cache, gameID)
 	if err != nil {
 		if err == ErrStateNoGame {
@@ -148,11 +165,7 @@ func dataHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if !state.isPlayerInGame(cookieKey) {
-		log.Warn(
-			"prohibiting unauthorized player access",
-			"cookie_key", cookieKey,
-			"cookie_id", cookieID,
-		)
+		log.Warn("prohibiting unauthorized player access")
 		http.Error(w, "player not in game", http.StatusForbidden)
 		return
 	}

@@ -85,6 +85,7 @@ func actionHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	span.SetAttributes(attrPlayerID.String(cookieID))
+	log = log.With("cookie_id", cookieID)
 	state, err := stateFromCacheOrDB(r.Context(), &cache, gameID)
 	if err != nil {
 		if err == ErrStateNoGame {
@@ -97,11 +98,7 @@ func actionHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if !state.isPlayerInGame(cookieKey) {
-		log.Warn(
-			"prohibiting unauthorized player access",
-			"cookie_key", cookieKey,
-			"cookie_id", cookieID,
-		)
+		log.Warn("prohibiting unauthorized player access")
 		http.Error(w, "player not in game", http.StatusForbidden)
 		return
 	}
@@ -248,9 +245,7 @@ func actionHandler(w http.ResponseWriter, r *http.Request) {
 				return
 			}
 			if !state.isPlayerTurn(cookieKey) {
-				log.Warn("prohibiting non-turn player from spinning",
-					"cookie_id", cookieID,
-				)
+				log.Warn("prohibiting non-turn player from spinning")
 				http.Error(w, "not your turn", http.StatusForbidden)
 				return
 			}
@@ -488,9 +483,7 @@ func actionHandler(w http.ResponseWriter, r *http.Request) {
 				return
 			}
 			if !state.isPlayerTurn(cookieKey) {
-				log.Warn("prohibiting non-turn player from acknowledging",
-					"cookie_id", cookieID,
-				)
+				log.Warn("prohibiting non-turn player from acknowledging")
 				http.Error(w, "not your turn", http.StatusForbidden)
 				return
 			}
@@ -722,10 +715,7 @@ func actionHandler(w http.ResponseWriter, r *http.Request) {
 
 		case "flip":
 			if !state.isPlayerTurn(cookieKey) {
-				log.Warn("prohibiting non-turn player from flipping",
-					"game_id", gameID,
-					"cookie_id", cookieID,
-				)
+				log.Warn("prohibiting non-turn player from flipping")
 				http.Error(w, "not your turn", http.StatusForbidden)
 				return
 			}
@@ -869,10 +859,7 @@ func actionHandler(w http.ResponseWriter, r *http.Request) {
 			w.WriteHeader(http.StatusOK)
 		case "shred":
 			if !state.isPlayerTurn(cookieKey) {
-				log.Warn("prohibiting non-turn player from shredding",
-					"game_id", gameID,
-					"cookie_id", cookieID,
-				)
+				log.Warn("prohibiting non-turn player from shredding")
 				http.Error(w, "not your turn", http.StatusForbidden)
 				return
 			}
@@ -1018,10 +1005,7 @@ func actionHandler(w http.ResponseWriter, r *http.Request) {
 			w.WriteHeader(http.StatusOK)
 		case "clone":
 			if !state.isPlayerTurn(cookieKey) {
-				log.Warn("prohibiting non-turn player from cloning",
-					"game_id", gameID,
-					"cookie_id", cookieID,
-				)
+				log.Warn("prohibiting non-turn player from cloning")
 				http.Error(w, "not your turn", http.StatusForbidden)
 				return
 			}
@@ -1203,10 +1187,7 @@ func actionHandler(w http.ResponseWriter, r *http.Request) {
 
 		case "transfer":
 			if !state.isPlayerTurn(cookieKey) {
-				log.Warn("prohibiting non-turn player from transferring",
-					"game_id", gameID,
-					"cookie_id", cookieID,
-				)
+				log.Warn("prohibiting non-turn player from transferring")
 				http.Error(w, "not your turn", http.StatusForbidden)
 				return
 			}

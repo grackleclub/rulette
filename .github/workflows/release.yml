@@ -8,6 +8,7 @@ on:
 
 permissions:
   contents: write
+  pull-requests: read
 
 jobs:
   release:
@@ -24,6 +25,8 @@ jobs:
 
       - name: Compute next tag
         id: tag
+        env:
+          GH_TOKEN: ${{ github.token }}
         run: |
           # Reuse an existing v* tag on HEAD if present — makes reruns
           # on the same commit idempotent (no orphan tags, no skipped
@@ -37,14 +40,24 @@ jobs:
           fi
           latest=$(git tag --list 'v*' --sort=-v:refname | head -n1)
           if [ -z "$latest" ]; then
-            next="v0.0.1"
-          else
-            IFS='.' read -r major minor patch <<< "${latest#v}"
-            next="v${major}.${minor}.$((patch + 1))"
+            latest="v0.0.0"
           fi
+          IFS='.' read -r major minor patch <<< "${latest#v}"
+          # A 'feature' label on the merged PR bumps the minor version
+          # (zeroing the patch), otherwise the patch is bumped. The default
+          # token reads the labels via the pull-requests: read permission;
+          # a direct push with no PR falls back to a patch bump.
+          labels=$(gh api "repos/$GITHUB_REPOSITORY/commits/$GITHUB_SHA/pulls" \
+            --jq '.[].labels[].name' 2>/dev/null || true)
+          if echo "$labels" | grep -qx 'feature'; then
+            minor=$((minor + 1)); patch=0
+          else
+            patch=$((patch + 1))
+          fi
+          next="v${major}.${minor}.${patch}"
           echo "next=$next" >> "$GITHUB_OUTPUT"
           echo "reuse=false" >> "$GITHUB_OUTPUT"
-          echo "Next tag: $next"
+          echo "Next tag: $next (labels: $(echo "$labels" | paste -sd, -))"
 
       - name: Build binaries
         env:

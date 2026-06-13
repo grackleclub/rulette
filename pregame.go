@@ -11,6 +11,7 @@ import (
 
 	sqlc "github.com/grackleclub/rulette/db/sqlc"
 	"github.com/jackc/pgx/v5/pgtype"
+	"go.opentelemetry.io/otel/codes"
 	"go.opentelemetry.io/otel/trace"
 )
 
@@ -36,11 +37,66 @@ func setCookieErr(w http.ResponseWriter, err error) {
 	}
 }
 
+// alert codes ride a redirect's ?alert= query (or just tag the trace via
+// game.alert). The popup codes key into alertMessages for their copy;
+// dialogs.js reads ?alert= generically to autoshow and strip it, so the
+// client needs no per-code literal -- keeping this list and alertMessages
+// in sync is what holds the contract.
+const (
+	alertInProgress = "in-progress"
+	alertOver       = "over"
+	alertNotFound   = "not-found"
+	alertNameTaken  = "name-taken"
+	alertError      = "error"
+	// session codes only tag the trace and redirect to join, no popup copy.
+	alertNoSession = "no-session"
+	alertNotMember = "not-member"
+)
+
+// alertMessages maps the ?alert= code carried on a redirect to the popup
+// copy shown on the destination page. Unknown or empty codes render no
+// popup. Shared by rootHandler and joinHandler's GET render.
+var alertMessages = map[string]string{
+	alertInProgress: "Game in progress cannot be joined.",
+	alertOver:       "Game over.",
+	alertNotFound:   "Game does not exist.",
+	alertNameTaken:  "Name taken, choose another.",
+	alertError:      "Server error, please try again.",
+}
+
+// indexView is the data for index.html: just an optional popup message.
+type indexView struct {
+	Alert string
+}
+
+// joinView is the data for tmpl.join.html. The game state row is embedded so
+// the template's promoted fields (.ID, .StateName, ...) keep working, plus an
+// optional popup message.
+type joinView struct {
+	sqlc.GameStateRow
+	Alert string
+}
+
+// redirectAlert bounces a full-page visitor home with a popup. code is a
+// fixed slug, so it needs no escaping. every alert redirect is a 303, so the
+// HTTP status no longer tells these cases apart in traces -- the game.alert
+// attribute does. genuine server errors are also marked on the span so they
+// keep counting in error-rate metrics despite the 3xx status.
+func redirectAlert(w http.ResponseWriter, r *http.Request, code string) {
+	span := trace.SpanFromContext(r.Context())
+	span.SetAttributes(attrAlert.String(code))
+	if code == alertError {
+		span.SetStatus(codes.Error, "server error")
+	}
+	http.Redirect(w, r, "/?alert="+code, http.StatusSeeOther)
+}
+
 // rootHandler provides the initial welcome page (index.html),
 // from which a user can start a new game with a POST to /create.
 func rootHandler(w http.ResponseWriter, r *http.Request) {
 	indexPath := path.Join("static", "html", "index.html")
-	if err := renderPage(r.Context(), w, indexPath, baseURL(r), true, nil); err != nil {
+	data := indexView{Alert: alertMessages[r.URL.Query().Get("alert")]}
+	if err := renderPage(r.Context(), w, indexPath, baseURL(r), true, data); err != nil {
 		http.Error(w, "server error", http.StatusInternalServerError)
 		return
 	}
@@ -63,7 +119,7 @@ func createHandler(w http.ResponseWriter, r *http.Request) {
 	})
 	if err != nil {
 		log.Error("create game", "error", err)
-		http.Error(w, "bad request", http.StatusBadRequest)
+		redirectAlert(w, r, alertError)
 		return
 	}
 
@@ -89,7 +145,7 @@ func joinHandler(w http.ResponseWriter, r *http.Request) {
 	game, err := queries.GameState(r.Context(), gameID)
 	if err != nil {
 		log.Warn("game not found", "error", err)
-		http.Error(w, "game not found", http.StatusNotFound)
+		redirectAlert(w, r, alertNotFound)
 		return
 	}
 	switch r.Method {
@@ -105,7 +161,7 @@ func joinHandler(w http.ResponseWriter, r *http.Request) {
 					"error", err,
 					"game_id", gameID,
 				)
-				http.Error(w, "internal server error", http.StatusInternalServerError)
+				redirectAlert(w, r, alertError)
 				return
 			}
 			if s.isPlayerInGame(cookieKey) {
@@ -116,15 +172,43 @@ func joinHandler(w http.ResponseWriter, r *http.Request) {
 				return
 			}
 		}
+		// only a game still gathering players is joinable; for any other state
+		// bounce home with a popup instead of rendering a dead form, so an
+		// invite link to a started or over game says so on load.
+		switch game.StateID {
+		case stateCreated, stateInviting:
+			// joinable: fall through to render the form below.
+		case stateOver:
+			log.Warn("redirecting visitor home, game over")
+			redirectAlert(w, r, alertOver)
+			return
+		case stateReady, stateTurn, statePending, stateChallenge, stateEnding:
+			log.Warn("redirecting visitor home, game in progress",
+				"state_id", game.StateID,
+				"state_name", game.StateName,
+			)
+			redirectAlert(w, r, alertInProgress)
+			return
+		default:
+			// every defined state is handled above; reaching here means an
+			// unknown state id, which is a bug.
+			log.Error("unexpected game state on join page",
+				"state_id", game.StateID,
+				"state_name", game.StateName,
+			)
+			redirectAlert(w, r, alertError)
+			return
+		}
 		w.Header().Set("Content-Type", "text/html")
 		templateFilepath := path.Join("static", "html", "tmpl.join.html")
-		if err := renderPage(r.Context(), w, templateFilepath, baseURL(r), true, game); err != nil {
+		data := joinView{GameStateRow: game, Alert: alertMessages[r.URL.Query().Get("alert")]}
+		if err := renderPage(r.Context(), w, templateFilepath, baseURL(r), true, data); err != nil {
 			log.Error("render template",
 				"error", err,
 				"template", templateFilepath,
 				"game_id", gameID,
 			)
-			http.Error(w, "internal server error", http.StatusInternalServerError)
+			redirectAlert(w, r, alertError)
 			return
 		}
 	case http.MethodPost:
@@ -145,7 +229,7 @@ func joinHandler(w http.ResponseWriter, r *http.Request) {
 					"error", err,
 					"game_id", gameID,
 				)
-				http.Error(w, "internal server error", http.StatusInternalServerError)
+				redirectAlert(w, r, alertError)
 				return
 			}
 			if s.isPlayerInGame(cookieKey) {
@@ -160,15 +244,14 @@ func joinHandler(w http.ResponseWriter, r *http.Request) {
 		switch game.StateID {
 		case stateOver:
 			log.Warn("join attempt to closed game")
-			http.Error(w, "game over", http.StatusGone)
+			redirectAlert(w, r, alertOver)
 			return
-
-		case statePending, stateTurn, stateReady:
+		case stateReady, stateTurn, statePending, stateChallenge, stateEnding:
 			log.Warn("join attempt to game in progress",
 				"state_id", game.StateID,
 				"state_name", game.StateName,
 			)
-			http.Error(w, "game in progress", http.StatusConflict)
+			redirectAlert(w, r, alertInProgress)
 			return
 		case stateInviting, stateCreated:
 			// first join updates state from 'created' to 'inviting'
@@ -184,7 +267,7 @@ func joinHandler(w http.ResponseWriter, r *http.Request) {
 				})
 				if err != nil {
 					log.Error("update game from created to inviting", "error", err)
-					http.Error(w, "internal server error", http.StatusInternalServerError)
+					redirectAlert(w, r, alertError)
 					return
 				}
 			}
@@ -195,7 +278,7 @@ func joinHandler(w http.ResponseWriter, r *http.Request) {
 					"error", err,
 					"game_id", gameID,
 				)
-				http.Error(w, "internal server error", http.StatusInternalServerError)
+				redirectAlert(w, r, alertError)
 				return
 			}
 			var initiativeMax int
@@ -209,18 +292,22 @@ func joinHandler(w http.ResponseWriter, r *http.Request) {
 				}
 				// enforce no duplicate player names
 				if player.Name == username {
-					log.Debug("player already exists in game",
+					log.Warn("player already exists in game",
 						"game_id", gameID,
 						"username", username,
 					)
-					http.Error(w, "player already exists in game", http.StatusConflict)
+					trace.SpanFromContext(r.Context()).SetAttributes(attrAlert.String(alertNameTaken))
+					http.Redirect(w, r,
+						fmt.Sprintf("/%s/join?alert=%s", gameID, alertNameTaken),
+						http.StatusSeeOther,
+					)
 					return
 				}
 			}
 			id, err := queries.PlayerCreate(r.Context(), username)
 			if err != nil {
 				log.Error("create player", "error", err, "username", username)
-				http.Error(w, "username: bad request", http.StatusBadRequest)
+				redirectAlert(w, r, alertError)
 				return
 			}
 			// generate session key for game player and add them to the game.
@@ -228,7 +315,7 @@ func joinHandler(w http.ResponseWriter, r *http.Request) {
 			_, err = rand.Read(secret)
 			if err != nil {
 				log.Error("make secret", "error", err)
-				http.Error(w, "internal server error", http.StatusInternalServerError)
+				redirectAlert(w, r, alertError)
 				return
 			}
 			secretStr := hex.EncodeToString(secret)
@@ -244,6 +331,15 @@ func joinHandler(w http.ResponseWriter, r *http.Request) {
 				SessionKey: pgtype.Text{String: secretStr, Valid: true},
 				Initiative: initiative,
 			})
+			if err != nil {
+				log.Error("add player to game",
+					"error", err,
+					"game_id", gameID,
+					"player_id", id,
+				)
+				redirectAlert(w, r, alertError)
+				return
+			}
 
 			// give the player their session cookie
 			http.SetCookie(w, &http.Cookie{
@@ -261,6 +357,15 @@ func joinHandler(w http.ResponseWriter, r *http.Request) {
 			// that doesn't yet know about their join.
 			cache.Delete(gameID)
 			http.Redirect(w, r, fmt.Sprintf("/%s", gameID), http.StatusSeeOther)
+		default:
+			// every defined state is handled above; reaching here means an
+			// unknown state id, which is a bug.
+			log.Error("unexpected game state on join",
+				"state_id", game.StateID,
+				"state_name", game.StateName,
+			)
+			redirectAlert(w, r, alertError)
+			return
 		}
 	default:
 		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
