@@ -10,6 +10,7 @@ import (
 	"strings"
 
 	sqlc "github.com/grackleclub/rulette/db/sqlc"
+	semconv "go.opentelemetry.io/otel/semconv/v1.32.0"
 	"go.opentelemetry.io/otel/trace"
 )
 
@@ -61,16 +62,23 @@ func gameHandler(w http.ResponseWriter, r *http.Request) {
 
 	cookieID, cookieKey, err := cookie(r)
 	if err != nil {
-		// no/invalid session means this visitor hasn't joined yet: send them
-		// to the game's join page rather than a raw error.
-		if err == ErrCookieMissing || err == ErrCookieInvalid {
-			log.Debug("no session for game page, redirecting to join", "error", err)
-			span.SetAttributes(attrAlert.String("no-session"))
-			http.Redirect(w, r, fmt.Sprintf("/%s/join", gameID), http.StatusSeeOther)
+		switch err {
+		case ErrCookieMissing:
+			// visitor simply hasn't joined yet: send them to the join page.
+			log.Debug("no session for game page, redirecting to join")
+		case ErrCookieInvalid:
+			// a malformed or tampered cookie is a user mistake or abuse path.
+			log.Warn("redirecting visitor to join, invalid session cookie", "error", err)
+		default:
+			log.Error("unexpected error getting cookie", "error", err)
+			redirectAlert(w, r, alertError)
 			return
 		}
-		log.Error("unexpected error getting cookie", "error", err)
-		redirectAlert(w, r, "error")
+		span.SetAttributes(
+			attrAlert.String(alertNoSession),
+			semconv.ErrorMessage(err.Error()),
+		)
+		http.Redirect(w, r, fmt.Sprintf("/%s/join", gameID), http.StatusSeeOther)
 		return
 	}
 	span.SetAttributes(attrPlayerID.String(cookieID))
@@ -79,26 +87,25 @@ func gameHandler(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		if err == ErrStateNoGame {
 			log.Warn("game not found", "game_id", gameID)
-			redirectAlert(w, r, "not-found")
+			redirectAlert(w, r, alertNotFound)
 			return
 		}
 		log.Error("unexpected error fetching game state", "error", err)
-		redirectAlert(w, r, "error")
+		redirectAlert(w, r, alertError)
 		return
 	}
 	if !state.isPlayerInGame(cookieKey) {
-		log.Warn(
-			"prohibiting unauthorized player access",
+		log.Warn("prohibiting unauthorized player access",
 			"cookie_id", cookieID,
 		)
-		span.SetAttributes(attrAlert.String("not-member"))
+		span.SetAttributes(attrAlert.String(alertNotMember))
 		http.Redirect(w, r, fmt.Sprintf("/%s/join", gameID), http.StatusSeeOther)
 		return
 	}
 	err = state.callerInfo(cookieKey)
 	if err != nil {
 		log.Error("populate caller info", "error", err)
-		redirectAlert(w, r, "error")
+		redirectAlert(w, r, alertError)
 		return
 	}
 	span.SetAttributes(

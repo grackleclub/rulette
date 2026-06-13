@@ -37,15 +37,31 @@ func setCookieErr(w http.ResponseWriter, err error) {
 	}
 }
 
+// alert codes ride a redirect's ?alert= query (or just tag the trace via
+// game.alert). The popup codes key into alertMessages for their copy;
+// dialogs.js reads ?alert= generically to autoshow and strip it, so the
+// client needs no per-code literal -- keeping this list and alertMessages
+// in sync is what holds the contract.
+const (
+	alertInProgress = "in-progress"
+	alertOver       = "over"
+	alertNotFound   = "not-found"
+	alertNameTaken  = "name-taken"
+	alertError      = "error"
+	// session codes only tag the trace and redirect to join, no popup copy.
+	alertNoSession = "no-session"
+	alertNotMember = "not-member"
+)
+
 // alertMessages maps the ?alert= code carried on a redirect to the popup
 // copy shown on the destination page. Unknown or empty codes render no
 // popup. Shared by rootHandler and joinHandler's GET render.
 var alertMessages = map[string]string{
-	"in-progress": "Game in progress cannot be joined.",
-	"over":        "Game over.",
-	"not-found":   "Game does not exist.",
-	"name-taken":  "Name taken, choose another.",
-	"error":       "Server error, please try again.",
+	alertInProgress: "Game in progress cannot be joined.",
+	alertOver:       "Game over.",
+	alertNotFound:   "Game does not exist.",
+	alertNameTaken:  "Name taken, choose another.",
+	alertError:      "Server error, please try again.",
 }
 
 // indexView is the data for index.html: just an optional popup message.
@@ -69,7 +85,7 @@ type joinView struct {
 func redirectAlert(w http.ResponseWriter, r *http.Request, code string) {
 	span := trace.SpanFromContext(r.Context())
 	span.SetAttributes(attrAlert.String(code))
-	if code == "error" {
+	if code == alertError {
 		span.SetStatus(codes.Error, "server error")
 	}
 	http.Redirect(w, r, "/?alert="+code, http.StatusSeeOther)
@@ -103,7 +119,7 @@ func createHandler(w http.ResponseWriter, r *http.Request) {
 	})
 	if err != nil {
 		log.Error("create game", "error", err)
-		redirectAlert(w, r, "error")
+		redirectAlert(w, r, alertError)
 		return
 	}
 
@@ -129,7 +145,7 @@ func joinHandler(w http.ResponseWriter, r *http.Request) {
 	game, err := queries.GameState(r.Context(), gameID)
 	if err != nil {
 		log.Warn("game not found", "error", err)
-		redirectAlert(w, r, "not-found")
+		redirectAlert(w, r, alertNotFound)
 		return
 	}
 	switch r.Method {
@@ -145,7 +161,7 @@ func joinHandler(w http.ResponseWriter, r *http.Request) {
 					"error", err,
 					"game_id", gameID,
 				)
-				redirectAlert(w, r, "error")
+				redirectAlert(w, r, alertError)
 				return
 			}
 			if s.isPlayerInGame(cookieKey) {
@@ -156,6 +172,21 @@ func joinHandler(w http.ResponseWriter, r *http.Request) {
 				return
 			}
 		}
+		// only a game still gathering players is joinable; in-progress or
+		// finished games bounce home with a popup instead of a dead form, so
+		// an invite link to a started or over game says so on load.
+		if game.StateID != stateCreated && game.StateID != stateInviting {
+			code := alertInProgress
+			if game.StateID == stateOver {
+				code = alertOver
+			}
+			log.Warn("redirecting visitor home, game not joinable",
+				"state_id", game.StateID,
+				"state_name", game.StateName,
+			)
+			redirectAlert(w, r, code)
+			return
+		}
 		w.Header().Set("Content-Type", "text/html")
 		templateFilepath := path.Join("static", "html", "tmpl.join.html")
 		data := joinView{GameStateRow: game, Alert: alertMessages[r.URL.Query().Get("alert")]}
@@ -165,7 +196,7 @@ func joinHandler(w http.ResponseWriter, r *http.Request) {
 				"template", templateFilepath,
 				"game_id", gameID,
 			)
-			redirectAlert(w, r, "error")
+			redirectAlert(w, r, alertError)
 			return
 		}
 	case http.MethodPost:
@@ -186,7 +217,7 @@ func joinHandler(w http.ResponseWriter, r *http.Request) {
 					"error", err,
 					"game_id", gameID,
 				)
-				redirectAlert(w, r, "error")
+				redirectAlert(w, r, alertError)
 				return
 			}
 			if s.isPlayerInGame(cookieKey) {
@@ -201,7 +232,7 @@ func joinHandler(w http.ResponseWriter, r *http.Request) {
 		switch game.StateID {
 		case stateOver:
 			log.Warn("join attempt to closed game")
-			redirectAlert(w, r, "over")
+			redirectAlert(w, r, alertOver)
 			return
 
 		case statePending, stateTurn, stateReady:
@@ -209,7 +240,7 @@ func joinHandler(w http.ResponseWriter, r *http.Request) {
 				"state_id", game.StateID,
 				"state_name", game.StateName,
 			)
-			redirectAlert(w, r, "in-progress")
+			redirectAlert(w, r, alertInProgress)
 			return
 		case stateInviting, stateCreated:
 			// first join updates state from 'created' to 'inviting'
@@ -225,7 +256,7 @@ func joinHandler(w http.ResponseWriter, r *http.Request) {
 				})
 				if err != nil {
 					log.Error("update game from created to inviting", "error", err)
-					redirectAlert(w, r, "error")
+					redirectAlert(w, r, alertError)
 					return
 				}
 			}
@@ -236,7 +267,7 @@ func joinHandler(w http.ResponseWriter, r *http.Request) {
 					"error", err,
 					"game_id", gameID,
 				)
-				redirectAlert(w, r, "error")
+				redirectAlert(w, r, alertError)
 				return
 			}
 			var initiativeMax int
@@ -254,10 +285,9 @@ func joinHandler(w http.ResponseWriter, r *http.Request) {
 						"game_id", gameID,
 						"username", username,
 					)
-					trace.SpanFromContext(r.Context()).
-						SetAttributes(attrAlert.String("name-taken"))
+					trace.SpanFromContext(r.Context()).SetAttributes(attrAlert.String(alertNameTaken))
 					http.Redirect(w, r,
-						fmt.Sprintf("/%s/join?alert=name-taken", gameID),
+						fmt.Sprintf("/%s/join?alert=%s", gameID, alertNameTaken),
 						http.StatusSeeOther,
 					)
 					return
@@ -266,7 +296,7 @@ func joinHandler(w http.ResponseWriter, r *http.Request) {
 			id, err := queries.PlayerCreate(r.Context(), username)
 			if err != nil {
 				log.Error("create player", "error", err, "username", username)
-				redirectAlert(w, r, "error")
+				redirectAlert(w, r, alertError)
 				return
 			}
 			// generate session key for game player and add them to the game.
@@ -274,7 +304,7 @@ func joinHandler(w http.ResponseWriter, r *http.Request) {
 			_, err = rand.Read(secret)
 			if err != nil {
 				log.Error("make secret", "error", err)
-				redirectAlert(w, r, "error")
+				redirectAlert(w, r, alertError)
 				return
 			}
 			secretStr := hex.EncodeToString(secret)
@@ -296,7 +326,7 @@ func joinHandler(w http.ResponseWriter, r *http.Request) {
 					"game_id", gameID,
 					"player_id", id,
 				)
-				redirectAlert(w, r, "error")
+				redirectAlert(w, r, alertError)
 				return
 			}
 
