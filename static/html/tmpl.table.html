@@ -18,13 +18,13 @@
             data-open-dialog="invite-dialog"
             data-invite-link="/{{ $gid }}/join"
             data-qr-src="/{{ $gid }}/qr">
-      Invite<br>Players
+      Invite Players
     </button>
     {{ if $isHost }}
     <button id="start" class="button card-action"
                        hx-post="/{{ $gid }}/action/start"
                        hx-swap="none">
-      Start<br>Game
+      Start<br class="desktop-break"> Game
     </button>
     {{ end }}
   </div>
