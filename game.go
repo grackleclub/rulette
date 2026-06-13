@@ -89,7 +89,6 @@ func gameHandler(w http.ResponseWriter, r *http.Request) {
 	if !state.isPlayerInGame(cookieKey) {
 		log.Warn(
 			"prohibiting unauthorized player access",
-			"cookie_key", cookieKey,
 			"cookie_id", cookieID,
 		)
 		span.SetAttributes(attrAlert.String("not-member"))
@@ -161,7 +160,6 @@ func dataHandler(w http.ResponseWriter, r *http.Request) {
 	if !state.isPlayerInGame(cookieKey) {
 		log.Warn(
 			"prohibiting unauthorized player access",
-			"cookie_key", cookieKey,
 			"cookie_id", cookieID,
 		)
 		http.Error(w, "player not in game", http.StatusForbidden)

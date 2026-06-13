@@ -103,7 +103,7 @@ func createHandler(w http.ResponseWriter, r *http.Request) {
 	})
 	if err != nil {
 		log.Error("create game", "error", err)
-		http.Error(w, "bad request", http.StatusBadRequest)
+		redirectAlert(w, r, "error")
 		return
 	}
 
