@@ -25,9 +25,9 @@ const (
 	// any time but can only rule it failed once this has elapsed.
 	promptSeconds = 60
 	// promptGraceSeconds is the server-side allowance before the host may rule
-	// a prompt failed: a few seconds past promptSeconds to absorb the latency
+	// a prompt failed: a couple seconds past promptSeconds to absorb the latency
 	// between the spinner's local clock and the server.
-	promptGraceSeconds = 65
+	promptGraceSeconds = promptSeconds + 2
 )
 
 // modifierNotPending rejects a modifier action (flip, shred, clone, transfer)
