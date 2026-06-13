@@ -54,9 +54,10 @@ func firstToken(v string) string {
 // to drop into an absolute URL. It parses h as a URL authority and
 // requires the whole value to land in the host, so a forwarded value
 // can't smuggle a path, userinfo, query, whitespace, or a second scheme
-// past it. Bracketed IPv6 literals like "[::1]:7777" are accepted, and
-// the DNS length limit is checked against the hostname alone, not the
-// host:port pair.
+// past it. Bracketed IPv6 literals like "[::1]:7777" are accepted; the
+// hostname must be non-empty (so a bare ":80" is rejected) and within
+// the DNS length limit, which is checked against the hostname alone, not
+// the host:port pair.
 func validHost(h string) bool {
 	if h == "" {
 		return false
@@ -65,6 +66,6 @@ func validHost(h string) bool {
 	if err != nil || u.Host != h {
 		return false
 	}
-	hn := u.Hostname()
-	return hn != "" && len(hn) <= maxlenDNS
+	host := u.Hostname()
+	return host != "" && len(host) <= maxlenDNS
 }
