@@ -75,6 +75,12 @@
   // the home and join pages after a redirect carrying ?alert=<code>.
   var autoshow = document.querySelector("dialog[data-autoshow]");
   if (autoshow && !autoshow.open) {
+    // showModal steals focus, so when the notice closes return focus to
+    // whatever the page wanted focused (the username field on the join page).
+    autoshow.addEventListener("close", function () {
+      var focusTarget = document.querySelector("[autofocus]");
+      if (focusTarget) focusTarget.focus();
+    });
     autoshow.showModal();
     // drop ?alert= so a refresh, back, or shared link doesn't re-pop the popup
     if (window.history.replaceState) {

@@ -41,10 +41,10 @@ func setCookieErr(w http.ResponseWriter, err error) {
 // copy shown on the destination page. Unknown or empty codes render no
 // popup. Shared by rootHandler and joinHandler's GET render.
 var alertMessages = map[string]string{
-	"in-progress": "Game cannot be joined, game already in progress.",
-	"over":        "That game is already over.",
-	"not-found":   "That game could not be found.",
-	"name-taken":  "That name is already taken — pick another.",
+	"in-progress": "Game in progress cannot be joined.",
+	"over":        "Game over.",
+	"not-found":   "Game does not exist.",
+	"name-taken":  "Name taken, choose another.",
 	"error":       "Server error, please try again.",
 }
 
