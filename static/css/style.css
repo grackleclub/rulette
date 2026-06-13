@@ -83,6 +83,9 @@ body {
   body {
     max-width: 100%;
   }
+  .desktop-break {
+    display: none;
+  }
 }
 
 ul,
@@ -417,6 +420,7 @@ a {
 .site-footer a:visited,
 .site-footer-link {
   color: var(--color-text-muted);
+  text-decoration: none;
 }
 
 .site-footer-link {
@@ -426,11 +430,6 @@ a {
   font: inherit;
   text-shadow: inherit;
   cursor: pointer;
-  text-decoration: none;
-}
-
-.site-footer a {
-  text-decoration: none;
 }
 
 .site-footer a:hover,
@@ -509,7 +508,6 @@ a {
   padding: .7em .5em .25em;
   background: var(--color-text-dark);
   color: var(--color-text-light);
-  font-family: var(--font-script);
   border: none;
   border-radius: .3em;
   font-size: .7em;
@@ -665,6 +663,7 @@ a {
   align-items: center;
   justify-content: center;
   gap: .5em;
+  margin-bottom: .75em;
 }
 
 .points-selector .value {
@@ -673,10 +672,6 @@ a {
   color: var(--color-text-dark);
   min-width: 2em;
   text-align: center;
-}
-
-.points-selector {
-  margin-bottom: .75em;
 }
 
 .points-selector button {
