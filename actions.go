@@ -20,6 +20,14 @@ const (
 	// recommendedPlayers is how many non-host players the game plays best with.
 	// fewer than this still starts, but only after the host confirms.
 	recommendedPlayers = 2
+	// promptSeconds is how long the spinner has to complete a prompt challenge.
+	// The spinner's countdown runs locally; the host may rule it complete at
+	// any time but can only rule it failed once this has elapsed.
+	promptSeconds = 60
+	// promptGraceSeconds is the server-side allowance before the host may rule
+	// a prompt failed: a few seconds past promptSeconds to absorb the latency
+	// between the spinner's local clock and the server.
+	promptGraceSeconds = 65
 )
 
 // modifierNotPending rejects a modifier action (flip, shred, clone, transfer)
@@ -236,7 +244,7 @@ func actionHandler(w http.ResponseWriter, r *http.Request) {
 			http.Error(w, ErrActionInvalid.Error(), http.StatusTooEarly)
 			return
 		}
-	case stateEnding, stateChallenge, statePending, stateTurn, stateReady: // in progress (6 = deck spent, host to end)
+	case stateEnding, stateChallenge, statePrompt, statePending, stateTurn, stateReady: // in progress (7 = deck spent, host to end)
 		switch action {
 		case "spin":
 			if state.Game.StateID != stateTurn {
@@ -353,6 +361,41 @@ func actionHandler(w http.ResponseWriter, r *http.Request) {
 				ActorID:   pgInt(int32(id)),
 				SpinID:    pgInt(lastSpin.ID),
 			}); err != nil {
+				return
+			}
+			if lastSpin.Type == "prompt" {
+				// a prompt card: a timed challenge the spinner performs and the
+				// host judges. enter the prompt state so the host gets the
+				// complete/not-complete controls and other actions hold off.
+				// the turn advances only once the host rules on it.
+				err = queries.GameUpdate(r.Context(), sqlc.GameUpdateParams{
+					ID:      gameID,
+					StateID: statePrompt,
+					InitiativeCurrent: pgtype.Int4{
+						Int32: state.Game.InitiativeCurrent.Int32,
+						Valid: true,
+					},
+				})
+				if err != nil {
+					log.Error("transition to prompt",
+						"error", err,
+						"game_id", gameID,
+					)
+					http.Error(w, "server error", http.StatusInternalServerError)
+					return
+				}
+				log.Info("prompt drawn, entering prompt state",
+					"game_id", gameID,
+					"player_id", id,
+					"prompt", lastSpin.Front,
+				)
+				cache.Delete(gameID)
+				// newPrompt opens the spinner's challenge popup and starts their
+				// local countdown; the spin event already dinged the spinner.
+				trigger := `{"refreshTable":null,"newPrompt":` +
+					strconv.Quote(lastSpin.Front) + `}`
+				w.Header().Set("HX-Trigger", trigger)
+				w.WriteHeader(http.StatusOK)
 				return
 			}
 			if !lastSpin.ModifierEffect.Valid {
@@ -1774,6 +1817,187 @@ func actionHandler(w http.ResponseWriter, r *http.Request) {
 				"infraction_id", infID,
 				"verdict", verdict,
 				"points", penalty,
+			)
+			cache.Delete(gameID)
+			w.Header().Set("HX-Trigger", "refreshTable")
+			w.WriteHeader(http.StatusOK)
+		case "complete", "incomplete":
+			// the host rules on a prompt challenge. "complete" awards the
+			// spinner points and may be called at any time; "incomplete"
+			// awards nothing and is gated by the grace allowance so it can't
+			// be called before the spinner's time is genuinely up. either
+			// way the prompt card leaves play and the turn advances.
+			if !state.isHost(cookieKey) {
+				log.Warn("prohibiting non-host from ruling on prompt")
+				http.Error(w, "only host can rule on a prompt", http.StatusForbidden)
+				return
+			}
+			if state.Game.StateID != statePrompt {
+				log.Warn("prompt ruling requires prompt state",
+					"game_id", gameID,
+					"state_id", state.Game.StateID,
+				)
+				http.Error(w, "no active prompt", http.StatusConflict)
+				return
+			}
+			spin, err := queries.SpinPendingModifier(r.Context(), gameID)
+			if err != nil || spin.Type != "prompt" || !spin.PlayerID.Valid {
+				log.Warn("no pending prompt to rule on",
+					"game_id", gameID,
+					"error", err,
+				)
+				http.Error(w, "no active prompt", http.StatusConflict)
+				return
+			}
+			if action == "incomplete" {
+				elapsed, err := queries.SpinLatestElapsedSeconds(r.Context(), gameID)
+				if err != nil {
+					log.Error("measure prompt elapsed",
+						"error", err,
+						"game_id", gameID,
+					)
+					http.Error(w, "server error", http.StatusInternalServerError)
+					return
+				}
+				if elapsed < promptGraceSeconds {
+					log.Debug("prompt failed too early, within grace",
+						"game_id", gameID,
+						"elapsed", elapsed,
+						"grace", promptGraceSeconds,
+					)
+					http.Error(w, "challenge still in progress", http.StatusTooEarly)
+					return
+				}
+			}
+
+			spinnerID := spin.PlayerID.Int32
+			// the spinner's reward is 1 plus one per rule they hold; find
+			// that count and the prompt card to remove, both from the
+			// spinner's revealed cards.
+			var rulesHeld, promptCardID int32
+			for _, c := range state.CardsPlayers {
+				if c.PlayerID.Int32 != spinnerID {
+					continue
+				}
+				switch c.Type {
+				case "rule":
+					rulesHeld++
+				case "prompt":
+					promptCardID = c.ID
+				}
+			}
+
+			tx, err := dbPool.Begin(r.Context())
+			if err != nil {
+				log.Error("begin transaction", "error", err, "game_id", gameID)
+				http.Error(w, "server error", http.StatusInternalServerError)
+				return
+			}
+			defer tx.Rollback(r.Context())
+			txq := queries.WithTx(tx)
+
+			// the prompt is a one-shot challenge: remove it from play once
+			// ruled on so it doesn't linger in the spinner's hand.
+			if promptCardID != 0 {
+				if err := txq.GameCardShred(r.Context(), sqlc.GameCardShredParams{
+					ID:     promptCardID,
+					GameID: gameID,
+				}); err != nil {
+					log.Error("shred prompt card",
+						"error", err,
+						"game_id", gameID,
+						"game_card_id", promptCardID,
+					)
+					http.Error(w, "server error", http.StatusInternalServerError)
+					return
+				}
+			}
+
+			if action == "complete" {
+				award := rulesHeld + 1
+				if err := txq.GamePointsAdjust(r.Context(), sqlc.GamePointsAdjustParams{
+					Points:   pgInt(award),
+					GameID:   gameID,
+					PlayerID: spinnerID,
+				}); err != nil {
+					log.Error("award prompt points",
+						"error", err,
+						"game_id", gameID,
+						"player_id", spinnerID,
+					)
+					http.Error(w, "server error", http.StatusInternalServerError)
+					return
+				}
+				pcID, err := txq.PointChangeCreate(r.Context(), sqlc.PointChangeCreateParams{
+					GameID:   gameID,
+					PlayerID: pgInt(spinnerID),
+					Delta:    award,
+				})
+				if err != nil {
+					log.Error("record prompt point change",
+						"error", err,
+						"game_id", gameID,
+					)
+					http.Error(w, "server error", http.StatusInternalServerError)
+					return
+				}
+				// a "prompt" event carrying a points delta reads as a
+				// completion; the spin gives the feed the prompt's text.
+				if err := writeEvent(w, r, log, txq, sqlc.EventCreateParams{
+					GameID:        gameID,
+					EventType:     "prompt",
+					TargetID:      pgInt(spinnerID),
+					SpinID:        pgInt(spin.ID),
+					PointChangeID: pgInt(pcID),
+				}); err != nil {
+					return
+				}
+			} else {
+				// no points: a "prompt" event without a delta reads as a
+				// failure.
+				if err := writeEvent(w, r, log, txq, sqlc.EventCreateParams{
+					GameID:    gameID,
+					EventType: "prompt",
+					TargetID:  pgInt(spinnerID),
+					SpinID:    pgInt(spin.ID),
+				}); err != nil {
+					return
+				}
+			}
+
+			// the challenge is over: return to normal play and pass the turn
+			// on, just as acknowledging a drawn rule would.
+			if err := txq.GameUpdate(r.Context(), sqlc.GameUpdateParams{
+				ID:      gameID,
+				StateID: stateTurn,
+				InitiativeCurrent: pgtype.Int4{
+					Int32: state.Game.InitiativeCurrent.Int32,
+					Valid: true,
+				},
+			}); err != nil {
+				log.Error("return to turn after prompt",
+					"error", err,
+					"game_id", gameID,
+				)
+				http.Error(w, "server error", http.StatusInternalServerError)
+				return
+			}
+			if err := advanceTurn(r.Context(), log, txq, gameID); err != nil {
+				log.Error("advance after prompt", "error", err, "game_id", gameID)
+				http.Error(w, "server error", http.StatusInternalServerError)
+				return
+			}
+
+			if err := tx.Commit(r.Context()); err != nil {
+				log.Error("commit prompt ruling", "error", err, "game_id", gameID)
+				http.Error(w, "server error", http.StatusInternalServerError)
+				return
+			}
+			log.Info("prompt ruled",
+				"game_id", gameID,
+				"ruling", action,
+				"player_id", spinnerID,
+				"rules_held", rulesHeld,
 			)
 			cache.Delete(gameID)
 			w.Header().Set("HX-Trigger", "refreshTable")

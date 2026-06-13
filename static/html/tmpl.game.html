@@ -10,6 +10,7 @@
     <script src="/static/js/idiomorph-ext.min.js"></script>
     <script src="/static/js/accuse.js" defer></script>
     <script src="/static/js/modifier.js" defer></script>
+    <script src="/static/js/prompt.js" defer></script>
   </head>
   <body hx-ext="morph">
     <div class="card-float">
@@ -69,6 +70,33 @@
       hx-swap="none"
       hx-on::after-request="handleInfraction(event)">
     </div>
+
+    <div id="prompt-poll"
+      hx-get="/{{ .Game.ID }}/data/prompt"
+      hx-trigger="every {{ .Config.refresh }}"
+      hx-swap="none"
+      hx-on::after-request="handlePrompt(event)">
+    </div>
+
+    <dialog id="newprompt-dialog" data-game-id="{{ .Game.ID }}">
+      <div class="dialog-body stack stack-centered">
+        <h2>prompt challenge!</h2>
+        <p id="newprompt-content" class="prompt-text"></p>
+        <p id="newprompt-countdown" class="prompt-countdown"></p>
+        <p class="prompt-waiting">waiting on the host to score it…</p>
+      </div>
+    </dialog>
+
+    <dialog id="prompt-decide-dialog" data-game-id="{{ .Game.ID }}">
+      <div class="dialog-body stack stack-centered">
+        <h2>prompt challenge</h2>
+        <p id="prompt-decide-spinner" class="prompt-decide-spinner"></p>
+        <p id="prompt-decide-content" class="prompt-text"></p>
+        <p id="prompt-decide-countdown" class="prompt-countdown"></p>
+        <button class="button-teal" id="prompt-complete-btn">complete</button>
+        <button class="button-danger" id="prompt-incomplete-btn" disabled>not complete</button>
+      </div>
+    </dialog>
 
     <dialog id="decide-dialog">
       <div class="dialog-body stack">

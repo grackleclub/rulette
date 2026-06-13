@@ -24,10 +24,11 @@
   {{- else if eq .EventType "shred" }}{{ $actor }} shredded a card
   {{- else if eq .EventType "clone" }}{{ $actor }} cloned a card to {{ $target }}
   {{- else if eq .EventType "transfer" }}{{ $actor }} gave a card to {{ $target }}
+  {{- else if eq .EventType "prompt" }}{{ if .PointsDelta.Valid }}{{ $target }} earned {{ .PointsDelta.Int32 }} points (1+{{ sub .PointsDelta.Int32 1 }} rules held) for completing prompt {{ .CardFront }}{{ else }}{{ $target }} did not complete prompt {{ .CardFront }}{{ end }}
   {{- else }}{{ .EventType }}
   {{- end -}}
   </span>
-  {{- if ne .CardFront "" }}
+  {{- if and (ne .CardFront "") (ne .EventType "prompt") }}
   {{- $face := .CardFront -}}
   {{- if and .CardFlipped (ne .CardBack "") }}{{ $face = .CardBack }}{{ end }}
   <div class="index-card index-card-log{{ if eq .CardType "modifier" }} index-card-modifier{{ end }}">{{ $face }}</div>

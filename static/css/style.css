@@ -915,4 +915,30 @@ dialog fieldset {
   mask-image: linear-gradient(to bottom, transparent 0, black 2.5em);
 }
 
+/* prompt challenge popups (spinner countdown + host ruling) */
+.prompt-text {
+  font-size: 1.4em;
+  font-weight: bold;
+  text-align: center;
+}
+
+.prompt-decide-spinner {
+  font-style: italic;
+  opacity: 0.8;
+}
+
+.prompt-countdown {
+  font-family: var(--font-score);
+  font-size: 2em;
+  text-align: center;
+}
+
+.prompt-countdown-done {
+  color: var(--color-loop-1);
+}
+
+.prompt-waiting {
+  opacity: 0.7;
+}
+
 
