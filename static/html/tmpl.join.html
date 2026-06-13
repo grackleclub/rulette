@@ -4,6 +4,14 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Rulette | {{ .ID }}</title>
+    <meta name="description" content="You're invited to a game of Rulette. Enter your name to join and start stacking rules.">
+    <!-- link preview (Open Graph + Twitter Card) -->
+    <meta property="og:title" content="Join a game of Rulette">
+    <meta property="og:description" content="You're invited to a game of Rulette. Enter your name to join and start stacking rules.">
+    <meta property="og:url" content="{{ baseURL }}/{{ .ID }}/join">
+    <meta name="twitter:title" content="Join a game of Rulette">
+    <meta name="twitter:description" content="You're invited to a game of Rulette. Enter your name to join.">
+    {{ template "preview" . }}
     <link rel="stylesheet" href="/static/css/style.css">
     <link rel="icon" type="image/svg+xml" href="/static/img/favicon.svg">
   </head>

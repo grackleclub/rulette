@@ -8,15 +8,12 @@ import (
 	"image/draw"
 	"image/png"
 	"net/http"
-	"strings"
 
 	"github.com/grackleclub/rulette/internal/qr"
 	"golang.org/x/image/font"
 	"golang.org/x/image/font/opentype"
 	"golang.org/x/image/math/fixed"
 )
-
-const maxlenDNS = 253
 
 // brandFont is the cursive face used for the "rulette" banner above the QR,
 // the same Borel font the page logo uses. parsed once from the embedded FS.
@@ -133,15 +130,16 @@ func qrHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	scheme := "https"
-	if r.TLS == nil && !strings.EqualFold(r.Header.Get("X-Forwarded-Proto"), "https") {
-		scheme = "http"
-	}
-	if len(r.Host) > maxlenDNS {
+	base := baseURL(r)
+	if base == "" {
+		log.Error("no valid base url for qr",
+			"forwarded_host", r.Header.Get("X-Forwarded-Host"),
+			"host", r.Host,
+		)
 		http.Error(w, "bad request", http.StatusBadRequest)
 		return
 	}
-	joinURL := fmt.Sprintf("%s://%s/%s/join", scheme, r.Host, gameID)
+	joinURL := fmt.Sprintf("%s/%s/join", base, gameID)
 
 	code, err := qr.Encode(joinURL, 0)
 	if err != nil {
