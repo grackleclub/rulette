@@ -752,6 +752,19 @@ dialog fieldset {
   background: var(--color-backdrop);
 }
 
+/* modifier target player selection */
+.modifier-target-btn {
+  cursor: pointer;
+  padding: .25em .75em;
+  border-radius: .5em;
+  width: 100%;
+}
+
+.modifier-target-btn.active {
+  background: var(--color-card-bg);
+  color: var(--color-text-light);
+}
+
 /* table bar (inside header card) */
 .table-bar {
   position: relative;
@@ -918,14 +931,6 @@ dialog button:disabled {
 
 /* prompt challenge popups (spinner countdown + host ruling) */
 /* a drawn card shown at full size in a dialog, on the same stock as .index-card */
-.index-card-dialog {
-  width: 14em;
-  max-width: 100%;
-  aspect-ratio: 6 / 4;
-  font-size: 1.1em;
-  margin-inline: auto;
-  overflow: visible;
-}
 
 .prompt-decide-spinner {
   font-style: italic;

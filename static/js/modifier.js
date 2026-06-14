@@ -18,7 +18,7 @@
     var data = getData();
     if (!data) return;
     data.querySelectorAll(
-      ".modifier-card-btn, input[name='target_player_id']"
+      ".modifier-card-btn, .modifier-target-btn"
     ).forEach(function (el) {
       el.disabled = true;
     });
@@ -150,6 +150,18 @@
   // kebab-cased form, so listen to just one or this fires twice.
   document.body.addEventListener("modifierShredded", showShredNotice);
 
+  // target player selection (teal highlight toggle)
+  document.body.addEventListener("click", function (e) {
+    var btn = e.target.closest(".modifier-target-btn");
+    if (!btn) return;
+    var data = getData();
+    if (!data) return;
+    data.querySelectorAll(".modifier-target-btn").forEach(function (b) {
+      b.classList.remove("active");
+    });
+    btn.classList.add("active");
+  });
+
   // handle card button clicks
   document.body.addEventListener("click", function (e) {
     var btn = e.target.closest(".modifier-card-btn");
@@ -164,14 +176,12 @@
 
     // for clone/transfer, include target player
     if (effect === "clone" || effect === "transfer") {
-      var radio = data.querySelector(
-        'input[name="target_player_id"]:checked'
-      );
-      if (!radio) {
+      var selected = data.querySelector(".modifier-target-btn.active");
+      if (!selected) {
         alert("Select a target player first.");
         return;
       }
-      url += "&target_player_id=" + radio.value;
+      url += "&target_player_id=" + selected.dataset.targetId;
     }
 
     attempt(url, effect);
