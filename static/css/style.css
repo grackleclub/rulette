@@ -1,31 +1,31 @@
 @font-face {
   font-family: 'Secular One';
   src: url('/static/fonts/SecularOne-Regular.ttf') format('truetype');
-  font-display: swap;
+  font-display: optional;
 }
 
 @font-face {
   font-family: 'Borel';
   src: url('/static/fonts/Borel-Regular.ttf') format('truetype');
-  font-display: swap;
+  font-display: optional;
 }
 
 @font-face {
   font-family: 'Roboto';
   src: url('/static/fonts/Roboto-Regular.ttf') format('truetype');
-  font-display: swap;
+  font-display: optional;
 }
 
 @font-face {
   font-family: 'DSEG7';
   src: url('/static/fonts/DSEG7Classic-Bold.ttf') format('truetype');
-  font-display: swap;
+  font-display: optional;
 }
 
 @font-face {
   font-family: 'Bebas Neue';
   src: url('/static/fonts/BebasNeue-Regular.ttf') format('truetype');
-  font-display: swap;
+  font-display: optional;
 }
 
 :root {
