@@ -626,7 +626,15 @@ func actionHandler(w http.ResponseWriter, r *http.Request) {
 				log.Info("host advanced initiative", "game_id", gameID)
 			case statePromptShred:
 				// the spinner never shredded: skip for them and advance.
-				if err := queries.GameUpdate(r.Context(), sqlc.GameUpdateParams{
+				tx, err := dbPool.Begin(r.Context())
+				if err != nil {
+					log.Error("begin transaction", "error", err, "game_id", gameID)
+					http.Error(w, "server error", http.StatusInternalServerError)
+					return
+				}
+				defer tx.Rollback(r.Context())
+				txq := queries.WithTx(tx)
+				if err := txq.GameUpdate(r.Context(), sqlc.GameUpdateParams{
 					ID:      gameID,
 					StateID: stateTurn,
 					InitiativeCurrent: pgtype.Int4{
@@ -638,8 +646,14 @@ func actionHandler(w http.ResponseWriter, r *http.Request) {
 					http.Error(w, "server error", http.StatusInternalServerError)
 					return
 				}
-				if err := advanceTurn(r.Context(), log, queries, gameID); err != nil {
+				if err := advanceTurn(r.Context(), log, txq, gameID); err != nil {
 					log.Error("advance after host prompt-shred skip",
+						"error", err, "game_id", gameID)
+					http.Error(w, "server error", http.StatusInternalServerError)
+					return
+				}
+				if err := tx.Commit(r.Context()); err != nil {
+					log.Error("commit host prompt-shred skip",
 						"error", err, "game_id", gameID)
 					http.Error(w, "server error", http.StatusInternalServerError)
 					return
@@ -2123,10 +2137,13 @@ func actionHandler(w http.ResponseWriter, r *http.Request) {
 				http.Error(w, "invalid player id", http.StatusBadRequest)
 				return
 			}
-			// a card was chosen (skip omits it): shred it after confirming the
-			// caller owns it and it's a rule.
+			// a card was chosen (skip omits it): validate before the
+			// transaction so we can bail early on bad input.
+			var cardID int
+			shredCard := false
 			if cardStr := r.URL.Query().Get("game_card_id"); cardStr != "" {
-				cardID, err := strconv.Atoi(cardStr)
+				var err error
+				cardID, err = strconv.Atoi(cardStr)
 				if err != nil {
 					log.Error("invalid game_card_id", "error", err, "game_id", gameID)
 					http.Error(w, "invalid game_card_id", http.StatusBadRequest)
@@ -2150,7 +2167,20 @@ func actionHandler(w http.ResponseWriter, r *http.Request) {
 					http.Error(w, "card not a rule owned by player", http.StatusForbidden)
 					return
 				}
-				if err := queries.GameCardShred(r.Context(), sqlc.GameCardShredParams{
+				shredCard = true
+			}
+
+			tx, err := dbPool.Begin(r.Context())
+			if err != nil {
+				log.Error("begin transaction", "error", err, "game_id", gameID)
+				http.Error(w, "server error", http.StatusInternalServerError)
+				return
+			}
+			defer tx.Rollback(r.Context())
+			txq := queries.WithTx(tx)
+
+			if shredCard {
+				if err := txq.GameCardShred(r.Context(), sqlc.GameCardShredParams{
 					ID:     int32(cardID),
 					GameID: gameID,
 				}); err != nil {
@@ -2162,7 +2192,7 @@ func actionHandler(w http.ResponseWriter, r *http.Request) {
 					http.Error(w, "server error", http.StatusInternalServerError)
 					return
 				}
-				if err := writeEvent(w, r, log, queries, sqlc.EventCreateParams{
+				if err := writeEvent(w, r, log, txq, sqlc.EventCreateParams{
 					GameID:     gameID,
 					EventType:  "shred",
 					ActorID:    pgInt(int32(shredderID)),
@@ -2182,7 +2212,7 @@ func actionHandler(w http.ResponseWriter, r *http.Request) {
 				)
 			}
 			// the bonus is resolved: back to turn state and pass initiative on.
-			if err := queries.GameUpdate(r.Context(), sqlc.GameUpdateParams{
+			if err := txq.GameUpdate(r.Context(), sqlc.GameUpdateParams{
 				ID:      gameID,
 				StateID: stateTurn,
 				InitiativeCurrent: pgtype.Int4{
@@ -2197,8 +2227,14 @@ func actionHandler(w http.ResponseWriter, r *http.Request) {
 				http.Error(w, "server error", http.StatusInternalServerError)
 				return
 			}
-			if err := advanceTurn(r.Context(), log, queries, gameID); err != nil {
+			if err := advanceTurn(r.Context(), log, txq, gameID); err != nil {
 				log.Error("advance after prompt shred", "error", err, "game_id", gameID)
+				http.Error(w, "server error", http.StatusInternalServerError)
+				return
+			}
+			if err := tx.Commit(r.Context()); err != nil {
+				log.Error("commit prompt shred transaction",
+					"error", err, "game_id", gameID)
 				http.Error(w, "server error", http.StatusInternalServerError)
 				return
 			}
