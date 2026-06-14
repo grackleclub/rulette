@@ -138,6 +138,10 @@
       case "points":
         if (isNaN(delta) || delta === 0) return null; // no-op/unknown: no sound
         return { sound: delta > 0 ? "happy" : "sad", who: target };
+      case "prompt":
+        // a completed prompt carries the points it earned (happy); a failed one
+        // has no delta and plays sad for the spinner.
+        return { sound: delta > 0 ? "happy" : "sad", who: target };
       case "decide":
         // target is the accuser; they hear the verdict
         if (affirmed === null) return null;

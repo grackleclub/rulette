@@ -12,13 +12,23 @@
     {{ $isTurn = true }}
   {{ end }}
 {{ end }}
+{{/* accusation target is anyone with a card other than myself or the host */}}
+{{ $hasTargets := false }}
+{{ range .Players }}
+  {{ if and (ne .Initiative.Int32 0) (ne .PlayerID $cid) }}
+    {{ $pid := .PlayerID }}
+    {{ range $.CardsPlayers }}
+      {{ if and (eq .PlayerID.Int32 $pid) (eq .Type "rule") }}{{ $hasTargets = true }}{{ end }}
+    {{ end }}
+  {{ end }}
+{{ end }}
 {{- if eq .Game.StateName "inviting" -}}
   <div class="table-bar">
     <button class="button card-action"
             data-open-dialog="invite-dialog"
             data-invite-link="/{{ $gid }}/join"
             data-qr-src="/{{ $gid }}/qr">
-      Invite Players
+      Invite<br class="desktop-break"> Players
     </button>
     {{ if $isHost }}
     <button id="start" class="button card-action"
@@ -29,7 +39,7 @@
     {{ end }}
   </div>
 {{- else -}}
-  <div class="table-bar" data-awaiting-ack="{{ $.AwaitingAck }}" data-initiative="{{ $.Game.InitiativeCurrent.Int32 }}">
+  <div class="table-bar" data-awaiting-ack="{{ $.AwaitingAck }}" data-initiative="{{ $.Game.InitiativeCurrent.Int32 }}" data-modifier-pending="{{ if and (eq $.Game.StateName "pending") $isTurn }}true{{ end }}">
     {{ if not $isHost }}
       <button class="button-teal"
         hx-post="/{{ $gid }}/action/acknowledge"
@@ -67,7 +77,7 @@
       {{ end }}
     {{ end }}
     <button class="button-danger" data-open-dialog="accuse-dialog" data-fetch-event="loadAccuse"
-      {{ if not (or (eq $.Game.StateName "turn") (eq $.Game.StateName "pending") (eq $.Game.StateName "challenge")) }}disabled{{ end }}>
+      {{ if or (not (or (eq $.Game.StateName "turn") (eq $.Game.StateName "pending") (eq $.Game.StateName "challenge"))) (not $hasTargets) }}disabled{{ end }}>
       accuse
     </button>
     {{ if and $isHost (eq $.Game.StateName "ending") }}

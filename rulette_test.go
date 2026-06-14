@@ -401,7 +401,7 @@ func TestGame(t *testing.T) {
 				"spin %d failed", i,
 			)
 
-			// a spent deck moves the game to the "ending" state (6) instead of
+			// a spent deck moves the game to the "ending" state (7) instead of
 			// ending outright; the host ends it explicitly.
 			cache.Delete(gameID)
 			gs, err := queries.GameState(ctx, gameID)
@@ -486,6 +486,76 @@ func TestGame(t *testing.T) {
 					current = (current % maxInit) + 1
 					continue
 				}
+			}
+
+			// a prompt holds the turn until the host rules on it.
+			if gs.StateID == statePrompt {
+				// the spinner is whoever holds the initiative right now.
+				var spinnerID int32
+				for _, p := range players {
+					if p.Initiative.Int32 == current {
+						spinnerID = p.PlayerID
+						break
+					}
+				}
+				require.NotZero(t, spinnerID, "spin %d: no spinner found", i)
+
+				// the spinner's reward is 1 plus a point per rule they hold;
+				// capture that count and their balance before completing.
+				cards, err := queries.GameCardsPlayerView(ctx, gameID)
+				require.NoError(t, err)
+				var rulesHeld int32
+				for _, card := range cards {
+					if card.PlayerID.Int32 == spinnerID && card.Type == "rule" {
+						rulesHeld++
+					}
+				}
+				pts, err := queries.GamePlayerPoints(ctx, gameID)
+				require.NoError(t, err)
+				var before int32
+				for _, p := range pts {
+					if p.PlayerID == spinnerID {
+						before = p.Points.Int32
+						break
+					}
+				}
+
+				// the grace allowance: the host can't fail a fresh prompt yet.
+				failReq := httptest.NewRequest(http.MethodPost,
+					fmt.Sprintf("/%s/action/fail", gameID), nil)
+				failReq.AddCookie(cookieByInitiative[0]) // host
+				failW := httptest.NewRecorder()
+				cache.Delete(gameID)
+				actionHandler(failW, failReq)
+				require.Equal(t, http.StatusTooEarly, failW.Result().StatusCode,
+					"spin %d: failing a fresh prompt should be too early", i)
+
+				// succeeding is allowed at any time and advances the turn.
+				t.Logf("spin %d: prompt, host succeeding (rules held=%d)", i, rulesHeld)
+				doneReq := httptest.NewRequest(http.MethodPost,
+					fmt.Sprintf("/%s/action/succeed", gameID), nil)
+				doneReq.AddCookie(cookieByInitiative[0]) // host
+				doneW := httptest.NewRecorder()
+				cache.Delete(gameID)
+				actionHandler(doneW, doneReq)
+				require.Equal(t, http.StatusOK, doneW.Result().StatusCode,
+					"spin %d prompt succeed failed", i)
+
+				cache.Delete(gameID)
+				pts, err = queries.GamePlayerPoints(ctx, gameID)
+				require.NoError(t, err)
+				var after int32
+				for _, p := range pts {
+					if p.PlayerID == spinnerID {
+						after = p.Points.Int32
+						break
+					}
+				}
+				require.Equal(t, before+rulesHeld+1, after,
+					"spin %d: prompt should award 1 + rules held", i)
+
+				current = (current % maxInit) + 1
+				continue
 			}
 
 			// shredded modifiers don't advance; same player spins again
@@ -628,6 +698,24 @@ func TestGame(t *testing.T) {
 			Int32: 1, Valid: true,
 		},
 	})
+	require.NoError(t, err)
+	cache.Delete(gameID)
+
+	// deterministically give a non-host player a rule card to accuse on.
+	// relying on the random spin loop to deal one is flaky: a run where no
+	// non-host draws a rule leaves the scan below with nothing to find.
+	var ruleHolderID int32
+	for _, p := range players {
+		if p.Initiative.Int32 != 0 { // non-host
+			ruleHolderID = p.PlayerID
+			break
+		}
+	}
+	require.NotZero(t, ruleHolderID, "need a non-host player")
+	_, err = dbPool.Exec(ctx,
+		`INSERT INTO game_cards (game_id, card_id, player_id, slot)
+		 SELECT $1, c.id, $2, NULL FROM cards c WHERE c.type = 'rule' LIMIT 1`,
+		gameID, ruleHolderID)
 	require.NoError(t, err)
 	cache.Delete(gameID)
 

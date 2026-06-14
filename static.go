@@ -71,6 +71,7 @@ func readParse(fs embed.FS, path, base string, fullPage bool) (*template.Templat
 		"version": func() string { return version },
 		"baseURL": func() string { return base },
 		"add":     func(a, b int) int { return a + b },
+		"sub":     func(a, b int32) int32 { return a - b },
 		"abs": func(n int32) int32 {
 			if n < 0 {
 				return -n

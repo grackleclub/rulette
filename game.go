@@ -197,13 +197,13 @@ func dataHandler(w http.ResponseWriter, r *http.Request) {
 			// still serve the log so the final events and the history
 			// modal work, but with 286 so the feed stops polling
 			renderEvents(w, r, gameID, stopPolling)
-		case "status", "table", "infraction":
+		case "status", "table", "infraction", "prompt":
 			w.WriteHeader(stopPolling)
 		default:
 			http.Error(w, "game over", http.StatusGone)
 		}
 		return
-	case stateEnding, stateChallenge, statePending, stateTurn, stateReady, stateInviting, stateCreated: // in progress (6 = deck spent, host to end)
+	case stateEnding, stateChallenge, statePrompt, statePending, stateTurn, stateReady, stateInviting, stateCreated: // in progress (7 = deck spent, host to end)
 		switch topic {
 		case "players":
 			filepath := path.Join("static", "html", "tmpl.players.html")
@@ -259,6 +259,48 @@ func dataHandler(w http.ResponseWriter, r *http.Request) {
 				log.Error("render template", "error", err, "template", filepath)
 				http.Error(w, "internal server error", http.StatusInternalServerError)
 			}
+			return
+		case "prompt":
+			// host-only poll: while a prompt challenge is live, hand the host
+			// the spinner's name, the prompt text, and how many seconds have
+			// already elapsed so their popup can sync its countdown and enable
+			// the "fail" choice on time.
+			if state.Game.StateID != statePrompt {
+				w.WriteHeader(http.StatusNoContent)
+				return
+			}
+			if !state.isHost(cookieKey) {
+				w.WriteHeader(http.StatusNoContent)
+				return
+			}
+			spin, err := queries.SpinPendingModifier(r.Context(), gameID)
+			if err != nil || spin.Type != "prompt" || !spin.PlayerID.Valid {
+				log.Debug("no pending prompt for host poll",
+					"game_id", gameID, "error", err)
+				w.WriteHeader(http.StatusNoContent)
+				return
+			}
+			elapsed, err := queries.SpinLatestElapsedSeconds(r.Context(), gameID)
+			if err != nil {
+				log.Error("measure prompt elapsed", "error", err, "game_id", gameID)
+				w.WriteHeader(http.StatusNoContent)
+				return
+			}
+			spinnerName := ""
+			for _, p := range state.Players {
+				if p.PlayerID == spin.PlayerID.Int32 {
+					spinnerName = p.Name
+					break
+				}
+			}
+			w.Header().Set("Content-Type", "application/json")
+			json.NewEncoder(w).Encode(map[string]any{
+				"spin_id": spin.ID,
+				"spinner": spinnerName,
+				"prompt":  spin.Front,
+				"elapsed": elapsed,
+				"window":  promptSeconds,
+			})
 			return
 		case "infraction":
 			if state.Game.StateID != stateChallenge {

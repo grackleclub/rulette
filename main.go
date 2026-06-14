@@ -51,8 +51,9 @@ const (
 	stateTurn      = 3 // a player is mid-turn
 	statePending   = 4 // a rule modifier choice is pending
 	stateChallenge = 5 // a points challenge is pending
-	stateEnding    = 6 // deck spent, waiting on host to end
-	stateOver      = 7 // game over
+	statePrompt    = 6 // a prompt challenge is pending
+	stateEnding    = 7 // deck spent, waiting on host to end
+	stateOver      = 8 // game over
 )
 
 //go:embed db/schema.sql
