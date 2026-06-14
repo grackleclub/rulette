@@ -313,6 +313,12 @@ func dataHandler(w http.ResponseWriter, r *http.Request) {
 				w.WriteHeader(http.StatusNoContent)
 				return
 			}
+			activeCount := 0
+			for _, inf := range state.Infractions {
+				if inf.Active.Bool {
+					activeCount++
+				}
+			}
 			for _, inf := range state.Infractions {
 				if inf.Active.Bool {
 					log.Debug("serving infraction to host", "infraction_id", inf.ID)
@@ -334,9 +340,10 @@ func dataHandler(w http.ResponseWriter, r *http.Request) {
 					}
 					w.Header().Set("Content-Type", "application/json")
 					json.NewEncoder(w).Encode(map[string]any{
-						"id":      inf.ID,
-						"accused": accusedName,
-						"rule":    ruleContent,
+						"id":        inf.ID,
+						"accused":   accusedName,
+						"rule":      ruleContent,
+						"remaining": activeCount - 1,
 					})
 					return
 				}

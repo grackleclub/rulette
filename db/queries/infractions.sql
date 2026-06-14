@@ -19,7 +19,7 @@ WHERE id = $1;
 SELECT id, game_id, game_card_id, accused, accuser, created, active, affirmed
 FROM infractions
 WHERE game_id = $1
-ORDER BY created DESC;
+ORDER BY created ASC;
 
 -- name: InfractionsActiveCount :one
 SELECT COUNT(*) FROM infractions
