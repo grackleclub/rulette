@@ -29,8 +29,8 @@ CREATE TABLE IF NOT EXISTS games (
 	created TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
 	owner_id INTEGER,
 	state_id INTEGER NOT NULL DEFAULT 0,
-	wheel_slots INTEGER NOT NULL DEFAULT 2, -- number of wheel possibilities -- TODO: fill out
-	card_count INTEGER NOT NULL DEFAULT 10, -- number of cards in the wheel deck -- TODO: fill out
+	wheel_slots INTEGER NOT NULL DEFAULT 10, -- number of wheel slots (width)
+	card_count INTEGER NOT NULL DEFAULT 30, -- total cards in the deck (30 / 10 slots = 3 deep)
 	initiative_timer INTEGER NOT NULL DEFAULT 30, -- seconds per turn before auto-advance
 	initiative_current INTEGER DEFAULT 0, -- TODO: is this used?
 	FOREIGN KEY (owner_id) REFERENCES players(id) ON DELETE CASCADE,
@@ -40,6 +40,11 @@ CREATE TABLE IF NOT EXISTS games (
 -- games used to carry a name; it's gone now. drop it from any older database
 -- on startup. idempotent: a no-op once dropped, and on a fresh games table.
 ALTER TABLE games DROP COLUMN IF EXISTS name;
+
+-- bump the wheel layout defaults on any live database, since CREATE TABLE above
+-- is a no-op once games exists. idempotent: re-applies the same defaults.
+ALTER TABLE games ALTER COLUMN wheel_slots SET DEFAULT 10;
+ALTER TABLE games ALTER COLUMN card_count SET DEFAULT 30;
 
 CREATE TABLE IF NOT EXISTS game_players (
 	game_id VARCHAR(6) NOT NULL,
@@ -106,12 +111,9 @@ VALUES
 	('modifier', 'shred any of your own cards', '', 0, CURRENT_TIMESTAMP, TRUE, 'shred'),
 	('modifier', 'clone any of your own cards, and give to someone else', '', 0, CURRENT_TIMESTAMP, TRUE, 'clone'),
 	('modifier', 'transfer any of your own cards to another player', '', 0, CURRENT_TIMESTAMP, TRUE, 'transfer'),
-	('prompt', 'name 10 red things', NULL, 0, CURRENT_TIMESTAMP, TRUE, NULL),
+	('prompt', 'name 10 green things', NULL, 0, CURRENT_TIMESTAMP, TRUE, NULL),
 	('prompt', 'name 10 blue things', NULL, 0, CURRENT_TIMESTAMP, TRUE, NULL),
 	('prompt', 'spell your name backwards', NULL, 0, CURRENT_TIMESTAMP, TRUE, NULL),
-	('prompt', '', NULL, 0, CURRENT_TIMESTAMP, TRUE, NULL),
-	('prompt', 'name 8 countries in Africa', NULL, 0, CURRENT_TIMESTAMP, TRUE, NULL),
-	('prompt', 'name 8 countries in Asia', NULL, 0, CURRENT_TIMESTAMP, TRUE, NULL),
 	('prompt', 'name 10 animals in alphabetical order', NULL, 0, CURRENT_TIMESTAMP, TRUE, NULL),
 	(
 		'rule',
@@ -232,6 +234,12 @@ VALUES
 		'rule',
 		'as if everything is a question',
 		'as if everything is a definite answer',
+		0, CURRENT_TIMESTAMP, TRUE, NULL
+	),
+	(
+		'rule',
+		'like a sychophantic LLM',
+		'like a clerk that hates everyone',
 		0, CURRENT_TIMESTAMP, TRUE, NULL
 	),
 	(
