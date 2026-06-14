@@ -79,17 +79,6 @@ func (q *Queries) InfractionGet(ctx context.Context, id int32) (Infractions, err
 	return i, err
 }
 
-const infractionTransferArm = `-- name: InfractionTransferArm :exec
-UPDATE infractions
-SET transfer_pending = TRUE
-WHERE id = $1
-`
-
-func (q *Queries) InfractionTransferArm(ctx context.Context, id int32) error {
-	_, err := q.db.Exec(ctx, infractionTransferArm, id)
-	return err
-}
-
 const infractionTransferPending = `-- name: InfractionTransferPending :one
 SELECT id, game_card_id, accused, accuser
 FROM infractions
@@ -117,6 +106,17 @@ func (q *Queries) InfractionTransferPending(ctx context.Context, gameID string) 
 		&i.Accuser,
 	)
 	return i, err
+}
+
+const infractionTransferQueue = `-- name: InfractionTransferQueue :exec
+UPDATE infractions
+SET transfer_pending = TRUE
+WHERE id = $1
+`
+
+func (q *Queries) InfractionTransferQueue(ctx context.Context, id int32) error {
+	_, err := q.db.Exec(ctx, infractionTransferQueue, id)
+	return err
 }
 
 const infractionTransferResolve = `-- name: InfractionTransferResolve :exec

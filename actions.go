@@ -1865,8 +1865,8 @@ func actionHandler(w http.ResponseWriter, r *http.Request) {
 				}
 			}
 			if accuserHasRule {
-				if err := txq.InfractionTransferArm(r.Context(), int32(infID)); err != nil {
-					log.Error("arm transfer", "error", err, "game_id", gameID)
+				if err := txq.InfractionTransferQueue(r.Context(), int32(infID)); err != nil {
+					log.Error("queue transfer", "error", err, "game_id", gameID)
 					http.Error(w, "server error", http.StatusInternalServerError)
 					return
 				}

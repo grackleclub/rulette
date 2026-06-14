@@ -564,8 +564,7 @@ func TestGame(t *testing.T) {
 					shredW := httptest.NewRecorder()
 					cache.Delete(gameID)
 					actionHandler(shredW, shredReq)
-					require.Equal(t, http.StatusOK, shredW.Result().StatusCode,
-						"spin %d prompt-shred skip failed", i)
+					require.Equal(t, http.StatusOK, shredW.Result().StatusCode, "spin %d prompt-shred skip failed", i)
 				}
 
 				current = (current % maxInit) + 1

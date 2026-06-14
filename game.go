@@ -203,7 +203,7 @@ func dataHandler(w http.ResponseWriter, r *http.Request) {
 			http.Error(w, "game over", http.StatusGone)
 		}
 		return
-	case stateEnding, stateChallenge, statePrompt, statePending, stateTurn, stateReady, stateInviting, stateCreated, statePromptShred, stateAccusationTransfer: // in progress (7 = deck spent, host to end)
+	case stateEnding, stateChallenge, statePrompt, statePending, stateTurn, stateReady, stateInviting, stateCreated, statePromptShred, stateAccusationTransfer: // in progress
 		switch topic {
 		case "players":
 			filepath := path.Join("static", "html", "tmpl.players.html")

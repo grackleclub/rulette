@@ -26,7 +26,7 @@ SELECT COUNT(*) FROM infractions
 WHERE game_id = $1
     AND active = TRUE;
 
--- name: InfractionTransferArm :exec
+-- name: InfractionTransferQueue :exec
 UPDATE infractions
 SET transfer_pending = TRUE
 WHERE id = $1;

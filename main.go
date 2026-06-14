@@ -45,21 +45,17 @@ const (
 
 // game.state_id values, mirroring the game_states rows in db/schema.sql.
 const (
-	stateCreated   = 0 // game created, no members joined
-	stateInviting  = 1 // at least one player has joined
-	stateReady     = 2 // joining closed, ready to start (or paused)
-	stateTurn      = 3 // a player is mid-turn
-	statePending   = 4 // a rule modifier choice is pending
-	stateChallenge = 5 // a points challenge is pending
-	statePrompt    = 6 // a prompt challenge is pending
-	stateEnding    = 7 // deck spent, waiting on host to end
-	stateOver      = 8 // game over
-	// the spinner may shred one of their own rule cards after a succeeded
-	// prompt; the turn holds here until they choose or skip.
-	statePromptShred = 9
-	// the accuser may give one of their own rule cards to the accused after
-	// an affirmed accusation; play holds here until they choose or skip.
-	stateAccusationTransfer = 10
+	stateCreated            = 0  // game created, no members joined
+	stateInviting           = 1  // at least one player has joined
+	stateReady              = 2  // joining closed, ready to start (or paused)
+	stateTurn               = 3  // a player is mid-turn
+	statePending            = 4  // a rule modifier choice is pending
+	stateChallenge          = 5  // a points challenge is pending
+	statePrompt             = 6  // a prompt challenge is pending
+	stateEnding             = 7  // deck spent, waiting on host to end
+	stateOver               = 8  // game over
+	statePromptShred        = 9  // successful prompts pause to allow shredding a card
+	stateAccusationTransfer = 10 // affirmed accusations pause to allow transferring a card to the accused
 )
 
 //go:embed db/schema.sql
