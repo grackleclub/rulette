@@ -18,7 +18,7 @@
     var data = getData();
     if (!data) return;
     data.querySelectorAll(
-      ".modifier-card-btn, input[name='target_player_id']"
+      ".modifier-card-btn, .modifier-target-btn"
     ).forEach(function (el) {
       el.disabled = true;
     });
@@ -69,10 +69,22 @@
 
   document.body.addEventListener("htmx:afterSettle", function (e) {
     if (!e.detail || !e.detail.elt) return;
-    // every table poll is a chance to complete a queued modifier action once
-    // the blocking challenge has resolved.
-    if (e.detail.elt.id === "table" && pending && !inFlight) {
-      attempt(pending.url, pending.effect);
+    if (e.detail.elt.id === "table") {
+      // every table poll is a chance to complete a queued modifier action once
+      // the blocking challenge has resolved.
+      if (pending && !inFlight) {
+        attempt(pending.url, pending.effect);
+        return;
+      }
+      // recover a missed chooser: if it's my pending modifier and the dialog
+      // isn't already up, (re)load it. the server only sets this flag for the
+      // turn player, and we skip it while the dialog is open so an in-progress
+      // clone/transfer selection isn't reset by polling.
+      var bar = document.querySelector(".table-bar");
+      var dlg = getDialog();
+      if (bar && bar.dataset.modifierPending === "true" && dlg && !dlg.open) {
+        document.body.dispatchEvent(new Event("loadModifier"));
+      }
       return;
     }
     // after modifier content is fetched, check if we should open the dialog
@@ -138,6 +150,18 @@
   // kebab-cased form, so listen to just one or this fires twice.
   document.body.addEventListener("modifierShredded", showShredNotice);
 
+  // target player selection (teal highlight toggle)
+  document.body.addEventListener("click", function (e) {
+    var btn = e.target.closest(".modifier-target-btn");
+    if (!btn) return;
+    var data = getData();
+    if (!data) return;
+    data.querySelectorAll(".modifier-target-btn").forEach(function (b) {
+      b.classList.remove("active");
+    });
+    btn.classList.add("active");
+  });
+
   // handle card button clicks
   document.body.addEventListener("click", function (e) {
     var btn = e.target.closest(".modifier-card-btn");
@@ -152,14 +176,12 @@
 
     // for clone/transfer, include target player
     if (effect === "clone" || effect === "transfer") {
-      var radio = data.querySelector(
-        'input[name="target_player_id"]:checked'
-      );
-      if (!radio) {
+      var selected = data.querySelector(".modifier-target-btn.active");
+      if (!selected) {
         alert("Select a target player first.");
         return;
       }
-      url += "&target_player_id=" + radio.value;
+      url += "&target_player_id=" + selected.dataset.targetId;
     }
 
     attempt(url, effect);

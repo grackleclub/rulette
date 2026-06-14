@@ -621,7 +621,7 @@ a {
   color: var(--color-text-light);
 }
 
-/* clickable rule cards for accusing */
+/* clickable rule cards: accusing, and picking one in the modifier chooser */
 .index-card-accuse {
   cursor: pointer;
 }
@@ -740,6 +740,19 @@ dialog fieldset {
   background: var(--color-backdrop);
 }
 
+/* modifier target player selection */
+.modifier-target-btn {
+  cursor: pointer;
+  padding: .25em .75em;
+  border-radius: .5em;
+  width: 100%;
+}
+
+.modifier-target-btn.active {
+  background: var(--color-card-bg);
+  color: var(--color-text-light);
+}
+
 /* table bar (inside header card) */
 .table-bar {
   position: relative;
@@ -756,7 +769,8 @@ dialog fieldset {
   min-width: 8em;
 }
 
-.table-bar button:disabled {
+.table-bar button:disabled,
+dialog button:disabled {
   opacity: .35;
   cursor: not-allowed;
   filter: grayscale(.5);
@@ -901,6 +915,39 @@ dialog fieldset {
   -webkit-overflow-scrolling: touch;
   -webkit-mask-image: linear-gradient(to bottom, transparent 0, black 2.5em);
   mask-image: linear-gradient(to bottom, transparent 0, black 2.5em);
+}
+
+/* prompt challenge popups (spinner countdown + host ruling) */
+/* a drawn card shown at full size in a dialog, on the same stock as .index-card */
+
+.prompt-decide-spinner {
+  font-style: italic;
+  opacity: 0.8;
+}
+
+.prompt-countdown {
+  font-family: var(--font-score);
+  font-size: 2em;
+  text-align: center;
+}
+
+.prompt-countdown-done {
+  color: var(--color-loop-1);
+}
+
+.prompt-waiting {
+  opacity: 0.7;
+}
+
+/* the spinner's result, shown in place of the countdown once the host rules */
+.prompt-outcome {
+  font-size: 1.4em;
+  font-weight: bold;
+  text-align: center;
+}
+
+.prompt-outcome-fail {
+  color: var(--color-loop-1);
 }
 
 

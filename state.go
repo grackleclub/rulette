@@ -48,7 +48,7 @@ func (s *state) isHost(cookieKey string) bool {
 			}
 		}
 	}
-	log.Warn("player not host", "in_game", inGame)
+	log.Debug("player not host", "in_game", inGame)
 	return false
 }
 

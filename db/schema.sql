@@ -18,8 +18,9 @@ VALUES
 (3, 'turn', 'player is mid-turn, spinning wheel or responding'),
 (4, 'pending', 'rule modifier choice is pending'),
 (5, 'challenge', 'a points challenge is pending'),
-(6, 'ending', 'deck exhausted, waiting on host to end the game'),
-(7, 'end', 'game over')
+(6, 'prompt', 'a prompt challenge is pending'),
+(7, 'ending', 'deck exhausted, waiting on host to end the game'),
+(8, 'end', 'game over')
 ON CONFLICT (id) DO UPDATE
 	SET name = EXCLUDED.name, description = EXCLUDED.description;
 
@@ -105,6 +106,13 @@ VALUES
 	('modifier', 'shred any of your own cards', '', 0, CURRENT_TIMESTAMP, TRUE, 'shred'),
 	('modifier', 'clone any of your own cards, and give to someone else', '', 0, CURRENT_TIMESTAMP, TRUE, 'clone'),
 	('modifier', 'transfer any of your own cards to another player', '', 0, CURRENT_TIMESTAMP, TRUE, 'transfer'),
+	('prompt', 'name 10 red things', NULL, 0, CURRENT_TIMESTAMP, TRUE, NULL),
+	('prompt', 'name 10 blue things', NULL, 0, CURRENT_TIMESTAMP, TRUE, NULL),
+	('prompt', 'spell your name backwards', NULL, 0, CURRENT_TIMESTAMP, TRUE, NULL),
+	('prompt', '', NULL, 0, CURRENT_TIMESTAMP, TRUE, NULL),
+	('prompt', 'name 8 countries in Africa', NULL, 0, CURRENT_TIMESTAMP, TRUE, NULL),
+	('prompt', 'name 8 countries in Asia', NULL, 0, CURRENT_TIMESTAMP, TRUE, NULL),
+	('prompt', 'name 10 animals in alphabetical order', NULL, 0, CURRENT_TIMESTAMP, TRUE, NULL),
 	(
 		'rule',
 		'in a whisper',
@@ -311,7 +319,8 @@ VALUES
 	('shred', 'a card was shredded'),
 	('clone', 'a card was cloned'),
 	('transfer', 'a card was transferred'),
-	('continue', 'host continued the game after deck exhaustion')
+	('continue', 'host continued the game after deck exhaustion'),
+	('prompt', 'a player completed or failed a prompt challenge')
 ON CONFLICT (name) DO UPDATE
 	SET description = EXCLUDED.description;
 
