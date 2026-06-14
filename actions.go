@@ -46,14 +46,15 @@ func modifierNotPending(
 	switch stateID {
 	case statePending:
 		return false
-	case stateChallenge:
+	case stateChallenge, statePrompt:
 		// routine: the client retries this on every table poll until the
-		// challenge clears, so keep it quiet to avoid log spam.
-		log.Debug("modifier deferred during challenge",
+		// interruption clears, so keep it quiet to avoid log spam.
+		log.Debug("modifier deferred during interruption",
 			"action", action,
 			"game_id", gameID,
+			"state_id", stateID,
 		)
-		http.Error(w, "challenge in progress", http.StatusLocked)
+		http.Error(w, "interruption in progress", http.StatusLocked)
 		return true
 	default:
 		// unexpected: a modifier action with no modifier owed.
