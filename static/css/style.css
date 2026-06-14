@@ -437,6 +437,19 @@ a {
   color: var(--color-loop-2);
 }
 
+.icon-text {
+  display: inline-flex;
+  align-items: center;
+  gap: .35em;
+}
+
+.icon {
+  width: 1em;
+  height: 1em;
+  fill: currentColor;
+  flex: none;
+}
+
 .card-action {
   flex: 1 1 0;
   min-width: 0;
@@ -909,5 +922,4 @@ dialog fieldset {
   -webkit-mask-image: linear-gradient(to bottom, transparent 0, black 2.5em);
   mask-image: linear-gradient(to bottom, transparent 0, black 2.5em);
 }
-
 

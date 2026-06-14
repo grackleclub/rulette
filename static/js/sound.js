@@ -197,9 +197,17 @@
   var inGame = !!document.getElementById("event-log");
 
   // mute toggle (data-sound-toggle) — just a stored preference, works anywhere
+  function soundLabel(on) {
+    if (on) {
+      return '<span class="icon-text"><svg class="icon" viewBox="0 0 16 16" aria-hidden="true"><path d="M11.54 14.12a.75.75 0 0 1-.08-1.06A6.46 6.46 0 0 0 13 8c0-1.87-.8-3.55-2.07-4.71a.75.75 0 0 1 1.02-1.1A7.96 7.96 0 0 1 14.5 8c0 2.25-.94 4.29-2.44 5.73a.75.75 0 0 1-1.06-.08z"/><path d="M9.45 11.8a.75.75 0 0 1-.06-1.06A3.9 3.9 0 0 0 10.5 8c0-1.06-.43-2.02-1.12-2.72a.75.75 0 1 1 1.08-1.04A5.4 5.4 0 0 1 12 8a5.4 5.4 0 0 1-1.5 3.73.75.75 0 0 1-1.05.07z"/><path d="M6.72 2.78A.75.75 0 0 1 8 3.31v9.38a.75.75 0 0 1-1.28.53L4.5 11H2a1.5 1.5 0 0 1-1.5-1.5v-3A1.5 1.5 0 0 1 2 5h2.5l2.22-2.22z"/></svg><span>sound</span></span>';
+    }
+    return '<span class="icon-text"><svg class="icon" viewBox="0 0 16 16" aria-hidden="true"><path d="M8 3.31a.75.75 0 0 0-1.28-.53L4.5 5H2a1.5 1.5 0 0 0-1.5 1.5v3A1.5 1.5 0 0 0 2 11h2.5l2.22 2.22A.75.75 0 0 0 8 12.69V3.31z"/><path d="M11.53 6.47a.75.75 0 0 1 0 1.06L10.56 8.5l.97.97a.75.75 0 1 1-1.06 1.06L9.5 9.56l-.97.97a.75.75 0 1 1-1.06-1.06l.97-.97-.97-.97a.75.75 0 1 1 1.06-1.06l.97.97.97-.97a.75.75 0 0 1 1.06 0z"/></svg><span>muted</span></span>';
+  }
+
   function refresh(btn) {
-    btn.textContent = soundOn() ? "🔊 sound" : "🔇 muted";
-    btn.setAttribute("aria-pressed", soundOn() ? "true" : "false");
+    var on = soundOn();
+    btn.innerHTML = soundLabel(on);
+    btn.setAttribute("aria-pressed", on ? "true" : "false");
   }
   document.body.addEventListener("click", function (e) {
     var btn = e.target.closest("[data-sound-toggle]");
