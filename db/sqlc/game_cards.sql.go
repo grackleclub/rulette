@@ -294,6 +294,23 @@ type GameCardsWheelViewRow struct {
 	TopCardType string      `json:"top_card_type"`
 }
 
+const gameCardsShredByPlayer = `-- name: GameCardsShredByPlayer :exec
+UPDATE game_cards
+SET shredded = TRUE
+WHERE game_id = $1
+  AND player_id = $2
+`
+
+type GameCardsShredByPlayerParams struct {
+	GameID   string      `json:"game_id"`
+	PlayerID pgtype.Int4 `json:"player_id"`
+}
+
+func (q *Queries) GameCardsShredByPlayer(ctx context.Context, arg GameCardsShredByPlayerParams) error {
+	_, err := q.db.Exec(ctx, gameCardsShredByPlayer, arg.GameID, arg.PlayerID)
+	return err
+}
+
 // Public view of the unrevealed wheel.
 func (q *Queries) GameCardsWheelView(ctx context.Context, gameID string) ([]GameCardsWheelViewRow, error) {
 	rows, err := q.db.Query(ctx, gameCardsWheelView, gameID)

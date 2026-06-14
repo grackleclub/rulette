@@ -154,3 +154,9 @@ UPDATE game_cards
 SET shredded = TRUE
 WHERE id = $1
   AND game_id = $2;
+
+-- name: GameCardsShredByPlayer :exec
+UPDATE game_cards
+SET shredded = TRUE
+WHERE game_id = $1
+  AND player_id = $2;
