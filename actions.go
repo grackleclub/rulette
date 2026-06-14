@@ -1781,7 +1781,8 @@ func actionHandler(w http.ResponseWriter, r *http.Request) {
 			if err := writeEvent(w, r, log, txq, sqlc.EventCreateParams{
 				GameID:       gameID,
 				EventType:    "decide",
-				TargetID:     pgInt(infraction.Accuser),
+				ActorID:      pgInt(infraction.Accuser),
+				TargetID:     pgInt(infraction.Accused),
 				InfractionID: pgInt(int32(infID)),
 			}); err != nil {
 				return

@@ -143,9 +143,9 @@
         // has no delta and plays sad for the spinner.
         return { sound: delta > 0 ? "happy" : "sad", who: target };
       case "decide":
-        // target is the accuser; they hear the verdict
+        // actor is the accuser; they hear the verdict
         if (affirmed === null) return null;
-        return { sound: affirmed ? "happy" : "sad", who: target };
+        return { sound: affirmed ? "happy" : "sad", who: actor };
       default:
         return null;
     }
