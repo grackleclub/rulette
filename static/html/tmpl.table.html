@@ -12,7 +12,7 @@
     {{ $isTurn = true }}
   {{ end }}
 {{ end }}
-{{/* anyone but the host and me holding a rule card is a possible accusation target */}}
+{{/* accusation target is anyone with a card other than myself or the host */}}
 {{ $hasTargets := false }}
 {{ range .Players }}
   {{ if and (ne .Initiative.Int32 0) (ne .PlayerID $cid) }}

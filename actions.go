@@ -1873,9 +1873,9 @@ func actionHandler(w http.ResponseWriter, r *http.Request) {
 			}
 
 			spinnerID := spin.PlayerID.Int32
-			// the spinner's reward is 1 plus one per rule they hold; find
-			// that count and the prompt card to remove, both from the
-			// spinner's revealed cards.
+			// reward for completing a prompt is 1 plus 1 additional point for
+			// every rule held; find that count and the prompt card to remove,
+			// both from the spinner's revealed cards.
 			var rulesHeld, promptCardID int32
 			for _, c := range state.CardsPlayers {
 				if c.PlayerID.Int32 != spinnerID {
@@ -1996,7 +1996,6 @@ func actionHandler(w http.ResponseWriter, r *http.Request) {
 				return
 			}
 			log.Info("prompt ruled",
-				"game_id", gameID,
 				"ruling", action,
 				"player_id", spinnerID,
 				"rules_held", rulesHeld,
