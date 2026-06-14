@@ -694,6 +694,13 @@ dialog::backdrop {
   background: var(--color-backdrop);
 }
 
+.decide-remaining {
+  text-align: center;
+  font-size: 0.875em;
+  color: var(--color-dim);
+  margin: -0.5em 0 0;
+}
+
 .decide-info-rule {
   font-family: var(--font-script);
 }

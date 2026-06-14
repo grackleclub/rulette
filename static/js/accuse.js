@@ -14,6 +14,15 @@
     var infoRule = d.querySelector('.decide-info-rule');
     if (infoName) infoName.textContent = 'did ' + data.accused + ' break the rule';
     if (infoRule) infoRule.textContent = data.rule;
+    var remaining = d.querySelector('.decide-remaining');
+    if (remaining) {
+      if (data.remaining > 0) {
+        remaining.textContent = '+' + data.remaining + ' more';
+        remaining.hidden = false;
+      } else {
+        remaining.hidden = true;
+      }
+    }
     if (!d.open) d.showModal();
   }
 
