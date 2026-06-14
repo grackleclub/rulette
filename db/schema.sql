@@ -114,7 +114,12 @@ VALUES
 	('modifier', 'clone any of your own cards, and give to someone else', '', 0, CURRENT_TIMESTAMP, TRUE, 'clone'),
 	('modifier', 'transfer any of your own cards to another player', '', 0, CURRENT_TIMESTAMP, TRUE, 'transfer'),
 	('prompt', 'name 10 green things', NULL, 0, CURRENT_TIMESTAMP, TRUE, NULL),
+	('prompt', 'name 10 red things', NULL, 0, CURRENT_TIMESTAMP, TRUE, NULL),
+	('prompt', 'name 10 yellow things', NULL, 0, CURRENT_TIMESTAMP, TRUE, NULL),
 	('prompt', 'name 10 blue things', NULL, 0, CURRENT_TIMESTAMP, TRUE, NULL),
+	('prompt', 'name 10 countries', NULL, 0, CURRENT_TIMESTAMP, TRUE, NULL),
+	('prompt', 'name 10 cheeses', NULL, 0, CURRENT_TIMESTAMP, TRUE, NULL),
+	('prompt', 'name 10 drinks', NULL, 0, CURRENT_TIMESTAMP, TRUE, NULL),
 	('prompt', 'spell your name backwards', NULL, 0, CURRENT_TIMESTAMP, TRUE, NULL),
 	('prompt', 'name 10 animals in alphabetical order', NULL, 0, CURRENT_TIMESTAMP, TRUE, NULL),
 	(
