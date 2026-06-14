@@ -132,6 +132,30 @@
   }
   document.body.addEventListener("newCard", showNewCard);
 
+  var lastSpinInitiative = null;
+  var spinDialog = document.getElementById("spin-dialog");
+  if (spinDialog) {
+    spinDialog.addEventListener("cancel", function (e) {
+      e.preventDefault();
+    });
+  }
+  document.body.addEventListener("htmx:afterSettle", function (e) {
+    if (!e.target || e.target.id !== "table") return;
+    var bar = document.querySelector(".table-bar");
+    if (!bar || !spinDialog) return;
+    var available = bar.hasAttribute("data-spin-available");
+    var initiative = bar.dataset.initiative;
+    if (available) {
+      if (initiative !== lastSpinInitiative) {
+        lastSpinInitiative = initiative;
+        if (!spinDialog.open) spinDialog.showModal();
+      }
+    } else {
+      lastSpinInitiative = null;
+      if (spinDialog.open) spinDialog.close();
+    }
+  });
+
   var newcardInitiative = null;
   document.body.addEventListener("newCard", function () {
     var bar = document.querySelector(".table-bar");

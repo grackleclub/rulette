@@ -39,19 +39,13 @@
     {{ end }}
   </div>
 {{- else -}}
-  <div class="table-bar" data-awaiting-ack="{{ $.AwaitingAck }}" data-initiative="{{ $.Game.InitiativeCurrent.Int32 }}" data-modifier-pending="{{ if and (eq $.Game.StateName "pending") $isTurn }}true{{ end }}">
+  <div class="table-bar" data-awaiting-ack="{{ $.AwaitingAck }}" data-initiative="{{ $.Game.InitiativeCurrent.Int32 }}" data-modifier-pending="{{ if and (eq $.Game.StateName "pending") $isTurn }}true{{ end }}" {{ if and (eq $.Game.StateName "turn") $isTurn (not $.AwaitingAck) }}data-spin-available{{ end }}>
     {{ if not $isHost }}
       <button class="button-teal"
         hx-post="/{{ $gid }}/action/acknowledge"
         hx-swap="none"
         {{ if not (and (eq $.Game.StateName "turn") $isTurn $.AwaitingAck) }}disabled{{ end }}>
         end turn
-      </button>
-      <button class="button-teal"
-        hx-post="/{{ $gid }}/action/spin"
-        hx-swap="none"
-        {{ if not (and (eq $.Game.StateName "turn") $isTurn (not $.AwaitingAck)) }}disabled{{ end }}>
-        spin
       </button>
     {{ end }}
     {{ if $isHost }}
