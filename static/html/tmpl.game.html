@@ -5,6 +5,10 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Rulette | {{ .Game.ID }}</title>
     <link rel="icon" type="image/svg+xml" href="/static/img/favicon.svg">
+    <link rel="preload" href="/static/fonts/Borel-Regular.ttf" as="font" type="font/ttf" crossorigin>
+    <link rel="preload" href="/static/fonts/SecularOne-Regular.ttf" as="font" type="font/ttf" crossorigin>
+    <link rel="preload" href="/static/fonts/DSEG7Classic-Bold.ttf" as="font" type="font/ttf" crossorigin>
+    <link rel="preload" href="/static/fonts/BebasNeue-Regular.ttf" as="font" type="font/ttf" crossorigin>
     <link rel="stylesheet" href="/static/css/style.css"> 
     <script src="/static/js/htmx.min.js"></script>
     <script src="/static/js/idiomorph-ext.min.js"></script>
@@ -53,9 +57,6 @@
 
         <section id="players" class="stack" hx-get="/{{ .Game.ID }}/data/players"
           hx-target="#players" hx-trigger="load, every {{ .Config.refresh }}" hx-swap="morph:innerHTML">
-          <div class="loading">
-            <p>loading players...</p>
-          </div>
         </section>
 
         <section id="points" class="stack game-points">
