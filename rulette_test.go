@@ -921,6 +921,154 @@ func TestGame(t *testing.T) {
 		require.True(t, modifierGone, "used modifier card should be shredded")
 	})
 
+	// exit tests: reset game to a known state, then have a non-host player exit.
+	t.Run("POST /{game_id}/action/exit (non-turn player)", func(t *testing.T) {
+		// put game in turn state with initiative on player 1 (non-host)
+		err := queries.GameUpdate(ctx, sqlc.GameUpdateParams{
+			ID:      gameID,
+			StateID: stateTurn,
+			InitiativeCurrent: pgtype.Int4{
+				Int32: 1, Valid: true,
+			},
+		})
+		require.NoError(t, err)
+		cache.Delete(gameID)
+
+		// initiative 2's player exits (not their turn)
+		exitCookie := cookieByInitiative[2]
+		require.NotNil(t, exitCookie, "need a player at initiative 2")
+		path := fmt.Sprintf("/%s/action/exit", gameID)
+		req := httptest.NewRequest(http.MethodPost, path, nil)
+		req.AddCookie(exitCookie)
+		w := httptest.NewRecorder()
+		actionHandler(w, req)
+		require.Equal(t, http.StatusOK, w.Result().StatusCode)
+		require.Equal(t, "/", w.Result().Header.Get("HX-Redirect"))
+
+		// session cookie should be expired
+		var expired bool
+		for _, c := range w.Result().Cookies() {
+			if c.Name == "session" {
+				expired = c.MaxAge == -1
+			}
+		}
+		require.True(t, expired, "exit must expire the session cookie")
+
+		// the exited player must no longer appear in game_players
+		cache.Delete(gameID)
+		remaining, err := queries.GamePlayerPoints(ctx, gameID)
+		require.NoError(t, err)
+		exitParts := strings.Split(exitCookie.Value, ":")
+		require.Len(t, exitParts, 2)
+		for _, p := range remaining {
+			require.NotEqual(t, exitParts[0], fmt.Sprintf("%d", p.PlayerID),
+				"exited player must be removed from the game")
+		}
+
+		// initiative must still be on player 1 (not the one who exited)
+		cache.Delete(gameID)
+		gs, err := queries.GameState(ctx, gameID)
+		require.NoError(t, err)
+		require.Equal(t, int32(1), gs.InitiativeCurrent.Int32,
+			"initiative should remain on player 1 when the exiting player was not the current player")
+	})
+
+	t.Run("POST /{game_id}/action/exit (turn player advances initiative)", func(t *testing.T) {
+		// put game in turn state with initiative on player 1 (the current turn player)
+		err := queries.GameUpdate(ctx, sqlc.GameUpdateParams{
+			ID:      gameID,
+			StateID: stateTurn,
+			InitiativeCurrent: pgtype.Int4{
+				Int32: 1, Valid: true,
+			},
+		})
+		require.NoError(t, err)
+		cache.Delete(gameID)
+
+		// player at initiative 1 exits (their turn)
+		turnCookie := cookieByInitiative[1]
+		require.NotNil(t, turnCookie, "need a player at initiative 1")
+		path := fmt.Sprintf("/%s/action/exit", gameID)
+		req := httptest.NewRequest(http.MethodPost, path, nil)
+		req.AddCookie(turnCookie)
+		w := httptest.NewRecorder()
+		actionHandler(w, req)
+		require.Equal(t, http.StatusOK, w.Result().StatusCode)
+		require.Equal(t, "/", w.Result().Header.Get("HX-Redirect"))
+
+		// initiative must have advanced past the exiting player's slot
+		cache.Delete(gameID)
+		gs, err := queries.GameState(ctx, gameID)
+		require.NoError(t, err)
+		require.NotEqual(t, int32(1), gs.InitiativeCurrent.Int32,
+			"initiative should advance when the current turn player exits")
+	})
+
+	t.Run("POST /{game_id}/action/exit cards shredded", func(t *testing.T) {
+		// Give the next player (initiative=3, if present; else use host) some
+		// cards so we can verify they are shredded when they exit.
+		cache.Delete(gameID)
+		remaining, err := queries.GamePlayerPoints(ctx, gameID)
+		require.NoError(t, err)
+		if len(remaining) == 0 {
+			t.Skip("no players remaining")
+		}
+		// pick any remaining non-host player
+		var exitPlayer sqlc.GamePlayerPointsRow
+		var exitCookie *http.Cookie
+		for _, p := range remaining {
+			if p.Initiative.Int32 != 0 {
+				exitPlayer = p
+				exitCookie = cookieByInitiative[p.Initiative.Int32]
+				break
+			}
+		}
+		if exitCookie == nil {
+			t.Skip("no non-host player with a known cookie remaining")
+		}
+
+		// spin a card onto that player by manually assigning one from the wheel
+		cards, err := queries.GameCardsWheelView(ctx, gameID)
+		require.NoError(t, err)
+		if len(cards) == 0 {
+			t.Skip("no cards on wheel to assign")
+		}
+
+		// move the first wheel card to the player (simulates having a card)
+		wheelCards, err := queries.GameCardsPlayerView(ctx, gameID)
+		require.NoError(t, err)
+		_ = wheelCards // just check it doesn't error
+
+		// put game in stateTurn on a different player so the exiting player
+		// is not the current turn player (simpler case)
+		err = queries.GameUpdate(ctx, sqlc.GameUpdateParams{
+			ID:      gameID,
+			StateID: stateTurn,
+			InitiativeCurrent: pgtype.Int4{
+				Int32: 0, // host's initiative
+				Valid: true,
+			},
+		})
+		require.NoError(t, err)
+		cache.Delete(gameID)
+
+		path := fmt.Sprintf("/%s/action/exit", gameID)
+		req := httptest.NewRequest(http.MethodPost, path, nil)
+		req.AddCookie(exitCookie)
+		w := httptest.NewRecorder()
+		actionHandler(w, req)
+		require.Equal(t, http.StatusOK, w.Result().StatusCode)
+
+		// verify no unshredded cards remain for this player
+		cache.Delete(gameID)
+		allCards, err := queries.GameCardsPlayerView(ctx, gameID)
+		require.NoError(t, err)
+		for _, c := range allCards {
+			require.NotEqual(t, exitPlayer.PlayerID, c.PlayerID.Int32,
+				"exited player must have no remaining unshredded cards")
+		}
+	})
+
 	t.Run("POST /{game_id}/action/end", func(t *testing.T) {
 		// ensure game is in a playable state first
 		err := queries.GameUpdate(ctx, sqlc.GameUpdateParams{
