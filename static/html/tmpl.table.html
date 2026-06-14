@@ -49,20 +49,20 @@
         hx-post="/{{ $gid }}/action/advance"
         hx-swap="none"
         {{ if not (and (eq $.Game.StateName "turn") $.AwaitingAck) }}disabled{{ end }}>
-        advance
+        <span class="icon-text"><svg class="icon" viewBox="0 0 16 16" aria-hidden="true"><path d="M6 4.5a.5.5 0 0 1 .78-.41l4 3a.5.5 0 0 1 0 .82l-4 3A.5.5 0 0 1 6 10.5v-6z"/><path d="M11 4.5a.5.5 0 0 1 .78-.41l4 3a.5.5 0 0 1 0 .82l-4 3A.5.5 0 0 1 11 10.5v-6z"/></svg><span>advance</span></span>
       </button>
       {{ if eq $.Game.StateName "ready" }}
         <button class="button-action"
           hx-post="/{{ $gid }}/action/resume"
           hx-swap="none">
-          resume
+          <span class="icon-text"><svg class="icon" viewBox="0 0 16 16" aria-hidden="true"><path d="M4.5 3.5a.5.5 0 0 1 .78-.41l7 4.5a.5.5 0 0 1 0 .82l-7 4.5a.5.5 0 0 1-.78-.41v-9z"/></svg><span>resume</span></span>
         </button>
       {{ else }}
         <button class="button-action"
           hx-post="/{{ $gid }}/action/pause"
           hx-swap="none"
           {{ if not (eq $.Game.StateName "turn") }}disabled{{ end }}>
-          pause
+          <span class="icon-text"><svg class="icon" viewBox="0 0 16 16" aria-hidden="true"><path d="M5 3.5A1.5 1.5 0 0 1 6.5 2h1A1.5 1.5 0 0 1 9 3.5v9A1.5 1.5 0 0 1 7.5 14h-1A1.5 1.5 0 0 1 5 12.5v-9zm4 0A1.5 1.5 0 0 1 10.5 2h1A1.5 1.5 0 0 1 13 3.5v9a1.5 1.5 0 0 1-1.5 1.5h-1A1.5 1.5 0 0 1 9 12.5v-9z"/></svg><span>pause</span></span>
         </button>
       {{ end }}
     {{ end }}
