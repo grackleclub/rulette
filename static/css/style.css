@@ -11,12 +11,6 @@
 }
 
 @font-face {
-  font-family: 'Roboto';
-  src: url('/static/fonts/Roboto-Regular.ttf') format('truetype');
-  font-display: optional;
-}
-
-@font-face {
   font-family: 'DSEG7';
   src: url('/static/fonts/DSEG7Classic-Bold.ttf') format('truetype');
   font-display: optional;
@@ -48,7 +42,6 @@
   --font-display: 'Secular One', sans-serif;
   --font-script: 'Borel', cursive;
   --font-score: 'DSEG7', monospace;
-  --font-body: 'Roboto', sans-serif;
   --font-title: 'Bebas Neue', 'Secular One', sans-serif;
 }
 
