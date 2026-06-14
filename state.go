@@ -181,6 +181,19 @@ func (s state) Standings() []sqlc.GamePlayerPointsRow {
 	return ranked
 }
 
+// CallerRuleCount returns how many rule cards the caller currently holds.
+// The prompt-shred chooser uses it to show the award (1 point plus 1 per
+// rule). Value receiver so templates can call it on the by-value state data.
+func (s state) CallerRuleCount() int {
+	var count int
+	for _, c := range s.CardsPlayers {
+		if c.PlayerID.Int32 == int32(s.CallerID) && c.Type == "rule" {
+			count++
+		}
+	}
+	return count
+}
+
 // Winners returns the player(s) with the most points, including ties.
 func (s state) Winners() []sqlc.GamePlayerPointsRow {
 	ranked := s.Standings()

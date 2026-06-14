@@ -82,6 +82,20 @@
     if (!ev) return;
     var id = ev.getAttribute("data-event-id");
     if (id === lastOutcomeId) return; // already shown this result
+
+    // a succeeded prompt that owes me a shred is handled by the shred chooser,
+    // which carries the success message itself — don't also pop this generic
+    // outcome, or the two modals stack. the chooser is game-state driven, so
+    // it's the one that survives a refresh.
+    var bar = document.querySelector(".table-bar");
+    if (bar && bar.dataset.promptShredPending === "true") {
+      lastOutcomeId = id;
+      spinnerActive = false;
+      clearSpinnerTimer();
+      if (dialog.open) dialog.close();
+      return;
+    }
+
     lastOutcomeId = id;
     spinnerActive = false;
     clearSpinnerTimer();

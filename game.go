@@ -197,13 +197,13 @@ func dataHandler(w http.ResponseWriter, r *http.Request) {
 			// still serve the log so the final events and the history
 			// modal work, but with 286 so the feed stops polling
 			renderEvents(w, r, gameID, stopPolling)
-		case "status", "table", "infraction", "prompt":
+		case "status", "table", "infraction", "prompt", "promptshred", "transfer":
 			w.WriteHeader(stopPolling)
 		default:
 			http.Error(w, "game over", http.StatusGone)
 		}
 		return
-	case stateEnding, stateChallenge, statePrompt, statePending, stateTurn, stateReady, stateInviting, stateCreated: // in progress (7 = deck spent, host to end)
+	case stateEnding, stateChallenge, statePrompt, statePending, stateTurn, stateReady, stateInviting, stateCreated, statePromptShred, stateAccusationTransfer: // in progress (7 = deck spent, host to end)
 		switch topic {
 		case "players":
 			filepath := path.Join("static", "html", "tmpl.players.html")
@@ -255,6 +255,15 @@ func dataHandler(w http.ResponseWriter, r *http.Request) {
 			return
 		case "accuse":
 			filepath := path.Join("static", "html", "tmpl.accuse_dialog.html")
+			if err := renderTemplate(r.Context(), w, filepath, state); err != nil {
+				log.Error("render template", "error", err, "template", filepath)
+				http.Error(w, "internal server error", http.StatusInternalServerError)
+			}
+			return
+		case "promptshred":
+			// the spinner's chooser after a succeeded prompt; the fragment
+			// renders only for the turn player, so it's empty for everyone else.
+			filepath := path.Join("static", "html", "tmpl.prompt_shred.html")
 			if err := renderTemplate(r.Context(), w, filepath, state); err != nil {
 				log.Error("render template", "error", err, "template", filepath)
 				http.Error(w, "internal server error", http.StatusInternalServerError)
@@ -342,6 +351,50 @@ func dataHandler(w http.ResponseWriter, r *http.Request) {
 				}
 			}
 			w.WriteHeader(http.StatusNoContent)
+			return
+		case "transfer":
+			// accuser-only poll: while an affirmed accusation owes a card,
+			// hand the accuser the accused's name and the accuser's own rule
+			// cards so their "give a card" popup can open.
+			if state.Game.StateID != stateAccusationTransfer {
+				w.WriteHeader(http.StatusNoContent)
+				return
+			}
+			inf, err := queries.InfractionTransferPending(r.Context(), gameID)
+			if err != nil {
+				log.Debug("no transfer-pending infraction for poll",
+					"game_id", gameID, "error", err)
+				w.WriteHeader(http.StatusNoContent)
+				return
+			}
+			if int32(state.CallerID) != inf.Accuser {
+				w.WriteHeader(http.StatusNoContent)
+				return
+			}
+			accusedName := ""
+			for _, p := range state.Players {
+				if p.PlayerID == inf.Accused {
+					accusedName = p.Name
+					break
+				}
+			}
+			type transferCard struct {
+				ID      int32  `json:"id"`
+				Content string `json:"content"`
+			}
+			cards := []transferCard{}
+			for _, c := range state.CardsPlayers {
+				if c.PlayerID.Int32 == int32(state.CallerID) && c.Type == "rule" {
+					content, _ := c.Content.(string)
+					cards = append(cards, transferCard{ID: c.ID, Content: content})
+				}
+			}
+			w.Header().Set("Content-Type", "application/json")
+			json.NewEncoder(w).Encode(map[string]any{
+				"infraction_id": inf.ID,
+				"accused":       accusedName,
+				"cards":         cards,
+			})
 			return
 		default:
 			log.Warn(ErrTopicInvalid.Error())

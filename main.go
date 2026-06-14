@@ -54,6 +54,12 @@ const (
 	statePrompt    = 6 // a prompt challenge is pending
 	stateEnding    = 7 // deck spent, waiting on host to end
 	stateOver      = 8 // game over
+	// the spinner may shred one of their own rule cards after a succeeded
+	// prompt; the turn holds here until they choose or skip.
+	statePromptShred = 9
+	// the accuser may give one of their own rule cards to the accused after
+	// an affirmed accusation; play holds here until they choose or skip.
+	stateAccusationTransfer = 10
 )
 
 //go:embed db/schema.sql

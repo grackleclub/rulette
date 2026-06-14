@@ -88,14 +88,15 @@ type Games struct {
 }
 
 type Infractions struct {
-	ID         int32            `json:"id"`
-	GameID     string           `json:"game_id"`
-	GameCardID int32            `json:"game_card_id"`
-	Accused    int32            `json:"accused"`
-	Accuser    int32            `json:"accuser"`
-	Created    pgtype.Timestamp `json:"created"`
-	Active     pgtype.Bool      `json:"active"`
-	Affirmed   pgtype.Bool      `json:"affirmed"`
+	ID              int32            `json:"id"`
+	GameID          string           `json:"game_id"`
+	GameCardID      int32            `json:"game_card_id"`
+	Accused         int32            `json:"accused"`
+	Accuser         int32            `json:"accuser"`
+	Created         pgtype.Timestamp `json:"created"`
+	Active          pgtype.Bool      `json:"active"`
+	Affirmed        pgtype.Bool      `json:"affirmed"`
+	TransferPending pgtype.Bool      `json:"transfer_pending"`
 }
 
 type ModifierEffects struct {

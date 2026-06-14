@@ -152,6 +152,10 @@ a {
   gap: .75em;
 }
 
+.actions-centered {
+  justify-content: center;
+}
+
 /* buttons (shared base) */
 .button,
 .button-teal,

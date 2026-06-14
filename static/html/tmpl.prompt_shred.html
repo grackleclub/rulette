@@ -1,0 +1,30 @@
+{{ if eq .Game.StateName "prompt-shred" }}
+  {{ $isTurn := false }}
+  {{ range .Players }}
+    {{ if and (eq $.CallerID .PlayerID) (eq .Initiative.Int32 $.Game.InitiativeCurrent.Int32) }}
+      {{ $isTurn = true }}
+    {{ end }}
+  {{ end }}
+  {{ if $isTurn }}
+    <div id="prompt-shred-data" class="stack stack-centered">
+      <h2>prompt <span class="script">complete!</span></h2>
+      <p>You earned {{ add .CallerRuleCount 1 }} points (1 + {{ .CallerRuleCount }} cards).</p>
+      <p>Shred one of your rules, or keep them all.</p>
+      <div class="actions actions-centered">
+        {{ range .CardsPlayers }}
+          {{ if and (eq .PlayerID.Int32 $.CallerID) (eq .Type "rule") }}
+            <button class="index-card index-card-accuse prompt-shred-card-btn"
+              data-game-card-id="{{ .ID }}"
+              data-action="/{{ $.Game.ID }}/action/prompt-shred">
+              {{ .Content }}
+            </button>
+          {{ end }}
+        {{ end }}
+      </div>
+      <button class="button prompt-shred-skip-btn"
+        data-action="/{{ $.Game.ID }}/action/prompt-shred">
+        keep them all
+      </button>
+    </div>
+  {{ end }}
+{{ end }}

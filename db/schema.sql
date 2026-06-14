@@ -20,7 +20,9 @@ VALUES
 (5, 'challenge', 'a points challenge is pending'),
 (6, 'prompt', 'a prompt challenge is pending'),
 (7, 'ending', 'deck exhausted, waiting on host to end the game'),
-(8, 'end', 'game over')
+(8, 'end', 'game over'),
+(9, 'prompt-shred', 'spinner may shred a rule card after a succeeded prompt'),
+(10, 'accusation-transfer', 'accuser may give a rule card to the accused after an affirmed accusation')
 ON CONFLICT (id) DO UPDATE
 	SET name = EXCLUDED.name, description = EXCLUDED.description;
 
@@ -294,12 +296,19 @@ CREATE TABLE IF NOT EXISTS infractions (
 	created TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
 	active BOOLEAN DEFAULT TRUE, -- active until decided
 	affirmed BOOLEAN DEFAULT FALSE,
+	-- set when an affirmed accusation still owes a card transfer from the
+	-- accuser to the accused; cleared once they give a card or skip.
+	transfer_pending BOOLEAN DEFAULT FALSE,
 	-- points changes are recorded in point_changes, not here
 	FOREIGN KEY (game_id) REFERENCES games(id) ON DELETE CASCADE,
 	FOREIGN KEY (game_card_id) REFERENCES game_cards(id) ON DELETE CASCADE,
 	FOREIGN KEY (accused) REFERENCES players(id) ON DELETE CASCADE,
 	FOREIGN KEY (accuser) REFERENCES players(id) ON DELETE CASCADE
 );
+
+-- add transfer_pending on any live database, since CREATE TABLE above is a
+-- no-op once infractions exists. idempotent: a no-op once the column is there.
+ALTER TABLE infractions ADD COLUMN IF NOT EXISTS transfer_pending BOOLEAN DEFAULT FALSE;
 
 CREATE UNLOGGED TABLE IF NOT EXISTS game_cache (
 	game_id VARCHAR(6) PRIMARY KEY,
