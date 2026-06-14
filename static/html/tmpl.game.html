@@ -15,6 +15,8 @@
     <script src="/static/js/accuse.js" defer></script>
     <script src="/static/js/modifier.js" defer></script>
     <script src="/static/js/prompt.js" defer></script>
+    <script src="/static/js/prompt_shred.js" defer></script>
+    <script src="/static/js/transfer.js" defer></script>
   </head>
   <body hx-ext="morph">
     <div class="card-float">
@@ -79,6 +81,13 @@
       hx-on::after-request="handlePrompt(event)">
     </div>
 
+    <div id="transfer-poll"
+      hx-get="/{{ .Game.ID }}/data/transfer"
+      hx-trigger="every {{ .Config.refresh }}"
+      hx-swap="none"
+      hx-on::after-request="handleTransfer(event)">
+    </div>
+
     <dialog id="newprompt-dialog" data-game-id="{{ .Game.ID }}">
       <div class="dialog-body stack stack-centered">
         <h2 id="newprompt-title">prompt challenge!</h2>
@@ -122,6 +131,22 @@
         hx-get="/{{ .Game.ID }}/data/modifier"
         hx-trigger="load, loadModifier from:body"
         hx-swap="innerHTML"></div>
+    </dialog>
+
+    <dialog id="prompt-shred-dialog" data-game-id="{{ .Game.ID }}">
+      <div id="prompt-shred-content" class="dialog-body"
+        hx-get="/{{ .Game.ID }}/data/promptshred"
+        hx-trigger="loadPromptShred from:body"
+        hx-swap="innerHTML"></div>
+    </dialog>
+
+    <dialog id="transfer-dialog" data-game-id="{{ .Game.ID }}">
+      <div class="dialog-body stack stack-centered">
+        <h2><span class="script">give</span> a card</h2>
+        <p id="transfer-prompt"></p>
+        <div id="transfer-cards" class="actions actions-centered"></div>
+        <button id="transfer-skip-btn" class="button" autofocus>keep them all</button>
+      </div>
     </dialog>
 
     <dialog id="notice-dialog">

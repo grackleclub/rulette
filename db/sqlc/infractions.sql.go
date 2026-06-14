@@ -58,7 +58,7 @@ func (q *Queries) InfractionDecide(ctx context.Context, arg InfractionDecidePara
 }
 
 const infractionGet = `-- name: InfractionGet :one
-SELECT id, game_id, game_card_id, accused, accuser, created, active, affirmed FROM infractions
+SELECT id, game_id, game_card_id, accused, accuser, created, active, affirmed, transfer_pending FROM infractions
 WHERE id = $1
 `
 
@@ -74,8 +74,60 @@ func (q *Queries) InfractionGet(ctx context.Context, id int32) (Infractions, err
 		&i.Created,
 		&i.Active,
 		&i.Affirmed,
+		&i.TransferPending,
 	)
 	return i, err
+}
+
+const infractionTransferPending = `-- name: InfractionTransferPending :one
+SELECT id, game_card_id, accused, accuser
+FROM infractions
+WHERE game_id = $1
+    AND affirmed = TRUE
+    AND transfer_pending = TRUE
+ORDER BY created DESC
+LIMIT 1
+`
+
+type InfractionTransferPendingRow struct {
+	ID         int32 `json:"id"`
+	GameCardID int32 `json:"game_card_id"`
+	Accused    int32 `json:"accused"`
+	Accuser    int32 `json:"accuser"`
+}
+
+func (q *Queries) InfractionTransferPending(ctx context.Context, gameID string) (InfractionTransferPendingRow, error) {
+	row := q.db.QueryRow(ctx, infractionTransferPending, gameID)
+	var i InfractionTransferPendingRow
+	err := row.Scan(
+		&i.ID,
+		&i.GameCardID,
+		&i.Accused,
+		&i.Accuser,
+	)
+	return i, err
+}
+
+const infractionTransferQueue = `-- name: InfractionTransferQueue :exec
+UPDATE infractions
+SET transfer_pending = TRUE
+WHERE id = $1
+`
+
+func (q *Queries) InfractionTransferQueue(ctx context.Context, id int32) error {
+	_, err := q.db.Exec(ctx, infractionTransferQueue, id)
+	return err
+}
+
+const infractionTransferResolve = `-- name: InfractionTransferResolve :exec
+UPDATE infractions
+SET transfer_pending = FALSE
+WHERE id = $1
+`
+
+func (q *Queries) InfractionTransferResolve(ctx context.Context, id int32) error {
+	_, err := q.db.Exec(ctx, infractionTransferResolve, id)
+	return err
 }
 
 const infractionsActiveCount = `-- name: InfractionsActiveCount :one
@@ -92,7 +144,7 @@ func (q *Queries) InfractionsActiveCount(ctx context.Context, gameID string) (in
 }
 
 const infractionsByGame = `-- name: InfractionsByGame :many
-SELECT id, game_id, game_card_id, accused, accuser, created, active, affirmed
+SELECT id, game_id, game_card_id, accused, accuser, created, active, affirmed, transfer_pending
 FROM infractions
 WHERE game_id = $1
 ORDER BY created ASC
@@ -116,6 +168,7 @@ func (q *Queries) InfractionsByGame(ctx context.Context, gameID string) ([]Infra
 			&i.Created,
 			&i.Active,
 			&i.Affirmed,
+			&i.TransferPending,
 		); err != nil {
 			return nil, err
 		}
