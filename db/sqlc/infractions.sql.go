@@ -95,7 +95,7 @@ const infractionsByGame = `-- name: InfractionsByGame :many
 SELECT id, game_id, game_card_id, accused, accuser, created, active, affirmed
 FROM infractions
 WHERE game_id = $1
-ORDER BY created DESC
+ORDER BY created ASC
 `
 
 func (q *Queries) InfractionsByGame(ctx context.Context, gameID string) ([]Infractions, error) {
