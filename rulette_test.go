@@ -695,6 +695,24 @@ func TestGame(t *testing.T) {
 	require.NoError(t, err)
 	cache.Delete(gameID)
 
+	// deterministically give a non-host player a rule card to accuse on.
+	// relying on the random spin loop to deal one is flaky: a run where no
+	// non-host draws a rule leaves the scan below with nothing to find.
+	var ruleHolderID int32
+	for _, p := range players {
+		if p.Initiative.Int32 != 0 { // non-host
+			ruleHolderID = p.PlayerID
+			break
+		}
+	}
+	require.NotZero(t, ruleHolderID, "need a non-host player")
+	_, err = dbPool.Exec(ctx,
+		`INSERT INTO game_cards (game_id, card_id, player_id, slot)
+		 SELECT $1, c.id, $2, NULL FROM cards c WHERE c.type = 'rule' LIMIT 1`,
+		gameID, ruleHolderID)
+	require.NoError(t, err)
+	cache.Delete(gameID)
+
 	// find a rule card held by a non-host player to accuse on
 	allCards, err := queries.GameCardsPlayerView(ctx, gameID)
 	require.NoError(t, err)
