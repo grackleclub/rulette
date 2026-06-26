@@ -30,6 +30,17 @@
 
     // a fresh challenge: show the countdown view, clear any prior outcome.
     spinnerActive = true;
+    var self = document.getElementById("self");
+    if (self) {
+      var myName = self.textContent.trim();
+      var items = document.querySelectorAll('#event-log .event[data-event-type="prompt"]');
+      for (var i = items.length - 1; i >= 0; i--) {
+        if (items[i].getAttribute("data-target") === myName) {
+          lastOutcomeId = items[i].getAttribute("data-event-id");
+          break;
+        }
+      }
+    }
     if (title) title.textContent = "prompt challenge!";
     if (waiting) waiting.hidden = true;
     if (outcome) outcome.hidden = true;
@@ -206,17 +217,28 @@
     }
   });
 
-  // handlePrompt runs after every host prompt-poll. 200 = a live challenge to
-  // rule on; 204 = none (close any stale dialog).
+  // ---- spectator side: read-only card view ----
+
+  var spectatePrompt = null; // prompt text currently shown to spectators
+
+  function closeSpectateDialog() {
+    var dialog = document.getElementById("prompt-spectate-dialog");
+    if (dialog && dialog.open) dialog.close();
+    spectatePrompt = null;
+  }
+
+  // handlePrompt runs after every prompt-poll. 200 = a live challenge;
+  // 204 = none (close any stale dialog). The payload shape determines
+  // the role: spin_id present → host; absent → spectator.
   window.handlePrompt = function (e) {
-    var dialog = document.getElementById("prompt-decide-dialog");
-    if (!dialog) return;
+    var decideDialog = document.getElementById("prompt-decide-dialog");
     if (e.detail.xhr.status !== 200) {
-      if (dialog.open && hostSpinId !== null) {
+      if (decideDialog && decideDialog.open && hostSpinId !== null) {
         clearHostTimer();
-        dialog.close();
+        decideDialog.close();
         hostSpinId = null;
       }
+      closeSpectateDialog();
       return;
     }
     var data;
@@ -225,44 +247,57 @@
     } catch (err) {
       return;
     }
-    if (String(data.spin_id) === String(lastRuledSpinId)) return; // already ruled
-    if (String(data.spin_id) === String(hostSpinId)) return; // already showing
 
-    // a new challenge: populate and open. anchor the countdown to the spin
-    // time the server reported (now minus the elapsed seconds) so it stays
-    // accurate however late this host opened the popup.
-    hostSpinId = data.spin_id;
-    var spinnerEl = document.getElementById("prompt-decide-spinner");
-    var contentEl = document.getElementById("prompt-decide-content");
-    if (spinnerEl) spinnerEl.textContent = data.spinner + "'s challenge:";
-    if (contentEl) contentEl.textContent = data.prompt;
+    if (spinnerActive) return;
 
-    var window_ = data.window || 60;
-    var anchor = Date.now() - (data.elapsed || 0) * 1000;
-    var countdown = document.getElementById("prompt-decide-countdown");
-    var failBtn = document.getElementById("prompt-fail-btn");
-    if (failBtn) failBtn.disabled = true;
+    if (data.spin_id != null) {
+      // host path
+      if (String(data.spin_id) === String(lastRuledSpinId)) return;
+      if (String(data.spin_id) === String(hostSpinId)) return;
 
-    clearHostTimer();
-    function tick() {
-      var remaining = Math.ceil((window_ * 1000 - (Date.now() - anchor)) / 1000);
-      if (remaining > 0) {
-        if (countdown) {
-          countdown.textContent = remaining;
-          countdown.classList.remove("prompt-countdown-done");
+      hostSpinId = data.spin_id;
+      var spinnerEl = document.getElementById("prompt-decide-spinner");
+      var contentEl = document.getElementById("prompt-decide-content");
+      if (spinnerEl) spinnerEl.textContent = data.spinner + "'s challenge:";
+      if (contentEl) contentEl.textContent = data.prompt;
+
+      var window_ = data.window || 60;
+      var anchor = Date.now() - (data.elapsed || 0) * 1000;
+      var countdown = document.getElementById("prompt-decide-countdown");
+      var failBtn = document.getElementById("prompt-fail-btn");
+      if (failBtn) failBtn.disabled = true;
+
+      clearHostTimer();
+      function tick() {
+        var remaining = Math.ceil((window_ * 1000 - (Date.now() - anchor)) / 1000);
+        if (remaining > 0) {
+          if (countdown) {
+            countdown.textContent = remaining;
+            countdown.classList.remove("prompt-countdown-done");
+          }
+          if (failBtn) failBtn.disabled = true;
+        } else {
+          if (countdown) {
+            countdown.textContent = "0";
+            countdown.classList.add("prompt-countdown-done");
+          }
+          if (failBtn) failBtn.disabled = false;
+          clearHostTimer();
         }
-        if (failBtn) failBtn.disabled = true;
-      } else {
-        if (countdown) {
-          countdown.textContent = "0";
-          countdown.classList.add("prompt-countdown-done");
-        }
-        if (failBtn) failBtn.disabled = false;
-        clearHostTimer();
       }
+      tick();
+      hostTimer = setInterval(tick, 250);
+      if (!decideDialog.open) decideDialog.showModal();
+    } else {
+      // spectator path
+      if (data.prompt === spectatePrompt) return;
+      spectatePrompt = data.prompt;
+      var dialog = document.getElementById("prompt-spectate-dialog");
+      var spinnerEl = document.getElementById("prompt-spectate-spinner");
+      var contentEl = document.getElementById("prompt-spectate-content");
+      if (spinnerEl) spinnerEl.textContent = data.spinner + "’s challenge";
+      if (contentEl) contentEl.textContent = data.prompt;
+      if (dialog && !dialog.open) dialog.showModal();
     }
-    tick();
-    hostTimer = setInterval(tick, 250);
-    if (!dialog.open) dialog.showModal();
   };
 })();
