@@ -96,12 +96,15 @@ INSERT INTO game_cards (
     player_id
 ) SELECT
     $1::text,
-    id, 
+    id,
     ((ROW_NUMBER() OVER ()) % (SELECT wheel_slots FROM games WHERE games.id = $1)) + 1,
     NULL, -- unshuffled
     NULL -- unrevealed
-FROM cards 
-WHERE generic IS TRUE LIMIT (SELECT card_count FROM games WHERE games.id = $1)
+FROM cards
+CROSS JOIN LATERAL generate_series(1, weight) -- one row per copy
+WHERE generic IS TRUE
+ORDER BY weight DESC, RANDOM() -- always deal the weighted cards, fill the rest at random
+LIMIT (SELECT card_count FROM games WHERE games.id = $1)
 `
 
 func (q *Queries) GameCardsInitGeneric(ctx context.Context, dollar_1 string) error {
