@@ -3,7 +3,6 @@ package main
 import (
 	"errors"
 	"fmt"
-	"math"
 	"net/http"
 	"strconv"
 	"strings"
@@ -116,21 +115,32 @@ func actionHandler(w http.ResponseWriter, r *http.Request) {
 
 	// exit is handled before the state switch: it operates in any game state.
 	if action == "exit" {
-		playerID, err := strconv.Atoi(cookieID)
+		// the host owns the game and cannot exit; they end it instead.
+		if state.isHost(cookieKey) {
+			log.Warn("host attempted to exit game", "game_id", gameID)
+			http.Error(w, "host cannot exit, end the game instead", http.StatusForbidden)
+			return
+		}
+		// CallerID is the player id resolved from the session key, so a forged
+		// id in the cookie can't remove a different player.
+		playerID := int32(state.CallerID)
+		// if this is the last non-host player, exiting empties the game, so
+		// end it rather than leaving the host alone with a dead wheel.
+		lastPlayer := state.nonHostPlayers() == 1
+
+		tx, err := dbPool.Begin(r.Context())
 		if err != nil {
-			log.Error("invalid player id in cookie", "error", err, "game_id", gameID)
-			http.Error(w, "invalid player id", http.StatusBadRequest)
+			log.Error("begin exit transaction", "error", err, "game_id", gameID)
+			http.Error(w, "server error", http.StatusInternalServerError)
 			return
 		}
-		if playerID < 0 || playerID > math.MaxInt32 {
-			log.Warn("player id out of int32 range", "player_id", playerID, "game_id", gameID)
-			http.Error(w, "invalid player id", http.StatusBadRequest)
-			return
-		}
+		defer tx.Rollback(r.Context())
+		txq := queries.WithTx(tx)
+
 		// shred all of the exiting player's cards
-		err = queries.GameCardsShredByPlayer(r.Context(), sqlc.GameCardsShredByPlayerParams{
+		err = txq.GameCardsShredByPlayer(r.Context(), sqlc.GameCardsShredByPlayerParams{
 			GameID:   gameID,
-			PlayerID: pgtype.Int4{Int32: int32(playerID), Valid: true},
+			PlayerID: pgtype.Int4{Int32: playerID, Valid: true},
 		})
 		if err != nil {
 			log.Error("shred player cards on exit",
@@ -142,14 +152,15 @@ func actionHandler(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		// if it's the exiting player's turn in an active game, advance
-		// initiative before removing them so InitiativeAdvance can still
-		// compute the correct maximum initiative value.
-		if (state.Game.StateID == stateTurn || state.Game.StateID == statePending) &&
+		// initiative before removing them. InitiativeAdvance skips empty slots,
+		// so the gap left behind is handled on every future turn too.
+		if !lastPlayer &&
+			(state.Game.StateID == stateTurn || state.Game.StateID == statePending) &&
 			state.isPlayerTurn(cookieKey) {
 			if state.Game.StateID == statePending {
 				// reset pending modifier state back to turn so the next
 				// player doesn't inherit a phantom pending choice.
-				err = queries.GameUpdate(r.Context(), sqlc.GameUpdateParams{
+				err = txq.GameUpdate(r.Context(), sqlc.GameUpdateParams{
 					ID:      gameID,
 					StateID: stateTurn,
 					InitiativeCurrent: pgtype.Int4{
@@ -166,7 +177,7 @@ func actionHandler(w http.ResponseWriter, r *http.Request) {
 					return
 				}
 			}
-			err = advanceTurn(r.Context(), log, queries, gameID)
+			err = advanceTurn(r.Context(), log, txq, gameID)
 			if err != nil {
 				log.Error("advance turn on exit",
 					"error", err,
@@ -176,11 +187,10 @@ func actionHandler(w http.ResponseWriter, r *http.Request) {
 				return
 			}
 		}
-		// remove the player from the game; their initiative slot becomes a
-		// gap that advanceTurn already handles gracefully.
-		err = queries.GamePlayerDelete(r.Context(), sqlc.GamePlayerDeleteParams{
+		// remove the player from the game
+		err = txq.GamePlayerDelete(r.Context(), sqlc.GamePlayerDeleteParams{
 			GameID:   gameID,
-			PlayerID: int32(playerID),
+			PlayerID: playerID,
 		})
 		if err != nil {
 			log.Error("remove player from game on exit",
@@ -191,10 +201,44 @@ func actionHandler(w http.ResponseWriter, r *http.Request) {
 			http.Error(w, "server error", http.StatusInternalServerError)
 			return
 		}
+		// with the last non-host player gone, end the game.
+		if lastPlayer {
+			err = txq.GameUpdate(r.Context(), sqlc.GameUpdateParams{
+				ID:                gameID,
+				StateID:           stateOver,
+				InitiativeCurrent: pgtype.Int4{Int32: 0, Valid: true},
+			})
+			if err != nil {
+				log.Error("end game on last player exit",
+					"error", err,
+					"game_id", gameID,
+				)
+				http.Error(w, "server error", http.StatusInternalServerError)
+				return
+			}
+			err = recordEvent(r.Context(), log, txq, sqlc.EventCreateParams{
+				GameID:    gameID,
+				EventType: "end",
+			})
+			if err != nil {
+				log.Error("record end event on last player exit",
+					"error", err,
+					"game_id", gameID,
+				)
+				http.Error(w, "server error", http.StatusInternalServerError)
+				return
+			}
+		}
+		if err = tx.Commit(r.Context()); err != nil {
+			log.Error("commit exit transaction", "error", err, "game_id", gameID)
+			http.Error(w, "server error", http.StatusInternalServerError)
+			return
+		}
 		log.Info("player exited game",
 			"game_id", gameID,
 			"player_id", playerID,
 			"player_name", state.CallerName,
+			"game_ended", lastPlayer,
 		)
 		// expire the session cookie
 		http.SetCookie(w, &http.Cookie{

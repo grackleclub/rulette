@@ -7,16 +7,27 @@ WHERE game_id = $2
 ;
 
 -- name: InitiativeAdvance :exec
-WITH initiative_max AS (
-  SELECT MAX(game_players.initiative) AS highest
-  FROM game_players
-  WHERE game_players.game_id = $1
+-- Move initiative to the next non-host player, skipping empty slots left by
+-- players who exited, and wrapping back to the lowest when past the top.
+WITH cur AS (
+  SELECT initiative_current FROM games WHERE id = $1
 )
 UPDATE games
-SET initiative_current = (
-  games.initiative_current % initiative_max.highest
-) + 1
-FROM initiative_max
+SET initiative_current = COALESCE(
+  (
+    SELECT MIN(game_players.initiative)
+    FROM game_players, cur
+    WHERE game_players.game_id = $1
+      AND game_players.initiative > 0
+      AND game_players.initiative > cur.initiative_current
+  ),
+  (
+    SELECT MIN(game_players.initiative)
+    FROM game_players
+    WHERE game_players.game_id = $1
+      AND game_players.initiative > 0
+  )
+)
 WHERE games.id = $1;
 
 -- name: InitiativeCurrentPlayer :one
