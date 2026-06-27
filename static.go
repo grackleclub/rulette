@@ -82,6 +82,18 @@ func readParse(fs embed.FS, path, base string, fullPage bool) (*template.Templat
 			_, ok := data.(state)
 			return ok
 		},
+		"isHost": func(data any) bool {
+			s, ok := data.(state)
+			if !ok {
+				return false
+			}
+			for _, p := range s.Players {
+				if int(p.PlayerID) == s.CallerID {
+					return p.Initiative.Int32 == 0
+				}
+			}
+			return false
+		},
 	}
 	tmpl, err := template.New(name).Funcs(funcs).Parse(string(f))
 	if err != nil {

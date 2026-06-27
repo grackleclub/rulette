@@ -12,21 +12,32 @@ import (
 )
 
 const initiativeAdvance = `-- name: InitiativeAdvance :exec
-WITH initiative_max AS (
-  SELECT MAX(game_players.initiative) AS highest
-  FROM game_players
-  WHERE game_players.game_id = $1
+WITH cur AS (
+  SELECT initiative_current FROM games WHERE id = $1
 )
 UPDATE games
-SET initiative_current = (
-  games.initiative_current % initiative_max.highest
-) + 1
-FROM initiative_max
+SET initiative_current = COALESCE(
+  (
+    SELECT MIN(game_players.initiative)
+    FROM game_players, cur
+    WHERE game_players.game_id = $1
+      AND game_players.initiative > 0
+      AND game_players.initiative > cur.initiative_current
+  ),
+  (
+    SELECT MIN(game_players.initiative)
+    FROM game_players
+    WHERE game_players.game_id = $1
+      AND game_players.initiative > 0
+  )
+)
 WHERE games.id = $1
 `
 
-func (q *Queries) InitiativeAdvance(ctx context.Context, id string) error {
-	_, err := q.db.Exec(ctx, initiativeAdvance, id)
+// Move initiative to the next non-host player, skipping empty slots left by
+// players who exited, and wrapping back to the lowest when past the top.
+func (q *Queries) InitiativeAdvance(ctx context.Context, gameID string) error {
+	_, err := q.db.Exec(ctx, initiativeAdvance, gameID)
 	return err
 }
 

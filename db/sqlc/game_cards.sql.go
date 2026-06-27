@@ -194,6 +194,23 @@ func (q *Queries) GameCardsPlayerView(ctx context.Context, gameID string) ([]Gam
 	return items, nil
 }
 
+const gameCardsShredByPlayer = `-- name: GameCardsShredByPlayer :exec
+UPDATE game_cards
+SET shredded = TRUE
+WHERE game_id = $1
+  AND player_id = $2
+`
+
+type GameCardsShredByPlayerParams struct {
+	GameID   string      `json:"game_id"`
+	PlayerID pgtype.Int4 `json:"player_id"`
+}
+
+func (q *Queries) GameCardsShredByPlayer(ctx context.Context, arg GameCardsShredByPlayerParams) error {
+	_, err := q.db.Exec(ctx, gameCardsShredByPlayer, arg.GameID, arg.PlayerID)
+	return err
+}
+
 const gameCardsShuffle = `-- name: GameCardsShuffle :exec
 WITH ordered AS (
  SELECT
