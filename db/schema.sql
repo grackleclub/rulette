@@ -18,8 +18,11 @@ VALUES
 (3, 'turn', 'player is mid-turn, spinning wheel or responding'),
 (4, 'pending', 'rule modifier choice is pending'),
 (5, 'challenge', 'a points challenge is pending'),
-(6, 'ending', 'deck exhausted, waiting on host to end the game'),
-(7, 'end', 'game over')
+(6, 'prompt', 'a prompt challenge is pending'),
+(7, 'ending', 'deck exhausted, waiting on host to end the game'),
+(8, 'end', 'game over'),
+(9, 'prompt-shred', 'spinner may shred a rule card after a succeeded prompt'),
+(10, 'accusation-transfer', 'accuser may give a rule card to the accused after an affirmed accusation')
 ON CONFLICT (id) DO UPDATE
 	SET name = EXCLUDED.name, description = EXCLUDED.description;
 
@@ -28,8 +31,8 @@ CREATE TABLE IF NOT EXISTS games (
 	created TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
 	owner_id INTEGER,
 	state_id INTEGER NOT NULL DEFAULT 0,
-	wheel_slots INTEGER NOT NULL DEFAULT 2, -- number of wheel possibilities -- TODO: fill out
-	card_count INTEGER NOT NULL DEFAULT 10, -- number of cards in the wheel deck -- TODO: fill out
+	wheel_slots INTEGER NOT NULL DEFAULT 10, -- number of wheel slots (width)
+	card_count INTEGER NOT NULL DEFAULT 30, -- total cards in the deck (30 / 10 slots = 3 deep)
 	initiative_timer INTEGER NOT NULL DEFAULT 30, -- seconds per turn before auto-advance
 	initiative_current INTEGER DEFAULT 0, -- TODO: is this used?
 	FOREIGN KEY (owner_id) REFERENCES players(id) ON DELETE CASCADE,
@@ -39,6 +42,11 @@ CREATE TABLE IF NOT EXISTS games (
 -- games used to carry a name; it's gone now. drop it from any older database
 -- on startup. idempotent: a no-op once dropped, and on a fresh games table.
 ALTER TABLE games DROP COLUMN IF EXISTS name;
+
+-- bump the wheel layout defaults on any live database, since CREATE TABLE above
+-- is a no-op once games exists. idempotent: re-applies the same defaults.
+ALTER TABLE games ALTER COLUMN wheel_slots SET DEFAULT 10;
+ALTER TABLE games ALTER COLUMN card_count SET DEFAULT 30;
 
 CREATE TABLE IF NOT EXISTS game_players (
 	game_id VARCHAR(6) NOT NULL,
@@ -105,6 +113,15 @@ VALUES
 	('modifier', 'shred any of your own cards', '', 0, CURRENT_TIMESTAMP, TRUE, 'shred'),
 	('modifier', 'clone any of your own cards, and give to someone else', '', 0, CURRENT_TIMESTAMP, TRUE, 'clone'),
 	('modifier', 'transfer any of your own cards to another player', '', 0, CURRENT_TIMESTAMP, TRUE, 'transfer'),
+	('prompt', 'name 10 green things', NULL, 0, CURRENT_TIMESTAMP, TRUE, NULL),
+	('prompt', 'name 10 red things', NULL, 0, CURRENT_TIMESTAMP, TRUE, NULL),
+	('prompt', 'name 10 yellow things', NULL, 0, CURRENT_TIMESTAMP, TRUE, NULL),
+	('prompt', 'name 10 blue things', NULL, 0, CURRENT_TIMESTAMP, TRUE, NULL),
+	('prompt', 'name 10 countries', NULL, 0, CURRENT_TIMESTAMP, TRUE, NULL),
+	('prompt', 'name 10 cheeses', NULL, 0, CURRENT_TIMESTAMP, TRUE, NULL),
+	('prompt', 'name 10 drinks', NULL, 0, CURRENT_TIMESTAMP, TRUE, NULL),
+	('prompt', 'spell your name backwards', NULL, 0, CURRENT_TIMESTAMP, TRUE, NULL),
+	('prompt', 'name 10 animals in alphabetical order', NULL, 0, CURRENT_TIMESTAMP, TRUE, NULL),
 	(
 		'rule',
 		'in a whisper',
@@ -228,6 +245,12 @@ VALUES
 	),
 	(
 		'rule',
+		'like a sychophantic LLM',
+		'like a clerk that hates everyone',
+		0, CURRENT_TIMESTAMP, TRUE, NULL
+	),
+	(
+		'rule',
 		'with vocal fry',
 		'over-enunciating',
 		0, CURRENT_TIMESTAMP, TRUE, NULL
@@ -278,12 +301,19 @@ CREATE TABLE IF NOT EXISTS infractions (
 	created TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
 	active BOOLEAN DEFAULT TRUE, -- active until decided
 	affirmed BOOLEAN DEFAULT FALSE,
+	-- set when an affirmed accusation still owes a card transfer from the
+	-- accuser to the accused; cleared once they give a card or skip.
+	transfer_pending BOOLEAN DEFAULT FALSE,
 	-- points changes are recorded in point_changes, not here
 	FOREIGN KEY (game_id) REFERENCES games(id) ON DELETE CASCADE,
 	FOREIGN KEY (game_card_id) REFERENCES game_cards(id) ON DELETE CASCADE,
 	FOREIGN KEY (accused) REFERENCES players(id) ON DELETE CASCADE,
 	FOREIGN KEY (accuser) REFERENCES players(id) ON DELETE CASCADE
 );
+
+-- add transfer_pending on any live database, since CREATE TABLE above is a
+-- no-op once infractions exists. idempotent: a no-op once the column is there.
+ALTER TABLE infractions ADD COLUMN IF NOT EXISTS transfer_pending BOOLEAN DEFAULT FALSE;
 
 CREATE UNLOGGED TABLE IF NOT EXISTS game_cache (
 	game_id VARCHAR(6) PRIMARY KEY,
@@ -311,7 +341,8 @@ VALUES
 	('shred', 'a card was shredded'),
 	('clone', 'a card was cloned'),
 	('transfer', 'a card was transferred'),
-	('continue', 'host continued the game after deck exhaustion')
+	('continue', 'host continued the game after deck exhaustion'),
+	('prompt', 'a player completed or failed a prompt challenge')
 ON CONFLICT (name) DO UPDATE
 	SET description = EXCLUDED.description;
 

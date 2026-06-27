@@ -1,6 +1,14 @@
 <footer class="status">{{ .Game.StateName }}</footer>
 {{ if eq .Game.StateName "ending" }}
   <footer class="initiative">deck spent — waiting on host to end the game</footer>
+{{ else if eq .Game.StateName "prompt" }}
+  <footer class="initiative">
+    {{ range .Players }}
+      {{ if eq .Initiative.Int32 $.Game.InitiativeCurrent.Int32 }}
+        {{ .Name }}'s prompt challenge
+      {{ end }}
+    {{ end }}
+  </footer>
 {{ else if eq .Game.StateName "inviting" }}
   <footer class="initiative">
     {{ $count := 0 }}

@@ -401,7 +401,7 @@ func TestGame(t *testing.T) {
 				"spin %d failed", i,
 			)
 
-			// a spent deck moves the game to the "ending" state (6) instead of
+			// a spent deck moves the game to the "ending" state (7) instead of
 			// ending outright; the host ends it explicitly.
 			cache.Delete(gameID)
 			gs, err := queries.GameState(ctx, gameID)
@@ -486,6 +486,89 @@ func TestGame(t *testing.T) {
 					current = (current % maxInit) + 1
 					continue
 				}
+			}
+
+			// a prompt holds the turn until the host rules on it.
+			if gs.StateID == statePrompt {
+				// the spinner is whoever holds the initiative right now.
+				var spinnerID int32
+				for _, p := range players {
+					if p.Initiative.Int32 == current {
+						spinnerID = p.PlayerID
+						break
+					}
+				}
+				require.NotZero(t, spinnerID, "spin %d: no spinner found", i)
+
+				// the spinner's reward is 1 plus a point per rule they hold;
+				// capture that count and their balance before completing.
+				cards, err := queries.GameCardsPlayerView(ctx, gameID)
+				require.NoError(t, err)
+				var rulesHeld int32
+				for _, card := range cards {
+					if card.PlayerID.Int32 == spinnerID && card.Type == "rule" {
+						rulesHeld++
+					}
+				}
+				pts, err := queries.GamePlayerPoints(ctx, gameID)
+				require.NoError(t, err)
+				var before int32
+				for _, p := range pts {
+					if p.PlayerID == spinnerID {
+						before = p.Points.Int32
+						break
+					}
+				}
+
+				// the grace allowance: the host can't fail a fresh prompt yet.
+				failReq := httptest.NewRequest(http.MethodPost,
+					fmt.Sprintf("/%s/action/fail", gameID), nil)
+				failReq.AddCookie(cookieByInitiative[0]) // host
+				failW := httptest.NewRecorder()
+				cache.Delete(gameID)
+				actionHandler(failW, failReq)
+				require.Equal(t, http.StatusTooEarly, failW.Result().StatusCode,
+					"spin %d: failing a fresh prompt should be too early", i)
+
+				// succeeding is allowed at any time and advances the turn.
+				t.Logf("spin %d: prompt, host succeeding (rules held=%d)", i, rulesHeld)
+				doneReq := httptest.NewRequest(http.MethodPost,
+					fmt.Sprintf("/%s/action/succeed", gameID), nil)
+				doneReq.AddCookie(cookieByInitiative[0]) // host
+				doneW := httptest.NewRecorder()
+				cache.Delete(gameID)
+				actionHandler(doneW, doneReq)
+				require.Equal(t, http.StatusOK, doneW.Result().StatusCode,
+					"spin %d prompt succeed failed", i)
+
+				cache.Delete(gameID)
+				pts, err = queries.GamePlayerPoints(ctx, gameID)
+				require.NoError(t, err)
+				var after int32
+				for _, p := range pts {
+					if p.PlayerID == spinnerID {
+						after = p.Points.Int32
+						break
+					}
+				}
+				require.Equal(t, before+rulesHeld+1, after,
+					"spin %d: prompt should award 1 + rules held", i)
+
+				// a succeeded prompt with rules held holds the turn in the
+				// prompt-shred state for the spinner's bonus shred; skip it
+				// here so the turn advances and the deck-walk continues.
+				if rulesHeld > 0 {
+					shredReq := httptest.NewRequest(http.MethodPost,
+						fmt.Sprintf("/%s/action/prompt-shred?skip=1", gameID), nil)
+					shredReq.AddCookie(c)
+					shredW := httptest.NewRecorder()
+					cache.Delete(gameID)
+					actionHandler(shredW, shredReq)
+					require.Equal(t, http.StatusOK, shredW.Result().StatusCode, "spin %d prompt-shred skip failed", i)
+				}
+
+				current = (current % maxInit) + 1
+				continue
 			}
 
 			// shredded modifiers don't advance; same player spins again
@@ -631,6 +714,24 @@ func TestGame(t *testing.T) {
 	require.NoError(t, err)
 	cache.Delete(gameID)
 
+	// deterministically give a non-host player a rule card to accuse on.
+	// relying on the random spin loop to deal one is flaky: a run where no
+	// non-host draws a rule leaves the scan below with nothing to find.
+	var ruleHolderID int32
+	for _, p := range players {
+		if p.Initiative.Int32 != 0 { // non-host
+			ruleHolderID = p.PlayerID
+			break
+		}
+	}
+	require.NotZero(t, ruleHolderID, "need a non-host player")
+	_, err = dbPool.Exec(ctx,
+		`INSERT INTO game_cards (game_id, card_id, player_id, slot)
+		 SELECT $1, c.id, $2, NULL FROM cards c WHERE c.type = 'rule' LIMIT 1`,
+		gameID, ruleHolderID)
+	require.NoError(t, err)
+	cache.Delete(gameID)
+
 	// find a rule card held by a non-host player to accuse on
 	allCards, err := queries.GameCardsPlayerView(ctx, gameID)
 	require.NoError(t, err)
@@ -710,13 +811,16 @@ func TestGame(t *testing.T) {
 		actionHandler(w, req)
 		require.Equal(t, http.StatusOK, w.Result().StatusCode)
 
-		// verify game returned to turn state
+		// an upheld accusation lets the accuser give a rule card to the accused;
+		// since the accuser holds a rule, the game holds in the transfer state
+		// until they give a card or skip.
 		cache.Delete(gameID)
 		gs, err := queries.GameState(ctx, gameID)
 		require.NoError(t, err)
-		require.Equal(t, int32(stateTurn), gs.StateID, "expected turn state")
+		require.Equal(t, int32(stateAccusationTransfer), gs.StateID,
+			"expected accusation-transfer state")
 
-		// verify points adjusted
+		// verify points adjusted (the penalty applies at affirm time)
 		playersAfter, err := queries.GamePlayerPoints(ctx, gameID)
 		require.NoError(t, err)
 		for _, p := range playersAfter {
@@ -727,6 +831,22 @@ func TestGame(t *testing.T) {
 				break
 			}
 		}
+	})
+
+	t.Run("POST /{game_id}/action/accusation-transfer (skip)", func(t *testing.T) {
+		path := fmt.Sprintf("/%s/action/accusation-transfer?skip=1", gameID)
+		req := httptest.NewRequest(http.MethodPost, path, nil)
+		req.AddCookie(accuserCookie) // the accuser owes the choice
+		w := httptest.NewRecorder()
+		cache.Delete(gameID)
+		actionHandler(w, req)
+		require.Equal(t, http.StatusOK, w.Result().StatusCode)
+
+		// skipping resumes normal play
+		cache.Delete(gameID)
+		gs, err := queries.GameState(ctx, gameID)
+		require.NoError(t, err)
+		require.Equal(t, int32(stateTurn), gs.StateID, "expected turn state")
 	})
 
 	// test absolve flow
@@ -919,6 +1039,130 @@ func TestGame(t *testing.T) {
 		}
 		require.True(t, moved, "transferred card should appear under the target")
 		require.True(t, modifierGone, "used modifier card should be shredded")
+	})
+
+	// prompt-shred: after a succeeded prompt, the spinner may shred one of
+	// their own rule cards. seed a rule card on the turn player and the
+	// prompt-shred state, then shred it.
+	t.Run("POST /{game_id}/action/prompt-shred (shreds a card)", func(t *testing.T) {
+		var gcID int32
+		require.NoError(t, dbPool.QueryRow(ctx,
+			`SELECT gc.id FROM game_cards gc JOIN cards c ON c.id = gc.card_id
+			 WHERE gc.game_id = $1 AND c.type = 'rule' AND gc.shredded = false LIMIT 1`,
+			gameID).Scan(&gcID))
+		_, err = dbPool.Exec(ctx,
+			`UPDATE game_cards SET player_id = $1, shredded = false, slot = NULL
+			 WHERE id = $2 AND game_id = $3`, turnPlayerID, gcID, gameID)
+		require.NoError(t, err)
+		require.NoError(t, queries.GameUpdate(ctx, sqlc.GameUpdateParams{
+			ID:                gameID,
+			StateID:           statePromptShred,
+			InitiativeCurrent: pgtype.Int4{Int32: 1, Valid: true},
+		}))
+		cache.Delete(gameID)
+
+		path := fmt.Sprintf("/%s/action/prompt-shred?game_card_id=%d", gameID, gcID)
+		req := httptest.NewRequest(http.MethodPost, path, nil)
+		req.AddCookie(turnCookie)
+		w := httptest.NewRecorder()
+		cache.Delete(gameID)
+		actionHandler(w, req)
+		require.Equal(t, http.StatusOK, w.Result().StatusCode)
+
+		// the chosen card is shredded (gone from the view) and play resumes
+		cache.Delete(gameID)
+		cards, err := queries.GameCardsPlayerView(ctx, gameID)
+		require.NoError(t, err)
+		for _, c := range cards {
+			require.NotEqual(t, gcID, c.ID, "shredded card should be gone")
+		}
+		gs, err := queries.GameState(ctx, gameID)
+		require.NoError(t, err)
+		require.Equal(t, int32(stateTurn), gs.StateID, "expected turn state")
+	})
+
+	// host advance is the escape hatch out of prompt-shred when the spinner
+	// never acts: it skips for them and advances.
+	t.Run("POST /{game_id}/action/advance (host skips prompt-shred)", func(t *testing.T) {
+		require.NoError(t, queries.GameUpdate(ctx, sqlc.GameUpdateParams{
+			ID:                gameID,
+			StateID:           statePromptShred,
+			InitiativeCurrent: pgtype.Int4{Int32: 1, Valid: true},
+		}))
+		cache.Delete(gameID)
+		path := fmt.Sprintf("/%s/action/advance", gameID)
+		req := httptest.NewRequest(http.MethodPost, path, nil)
+		req.AddCookie(cookieByInitiative[0]) // host
+		w := httptest.NewRecorder()
+		cache.Delete(gameID)
+		actionHandler(w, req)
+		require.Equal(t, http.StatusOK, w.Result().StatusCode)
+		cache.Delete(gameID)
+		gs, err := queries.GameState(ctx, gameID)
+		require.NoError(t, err)
+		require.Equal(t, int32(stateTurn), gs.StateID, "host skip should advance")
+	})
+
+	// accusation-transfer: after an upheld accusation, the accuser gives one of
+	// their own rule cards to the accused. seed an affirmed, transfer-pending
+	// infraction and a rule card on the accuser, then give it.
+	t.Run("POST /{game_id}/action/accusation-transfer (gives a card)", func(t *testing.T) {
+		var anyGCID int32
+		require.NoError(t, dbPool.QueryRow(ctx,
+			`SELECT id FROM game_cards WHERE game_id = $1 LIMIT 1`,
+			gameID).Scan(&anyGCID))
+		var infID int32
+		require.NoError(t, dbPool.QueryRow(ctx,
+			`INSERT INTO infractions
+			   (game_id, game_card_id, accused, accuser, active, affirmed, transfer_pending)
+			 VALUES ($1, $2, $3, $4, false, true, true) RETURNING id`,
+			gameID, anyGCID, targetPlayerID, turnPlayerID).Scan(&infID))
+
+		var giveGCID int32
+		require.NoError(t, dbPool.QueryRow(ctx,
+			`SELECT gc.id FROM game_cards gc JOIN cards c ON c.id = gc.card_id
+			 WHERE gc.game_id = $1 AND c.type = 'rule' AND gc.shredded = false LIMIT 1`,
+			gameID).Scan(&giveGCID))
+		_, err = dbPool.Exec(ctx,
+			`UPDATE game_cards SET player_id = $1, shredded = false, slot = NULL
+			 WHERE id = $2 AND game_id = $3`, turnPlayerID, giveGCID, gameID)
+		require.NoError(t, err)
+		require.NoError(t, queries.GameUpdate(ctx, sqlc.GameUpdateParams{
+			ID:                gameID,
+			StateID:           stateAccusationTransfer,
+			InitiativeCurrent: pgtype.Int4{Int32: 1, Valid: true},
+		}))
+		cache.Delete(gameID)
+
+		path := fmt.Sprintf("/%s/action/accusation-transfer?game_card_id=%d", gameID, giveGCID)
+		req := httptest.NewRequest(http.MethodPost, path, nil)
+		req.AddCookie(turnCookie) // the accuser
+		w := httptest.NewRecorder()
+		cache.Delete(gameID)
+		actionHandler(w, req)
+		require.Equal(t, http.StatusOK, w.Result().StatusCode)
+
+		// the card now belongs to the accused and the transfer is no longer owed
+		cache.Delete(gameID)
+		cards, err := queries.GameCardsPlayerView(ctx, gameID)
+		require.NoError(t, err)
+		var moved bool
+		for _, c := range cards {
+			if c.ID == giveGCID {
+				require.Equal(t, targetPlayerID, c.PlayerID.Int32,
+					"given card should move to the accused")
+				moved = true
+			}
+		}
+		require.True(t, moved, "given card should appear under the accused")
+		var stillPending bool
+		require.NoError(t, dbPool.QueryRow(ctx,
+			`SELECT transfer_pending FROM infractions WHERE id = $1`, infID).Scan(&stillPending))
+		require.False(t, stillPending, "transfer should be resolved")
+		gs, err := queries.GameState(ctx, gameID)
+		require.NoError(t, err)
+		require.NotEqual(t, int32(stateAccusationTransfer), gs.StateID,
+			"play should resume after the transfer")
 	})
 
 	// exit tests: reset game to a known state, then have a non-host player exit.

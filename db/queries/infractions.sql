@@ -16,12 +16,31 @@ SELECT * FROM infractions
 WHERE id = $1;
 
 -- name: InfractionsByGame :many
-SELECT id, game_id, game_card_id, accused, accuser, created, active, affirmed
+SELECT id, game_id, game_card_id, accused, accuser, created, active, affirmed, transfer_pending
 FROM infractions
 WHERE game_id = $1
-ORDER BY created DESC;
+ORDER BY created ASC;
 
 -- name: InfractionsActiveCount :one
 SELECT COUNT(*) FROM infractions
 WHERE game_id = $1
     AND active = TRUE;
+
+-- name: InfractionTransferQueue :exec
+UPDATE infractions
+SET transfer_pending = TRUE
+WHERE id = $1;
+
+-- name: InfractionTransferResolve :exec
+UPDATE infractions
+SET transfer_pending = FALSE
+WHERE id = $1;
+
+-- name: InfractionTransferPending :one
+SELECT id, game_card_id, accused, accuser
+FROM infractions
+WHERE game_id = $1
+    AND affirmed = TRUE
+    AND transfer_pending = TRUE
+ORDER BY created DESC
+LIMIT 1;

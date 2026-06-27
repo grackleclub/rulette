@@ -5,11 +5,18 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Rulette | {{ .Game.ID }}</title>
     <link rel="icon" type="image/svg+xml" href="/static/img/favicon.svg">
+    <link rel="preload" href="/static/fonts/Borel-Regular.ttf" as="font" type="font/ttf" crossorigin>
+    <link rel="preload" href="/static/fonts/SecularOne-Regular.ttf" as="font" type="font/ttf" crossorigin>
+    <link rel="preload" href="/static/fonts/DSEG7Classic-Bold.ttf" as="font" type="font/ttf" crossorigin>
+    <link rel="preload" href="/static/fonts/BebasNeue-Regular.ttf" as="font" type="font/ttf" crossorigin>
     <link rel="stylesheet" href="/static/css/style.css"> 
     <script src="/static/js/htmx.min.js"></script>
     <script src="/static/js/idiomorph-ext.min.js"></script>
     <script src="/static/js/accuse.js" defer></script>
     <script src="/static/js/modifier.js" defer></script>
+    <script src="/static/js/prompt.js" defer></script>
+    <script src="/static/js/prompt_shred.js" defer></script>
+    <script src="/static/js/transfer.js" defer></script>
   </head>
   <body hx-ext="morph">
     <div class="card-float">
@@ -52,9 +59,6 @@
 
         <section id="players" class="stack" hx-get="/{{ .Game.ID }}/data/players"
           hx-target="#players" hx-trigger="load, every {{ .Config.refresh }}" hx-swap="morph:innerHTML">
-          <div class="loading">
-            <p>loading players...</p>
-          </div>
         </section>
 
         <section id="points" class="stack game-points">
@@ -70,8 +74,45 @@
       hx-on::after-request="handleInfraction(event)">
     </div>
 
+    <div id="prompt-poll"
+      hx-get="/{{ .Game.ID }}/data/prompt"
+      hx-trigger="every {{ .Config.refresh }}"
+      hx-swap="none"
+      hx-on::after-request="handlePrompt(event)">
+    </div>
+
+    <div id="transfer-poll"
+      hx-get="/{{ .Game.ID }}/data/transfer"
+      hx-trigger="every {{ .Config.refresh }}"
+      hx-swap="none"
+      hx-on::after-request="handleTransfer(event)">
+    </div>
+
+    <dialog id="newprompt-dialog" data-game-id="{{ .Game.ID }}">
+      <div class="dialog-body stack stack-centered">
+        <h2 id="newprompt-title">prompt challenge!</h2>
+        <p id="newprompt-content" class="index-card"></p>
+        <p id="newprompt-countdown" class="prompt-countdown"></p>
+        <p id="newprompt-waiting" class="prompt-waiting" hidden>waiting on the host to score it…</p>
+        <p id="newprompt-outcome" class="prompt-outcome" hidden></p>
+        <button id="newprompt-dismiss" class="button-teal" hidden autofocus>nice</button>
+      </div>
+    </dialog>
+
+    <dialog id="prompt-decide-dialog" data-game-id="{{ .Game.ID }}">
+      <div class="dialog-body stack stack-centered">
+        <h2>prompt challenge</h2>
+        <p id="prompt-decide-spinner" class="prompt-decide-spinner"></p>
+        <div id="prompt-decide-content" class="index-card"></div>
+        <p id="prompt-decide-countdown" class="prompt-countdown"></p>
+        <button class="button-teal" id="prompt-succeed-btn" autofocus>succeed</button>
+        <button class="button-danger" id="prompt-fail-btn" disabled>fail</button>
+      </div>
+    </dialog>
+
     <dialog id="decide-dialog">
       <div class="dialog-body stack">
+        <p class="decide-remaining" hidden></p>
         <h2>Verdict</h2>
         <p class="decide-info-name"></p>
         <p class="decide-info-rule"></p>
@@ -79,7 +120,7 @@
           data-close-on-success="decide-dialog">
           <input type="hidden" name="verdict" value="absolve">
           <input class="infraction-id-input" type="hidden" name="infraction_id" value="">
-          <button type="submit" class="button-danger">deny</button>
+          <button type="submit" class="button-danger" autofocus>deny</button>
         </form>
         <button class="button-teal" data-affirm>affirm</button>
       </div>
@@ -92,10 +133,26 @@
         hx-swap="innerHTML"></div>
     </dialog>
 
+    <dialog id="prompt-shred-dialog" data-game-id="{{ .Game.ID }}">
+      <div id="prompt-shred-content" class="dialog-body"
+        hx-get="/{{ .Game.ID }}/data/promptshred"
+        hx-trigger="loadPromptShred from:body"
+        hx-swap="innerHTML"></div>
+    </dialog>
+
+    <dialog id="transfer-dialog" data-game-id="{{ .Game.ID }}">
+      <div class="dialog-body stack stack-centered">
+        <h2><span class="script">give</span> a card</h2>
+        <p id="transfer-prompt"></p>
+        <div id="transfer-cards" class="actions actions-centered"></div>
+        <button id="transfer-skip-btn" class="button" autofocus>keep them all</button>
+      </div>
+    </dialog>
+
     <dialog id="notice-dialog">
       <div class="dialog-body stack stack-centered">
         <p id="notice-message"></p>
-        <button class="button" data-close-dialog="notice-dialog">ok</button>
+        <button class="button" data-close-dialog="notice-dialog" autofocus>ok</button>
       </div>
     </dialog>
 
@@ -105,20 +162,33 @@
         <p>Continue with only 1?</p>
         <button class="button-teal"
           hx-post="/{{ .Game.ID }}/action/start?confirm=1" hx-swap="none"
-          data-close-on-success="confirm-start-dialog">
+          data-close-on-success="confirm-start-dialog"
+          autofocus>
           continue
         </button>
         <button class="button" data-close-dialog="confirm-start-dialog">nevermind</button>
       </div>
     </dialog>
 
+    <dialog id="spin-dialog">
+      <div class="dialog-body stack stack-centered">
+        <h2>Spin that wheel!</h2>
+        <button class="button-teal"
+          hx-post="/{{ .Game.ID }}/action/spin" hx-swap="none"
+          data-close-on-success="spin-dialog">
+          spin
+        </button>
+      </div>
+    </dialog>
+
     <dialog id="newcard-dialog">
       <div class="dialog-body stack stack-centered">
         <h2>new rule</h2>
-        <p id="newcard-content"></p>
+        <p id="newcard-content" class="index-card"></p>
         <button class="button-teal"
           hx-post="/{{ .Game.ID }}/action/acknowledge" hx-swap="none"
-          data-close-on-success="newcard-dialog">
+          data-close-on-success="newcard-dialog"
+          autofocus>
           got it
         </button>
       </div>
@@ -139,7 +209,7 @@
             <button type="button" class="points-step" data-step="1" data-target="points" data-min="0">+</button>
           </div>
           <input id="points-amount" type="hidden" name="amount" value="0">
-          <button type="submit" class="button-teal">submit</button>
+          <button type="submit" class="button-teal" autofocus>submit</button>
         </form>
         <button class="button" data-nevermind>nevermind</button>
       </div>
@@ -152,7 +222,7 @@
         <small id="invite-copy-success" aria-live="polite" hidden>copied to clipboard!</small>
         <small id="invite-copy-failure" aria-live="polite" hidden>Copy link or share QR code.</small>
         <img id="invite-qr" alt="join QR code">
-        <button class="button" data-close-dialog="invite-dialog">close</button>
+        <button class="button" data-close-dialog="invite-dialog" autofocus>close</button>
       </div>
     </dialog>
 
@@ -165,7 +235,7 @@
           hx-trigger="loadEventLog from:body"
           hx-sync="this:drop" hx-swap="beforeend">
         </ul>
-        <button class="button" data-close-dialog="event-log-dialog">close</button>
+        <button class="button" data-close-dialog="event-log-dialog" autofocus>close</button>
       </div>
     </dialog>
 

@@ -10,7 +10,7 @@
       <span class="player-score">{{ .Points.Value }}</span>
       {{ $rules := false }}
       {{ range $cards }}
-        {{ if eq .PlayerID.Int32 $pid }}
+        {{ if and (eq .PlayerID.Int32 $pid) (ne .Type "prompt") }}
           {{ if not $rules }}
             {{ $rules = true }}
       <div class="player-rules">

@@ -12,6 +12,8 @@
     <meta name="twitter:title" content="Rulette">
     <meta name="twitter:description" content="A rule-stacking party game for 3-6+ players.">
     {{ template "preview" . }}
+    <link rel="preload" href="/static/fonts/Borel-Regular.ttf" as="font" type="font/ttf" crossorigin>
+    <link rel="preload" href="/static/fonts/SecularOne-Regular.ttf" as="font" type="font/ttf" crossorigin>
     <link rel="stylesheet" href="/static/css/style.css">
     <link rel="icon" type="image/svg+xml" href="/static/img/favicon.svg">
   </head>
@@ -31,12 +33,12 @@
           <ul class="help-list">
             <li>Players start with 20 points.</li>
             <li>Spin on your turn to acquire rules for yourself.</li>
-            <li>Accuse other players of breaking their rules.</li>
-            <li>Host decides point penalties.</li>
+            <li>Get rid of rules by completing prompts or accusing other players of breaking theirs.</li>
+            <li>Host decides prompt outcomes and rule accusations.</li>
           </ul>
         </div>
         <form class="stack" action="/create" method="POST">
-          <input class="button-create button-create-lg" type="submit" value="CREATE GAME" />
+          <input class="button-create button-create-lg" type="submit" value="CREATE GAME" autofocus />
         </form>
       </article>
     </div>

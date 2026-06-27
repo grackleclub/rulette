@@ -12,24 +12,24 @@
       <div id="modifier-data" class="stack"
         data-turn-player="{{ $pname }}" data-effect="{{ $effect }}">
         <h2><span class="script">{{ $effect }}</span> card!</h2>
-        <p>Choose a card to {{ $effect }}:</p>
         {{ if or (eq $effect "clone") (eq $effect "transfer") }}
-          <fieldset>
-            <legend>Target player:</legend>
+          <p>Choose a player to target:</p>
+          <div class="stack stack-centered">
             {{ range $.Players }}
               {{ if and (ne .PlayerID $pid) (ne .Initiative.Int32 0) }}
-                <label class="accuse-option">
-                  <input type="radio" name="target_player_id" value="{{ .PlayerID }}">
+                <span class="modifier-target-btn"
+                  data-target-id="{{ .PlayerID }}">
                   {{ .Name }}
-                </label>
+                </span>
               {{ end }}
             {{ end }}
-          </fieldset>
+          </div>
         {{ end }}
-        <div class="actions">
+        <p>Choose a card to {{ $effect }}:</p>
+        <div class="actions" style="justify-content:center">
           {{ range $.CardsPlayers }}
             {{ if and (eq .PlayerID.Int32 $pid) (eq .Type "rule") }}
-              <button class="button-teal modifier-card-btn"
+              <button class="index-card index-card-accuse modifier-card-btn"
                 data-game-card-id="{{ .ID }}"
                 data-action="/{{ $.Game.ID }}/action/{{ $effect }}">
                 {{ .Content }}
