@@ -22,6 +22,7 @@ type Cards struct {
 	Created        pgtype.Timestamp `json:"created"`
 	Generic        pgtype.Bool      `json:"generic"`
 	ModifierEffect pgtype.Text      `json:"modifier_effect"`
+	Weight         int32            `json:"weight"`
 }
 
 type EventLog struct {

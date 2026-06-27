@@ -96,6 +96,7 @@ CREATE TABLE IF NOT EXISTS cards (
 	created TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
 	generic BOOLEAN DEFAULT FALSE,
 	modifier_effect TEXT,
+	weight INTEGER NOT NULL DEFAULT 1, -- how many copies to deal into a game
 	FOREIGN KEY (type) REFERENCES card_types(name) ON DELETE CASCADE,
 	FOREIGN KEY (modifier_effect) REFERENCES modifier_effects(name) ON DELETE SET NULL,
 	CONSTRAINT chk_modifier_effect CHECK (
@@ -103,6 +104,7 @@ CREATE TABLE IF NOT EXISTS cards (
 		OR (type != 'modifier' AND modifier_effect IS NULL)
 	)
 );
+ALTER TABLE cards ADD COLUMN IF NOT EXISTS weight INTEGER NOT NULL DEFAULT 1;
 DELETE FROM cards a USING cards b
 WHERE a.id > b.id AND a.front = b.front;
 CREATE UNIQUE INDEX IF NOT EXISTS cards_front_unique ON cards (front);
@@ -260,6 +262,9 @@ ON CONFLICT (front) DO UPDATE SET
 	type = EXCLUDED.type,
 	generic = EXCLUDED.generic,
 	modifier_effect = EXCLUDED.modifier_effect;
+
+-- deal two of each modifier card, so they show up more than other generics
+UPDATE cards SET weight = 2 WHERE generic IS TRUE AND modifier_effect IS NOT NULL;
 
 -- card_id lacks primary key to allow cloning within a game,
 CREATE TABLE IF NOT EXISTS game_cards (

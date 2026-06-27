@@ -1,18 +1,26 @@
 -- name: GameCardsInitGeneric :exec
+WITH dealt AS (
+    SELECT id
+    FROM cards
+    CROSS JOIN LATERAL generate_series(1, weight) -- one row per copy
+    WHERE generic IS TRUE
+    ORDER BY weight DESC, RANDOM() -- always deal the weighted cards, fill the rest at random
+    LIMIT (SELECT card_count FROM games WHERE games.id = $1)
+)
 INSERT INTO game_cards (
-    game_id, 
-    card_id, 
-    slot, 
-    stack, 
+    game_id,
+    card_id,
+    slot,
+    stack,
     player_id
 ) SELECT
     $1::text,
-    id, 
+    id,
+    -- number the dealt cards so they spread evenly across the wheel slots
     ((ROW_NUMBER() OVER ()) % (SELECT wheel_slots FROM games WHERE games.id = $1)) + 1,
     NULL, -- unshuffled
     NULL -- unrevealed
-FROM cards 
-WHERE generic IS TRUE LIMIT (SELECT card_count FROM games WHERE games.id = $1);
+FROM dealt;
 
 -- shuffles stacks within a slot, leaving slot assignments unchanged
 -- name: GameCardsShuffle :exec
