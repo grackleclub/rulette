@@ -293,35 +293,23 @@ func dataHandler(w http.ResponseWriter, r *http.Request) {
 					break
 				}
 			}
-			w.Header().Set("Content-Type", "application/json")
-			if state.isHost(cookieKey) {
-				elapsed, err := queries.SpinLatestElapsedSeconds(r.Context(), gameID)
-				if err != nil {
-					log.Error("measure prompt elapsed", "error", err, "game_id", gameID)
-					w.WriteHeader(http.StatusNoContent)
-					return
-				}
-				json.NewEncoder(w).Encode(map[string]any{
-					"spin_id": spin.ID,
-					"spinner": spinnerName,
-					"prompt":  spin.Front,
-					"elapsed": elapsed,
-					"window":  promptSeconds,
-				})
-			} else {
-				elapsed, err := queries.SpinLatestElapsedSeconds(r.Context(), gameID)
-				if err != nil {
-					log.Error("measure prompt elapsed", "error", err, "game_id", gameID)
-					w.WriteHeader(http.StatusNoContent)
-					return
-				}
-				json.NewEncoder(w).Encode(map[string]any{
-					"spinner": spinnerName,
-					"prompt":  spin.Front,
-					"elapsed": elapsed,
-					"window":  promptSeconds,
-				})
+			elapsed, err := queries.SpinLatestElapsedSeconds(r.Context(), gameID)
+			if err != nil {
+				log.Error("measure prompt elapsed", "error", err, "game_id", gameID)
+				w.WriteHeader(http.StatusNoContent)
+				return
 			}
+			resp := map[string]any{
+				"spinner": spinnerName,
+				"prompt":  spin.Front,
+				"elapsed": elapsed,
+				"window":  promptSeconds,
+			}
+			if state.isHost(cookieKey) {
+				resp["spin_id"] = spin.ID
+			}
+			w.Header().Set("Content-Type", "application/json")
+			json.NewEncoder(w).Encode(resp)
 			return
 		case "infraction":
 			if state.Game.StateID != stateChallenge {

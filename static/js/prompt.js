@@ -47,7 +47,7 @@
     if (dismiss) dismiss.hidden = true;
     countdown.hidden = false;
 
-    var windowSecs = detail.window || 60;
+    var windowSecs = detail.window || 30;
     var deadline = Date.now() + windowSecs * 1000;
     clearSpinnerTimer();
     function tick() {
@@ -270,7 +270,7 @@
       if (spinnerEl) spinnerEl.textContent = data.spinner + "'s challenge:";
       if (contentEl) contentEl.textContent = data.prompt;
 
-      var window_ = data.window || 60;
+      var window_ = data.window || 30;
       var anchor = Date.now() - (data.elapsed || 0) * 1000;
       var countdown = document.getElementById("prompt-decide-countdown");
       var failBtn = document.getElementById("prompt-fail-btn");
@@ -308,7 +308,7 @@
       if (contentEl) contentEl.textContent = data.prompt;
 
       var countdown = document.getElementById("prompt-spectate-countdown");
-      var window_ = data.window || 60;
+      var window_ = data.window || 30;
       var anchor = Date.now() - (data.elapsed || 0) * 1000;
       clearSpectateTimer();
       function tick() {
