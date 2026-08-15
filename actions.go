@@ -24,7 +24,7 @@ const (
 	// promptSeconds is how long the spinner has to complete a prompt challenge.
 	// The spinner's countdown runs locally; the host may rule it complete at
 	// any time but can only rule it failed once this has elapsed.
-	promptSeconds = 60
+	promptSeconds = 30
 	// promptGraceSeconds is the server-side allowance before the host may rule
 	// a prompt failed: a couple seconds past promptSeconds to absorb the latency
 	// between the spinner's local clock and the server.

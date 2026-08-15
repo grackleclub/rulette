@@ -309,9 +309,17 @@ func dataHandler(w http.ResponseWriter, r *http.Request) {
 					"window":  promptSeconds,
 				})
 			} else {
+				elapsed, err := queries.SpinLatestElapsedSeconds(r.Context(), gameID)
+				if err != nil {
+					log.Error("measure prompt elapsed", "error", err, "game_id", gameID)
+					w.WriteHeader(http.StatusNoContent)
+					return
+				}
 				json.NewEncoder(w).Encode(map[string]any{
 					"spinner": spinnerName,
 					"prompt":  spin.Front,
+					"elapsed": elapsed,
+					"window":  promptSeconds,
 				})
 			}
 			return

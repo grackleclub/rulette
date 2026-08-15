@@ -220,10 +220,19 @@
   // ---- spectator side: read-only card view ----
 
   var spectatePrompt = null; // prompt text currently shown to spectators
+  var spectateTimer = null;
+
+  function clearSpectateTimer() {
+    if (spectateTimer) {
+      clearInterval(spectateTimer);
+      spectateTimer = null;
+    }
+  }
 
   function closeSpectateDialog() {
     var dialog = document.getElementById("prompt-spectate-dialog");
     if (dialog && dialog.open) dialog.close();
+    clearSpectateTimer();
     spectatePrompt = null;
   }
 
@@ -297,6 +306,28 @@
       var contentEl = document.getElementById("prompt-spectate-content");
       if (spinnerEl) spinnerEl.textContent = data.spinner + "’s challenge";
       if (contentEl) contentEl.textContent = data.prompt;
+
+      var countdown = document.getElementById("prompt-spectate-countdown");
+      var window_ = data.window || 60;
+      var anchor = Date.now() - (data.elapsed || 0) * 1000;
+      clearSpectateTimer();
+      function tick() {
+        var remaining = Math.ceil((window_ * 1000 - (Date.now() - anchor)) / 1000);
+        if (remaining > 0) {
+          if (countdown) {
+            countdown.textContent = remaining;
+            countdown.classList.remove("prompt-countdown-done");
+          }
+        } else {
+          if (countdown) {
+            countdown.textContent = "0";
+            countdown.classList.add("prompt-countdown-done");
+          }
+          clearSpectateTimer();
+        }
+      }
+      tick();
+      spectateTimer = setInterval(tick, 250);
       if (dialog && !dialog.open) dialog.showModal();
     }
   };
