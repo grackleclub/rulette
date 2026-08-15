@@ -270,28 +270,19 @@ func dataHandler(w http.ResponseWriter, r *http.Request) {
 			}
 			return
 		case "prompt":
-			// host-only poll: while a prompt challenge is live, hand the host
-			// the spinner's name, the prompt text, and how many seconds have
-			// already elapsed so their popup can sync its countdown and enable
-			// the "fail" choice on time.
 			if state.Game.StateID != statePrompt {
-				w.WriteHeader(http.StatusNoContent)
-				return
-			}
-			if !state.isHost(cookieKey) {
 				w.WriteHeader(http.StatusNoContent)
 				return
 			}
 			spin, err := queries.SpinPendingModifier(r.Context(), gameID)
 			if err != nil || spin.Type != "prompt" || !spin.PlayerID.Valid {
-				log.Debug("no pending prompt for host poll",
+				log.Debug("no pending prompt for poll",
 					"game_id", gameID, "error", err)
 				w.WriteHeader(http.StatusNoContent)
 				return
 			}
-			elapsed, err := queries.SpinLatestElapsedSeconds(r.Context(), gameID)
-			if err != nil {
-				log.Error("measure prompt elapsed", "error", err, "game_id", gameID)
+			// the spinner already has the card via the newPrompt HX-Trigger
+			if spin.PlayerID.Int32 == int32(state.CallerID) {
 				w.WriteHeader(http.StatusNoContent)
 				return
 			}
@@ -302,14 +293,23 @@ func dataHandler(w http.ResponseWriter, r *http.Request) {
 					break
 				}
 			}
-			w.Header().Set("Content-Type", "application/json")
-			json.NewEncoder(w).Encode(map[string]any{
-				"spin_id": spin.ID,
+			elapsed, err := queries.SpinLatestElapsedSeconds(r.Context(), gameID)
+			if err != nil {
+				log.Error("measure prompt elapsed", "error", err, "game_id", gameID)
+				w.WriteHeader(http.StatusNoContent)
+				return
+			}
+			resp := map[string]any{
 				"spinner": spinnerName,
 				"prompt":  spin.Front,
 				"elapsed": elapsed,
 				"window":  promptSeconds,
-			})
+			}
+			if state.isHost(cookieKey) {
+				resp["spin_id"] = spin.ID
+			}
+			w.Header().Set("Content-Type", "application/json")
+			json.NewEncoder(w).Encode(resp)
 			return
 		case "infraction":
 			if state.Game.StateID != stateChallenge {

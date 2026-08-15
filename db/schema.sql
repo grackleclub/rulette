@@ -113,15 +113,15 @@ VALUES
 	('modifier', 'shred any of your own cards', '', 0, CURRENT_TIMESTAMP, TRUE, 'shred'),
 	('modifier', 'clone any of your own cards, and give to someone else', '', 0, CURRENT_TIMESTAMP, TRUE, 'clone'),
 	('modifier', 'transfer any of your own cards to another player', '', 0, CURRENT_TIMESTAMP, TRUE, 'transfer'),
-	('prompt', 'name 10 green things', NULL, 0, CURRENT_TIMESTAMP, TRUE, NULL),
-	('prompt', 'name 10 red things', NULL, 0, CURRENT_TIMESTAMP, TRUE, NULL),
-	('prompt', 'name 10 yellow things', NULL, 0, CURRENT_TIMESTAMP, TRUE, NULL),
-	('prompt', 'name 10 blue things', NULL, 0, CURRENT_TIMESTAMP, TRUE, NULL),
-	('prompt', 'name 10 countries', NULL, 0, CURRENT_TIMESTAMP, TRUE, NULL),
-	('prompt', 'name 10 cheeses', NULL, 0, CURRENT_TIMESTAMP, TRUE, NULL),
-	('prompt', 'name 10 drinks', NULL, 0, CURRENT_TIMESTAMP, TRUE, NULL),
+	('prompt', 'name 7 green things', NULL, 0, CURRENT_TIMESTAMP, TRUE, NULL),
+	('prompt', 'name 7 red things', NULL, 0, CURRENT_TIMESTAMP, TRUE, NULL),
+	('prompt', 'name 7 yellow things', NULL, 0, CURRENT_TIMESTAMP, TRUE, NULL),
+	('prompt', 'name 7 blue things', NULL, 0, CURRENT_TIMESTAMP, TRUE, NULL),
+	('prompt', 'name 7 countries', NULL, 0, CURRENT_TIMESTAMP, TRUE, NULL),
+	('prompt', 'name 7 cheeses', NULL, 0, CURRENT_TIMESTAMP, TRUE, NULL),
+	('prompt', 'name 7 drinks', NULL, 0, CURRENT_TIMESTAMP, TRUE, NULL),
 	('prompt', 'spell your name backwards', NULL, 0, CURRENT_TIMESTAMP, TRUE, NULL),
-	('prompt', 'name 10 animals in alphabetical order', NULL, 0, CURRENT_TIMESTAMP, TRUE, NULL),
+	('prompt', 'name 7 animals in alphabetical order', NULL, 0, CURRENT_TIMESTAMP, TRUE, NULL),
 	(
 		'rule',
 		'in a whisper',
@@ -260,6 +260,9 @@ ON CONFLICT (front) DO UPDATE SET
 	type = EXCLUDED.type,
 	generic = EXCLUDED.generic,
 	modifier_effect = EXCLUDED.modifier_effect;
+
+UPDATE cards SET front = REPLACE(front, 'name 10 ', 'name 7 ')
+WHERE type = 'prompt' AND front LIKE 'name 10 %';
 
 -- card_id lacks primary key to allow cloning within a game,
 CREATE TABLE IF NOT EXISTS game_cards (

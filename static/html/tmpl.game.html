@@ -99,6 +99,15 @@
       </div>
     </dialog>
 
+    <dialog id="prompt-spectate-dialog">
+      <div class="dialog-body stack stack-centered">
+        <h2 id="prompt-spectate-spinner"></h2>
+        <div id="prompt-spectate-content" class="index-card"></div>
+        <p id="prompt-spectate-countdown" class="prompt-countdown"></p>
+        <button class="button" data-close-dialog="prompt-spectate-dialog" autofocus>ok</button>
+      </div>
+    </dialog>
+
     <dialog id="prompt-decide-dialog" data-game-id="{{ .Game.ID }}">
       <div class="dialog-body stack stack-centered">
         <h2>prompt challenge</h2>
