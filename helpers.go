@@ -5,7 +5,6 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
-	"net/http"
 	"os"
 
 	sqlc "github.com/grackleclub/rulette/db/sqlc"
@@ -37,16 +36,6 @@ func recordEvent(ctx context.Context, log *slog.Logger, q *sqlc.Queries, p sqlc.
 	if _, err := q.EventCreate(ctx, p); err != nil {
 		log.Error("record event", "error", err, "event_type", p.EventType)
 		return fmt.Errorf("record %s event: %w", p.EventType, err)
-	}
-	return nil
-}
-
-// writeEvent records an event and, on failure, writes a 500 and returns the
-// error, so a handler can just: if err := writeEvent(...); err != nil { return }
-func writeEvent(w http.ResponseWriter, r *http.Request, log *slog.Logger, q *sqlc.Queries, p sqlc.EventCreateParams) error {
-	if err := recordEvent(r.Context(), log, q, p); err != nil {
-		http.Error(w, "server error", http.StatusInternalServerError)
-		return err
 	}
 	return nil
 }

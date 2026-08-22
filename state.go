@@ -165,6 +165,41 @@ func (s *state) hasPendingModifier() bool {
 	return false
 }
 
+// hasPlayer reports whether a player id belongs to this game.
+func (s *state) hasPlayer(id int32) bool {
+	for _, p := range s.Players {
+		if p.PlayerID == id {
+			return true
+		}
+	}
+	return false
+}
+
+// ownsCard reports whether the player holds the revealed card; cardType,
+// when non-empty, must also match.
+func (s *state) ownsCard(cardID, playerID int32, cardType string) bool {
+	for _, c := range s.CardsPlayers {
+		if c.ID == cardID && c.PlayerID.Int32 == playerID {
+			return cardType == "" || c.Type == cardType
+		}
+	}
+	return false
+}
+
+// playerCardOfType returns the first revealed card of cardType held by
+// the player, and whether one was found.
+func (s *state) playerCardOfType(
+	playerID int32,
+	cardType string,
+) (sqlc.GameCardsPlayerViewRow, bool) {
+	for _, c := range s.CardsPlayers {
+		if c.PlayerID.Int32 == playerID && c.Type == cardType {
+			return c, true
+		}
+	}
+	return sqlc.GameCardsPlayerViewRow{}, false
+}
+
 // Standings returns the non-host players ranked by points, highest first.
 // Value receiver so templates can call it on the by-value state data.
 func (s state) Standings() []sqlc.GamePlayerPointsRow {
