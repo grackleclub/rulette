@@ -4,7 +4,9 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"log/slog"
 	"net/http"
+	"slices"
 	"strconv"
 	"strings"
 
@@ -31,74 +33,236 @@ const (
 	promptGraceSeconds = promptSeconds + 2
 )
 
-// modifierNotPending rejects a modifier action (flip, shred, clone, transfer)
-// that can't run because the game is not in the pending state. It returns true
-// when it has written an error and the caller should return.
-//
-// A challenge interrupting a pending modifier is only temporary: the decide
-// handler restores pending once the challenge clears, so we answer 423 (Locked)
-// to signal "retry shortly" rather than a dead end. Any other state means the
-// modifier is genuinely no longer pending, which is a 409 (Conflict).
-func modifierNotPending(
-	w http.ResponseWriter,
-	action, gameID string,
-	stateID int32,
-) bool {
-	switch stateID {
-	case statePending:
-		return false
-	case stateChallenge, statePrompt:
-		// routine: the client retries this on every table poll until the
-		// interruption clears, so keep it quiet to avoid log spam.
-		log.Debug("modifier deferred during interruption",
-			"action", action,
-			"game_id", gameID,
-			"state_id", stateID,
-		)
-		http.Error(w, "interruption in progress", http.StatusLocked)
-		return true
-	default:
-		// unexpected: a modifier action with no modifier owed.
-		log.Warn("modifier requires pending state",
-			"action", action,
-			"game_id", gameID,
-			"state_id", stateID,
-		)
-		http.Error(w, "no pending modifier", http.StatusConflict)
-		return true
+// actionRequest carries what every action handler needs: the request, a
+// logger already tagged with the request fields, and the cached game state
+// with caller info populated. Handlers return failures as errors for
+// actionHandler to write; they only write the success response themselves,
+// usually via refresh.
+type actionRequest struct {
+	w      http.ResponseWriter
+	r      *http.Request
+	log    *slog.Logger
+	gameID string
+	action string
+	state  *state
+}
+
+// caller returns the acting player's id, resolved from the session key.
+func (a *actionRequest) caller() int32 {
+	return int32(a.state.CallerID)
+}
+
+// refresh invalidates the game's cached state and answers the HTMX request.
+// trigger is the HX-Trigger value: a bare event name or a JSON object
+// carrying several events.
+func (a *actionRequest) refresh(trigger string) {
+	cache.Delete(a.gameID)
+	a.w.Header().Set("HX-Trigger", trigger)
+	a.w.WriteHeader(http.StatusOK)
+}
+
+// queryInt reads a required integer query parameter.
+func (a *actionRequest) queryInt(name string) (int32, error) {
+	s := a.r.URL.Query().Get(name)
+	if s == "" {
+		return 0, failf(http.StatusBadRequest, "missing %s", name)
+	}
+	v, err := strconv.Atoi(s)
+	if err != nil {
+		return 0, failf(http.StatusBadRequest, "invalid %s", name)
+	}
+	return int32(v), nil
+}
+
+// formInt reads a required integer form value.
+func (a *actionRequest) formInt(name string) (int32, error) {
+	s := a.r.FormValue(name)
+	if s == "" {
+		return 0, failf(http.StatusBadRequest, "missing %s", name)
+	}
+	v, err := strconv.Atoi(s)
+	if err != nil {
+		return 0, failf(http.StatusBadRequest, "invalid %s", name)
+	}
+	return int32(v), nil
+}
+
+// begin opens a transaction and returns queries bound to it. The caller
+// must defer a rollback and commit on success.
+func (a *actionRequest) begin() (pgx.Tx, *sqlc.Queries, error) {
+	tx, err := dbPool.Begin(a.r.Context())
+	if err != nil {
+		return nil, nil, serverErr("begin transaction", err)
+	}
+	return tx, queries.WithTx(tx), nil
+}
+
+// actionError is a failure to report to the client: status and msg go on
+// the wire; err, when set, is the underlying cause and is only logged.
+type actionError struct {
+	status int
+	msg    string
+	err    error
+}
+
+func (e *actionError) Error() string {
+	if e.err != nil {
+		return fmt.Sprintf("%s: %v", e.msg, e.err)
+	}
+	return e.msg
+}
+
+func (e *actionError) Unwrap() error {
+	return e.err
+}
+
+// failf builds a client-fault error (4xx); the formatted message is sent
+// to the client verbatim.
+func failf(status int, format string, args ...any) error {
+	return &actionError{status: status, msg: fmt.Sprintf(format, args...)}
+}
+
+// serverErr wraps an unexpected failure as a 500; the client sees only
+// "server error" while op and the cause go to the log.
+func serverErr(op string, err error) error {
+	return &actionError{
+		status: http.StatusInternalServerError,
+		msg:    "server error",
+		err:    fmt.Errorf("%s: %w", op, err),
 	}
 }
 
-// resumeAfterChallenge moves the game out of a resolved challenge and updates
-// the game state: back to challenge if more infractions are queued (so the host
-// keeps getting prompted), to pending if this challenge interrupted a modifier
-// choice, otherwise to normal turn play. Shared by the decide handler and the
-// post-affirm card transfer so they pick the next state the same way.
-func resumeAfterChallenge(
-	ctx context.Context,
-	q *sqlc.Queries,
-	s *state,
-	gameID string,
-) error {
-	remaining, err := q.InfractionsActiveCount(ctx, gameID)
-	if err != nil {
-		return fmt.Errorf("count active infractions: %w", err)
+// writeActionError logs a failed action and writes its HTTP answer. 5xx
+// log as errors; 423 and 425 log as debug, because clients poll into
+// those routinely (a queued modifier retry, a too-early prompt fail) and
+// the noise would drown real warnings; other 4xx log as warnings.
+func writeActionError(w http.ResponseWriter, log *slog.Logger, err error) {
+	var ae *actionError
+	if !errors.As(err, &ae) {
+		ae = &actionError{
+			status: http.StatusInternalServerError,
+			msg:    "server error",
+			err:    err,
+		}
 	}
-	nextState := int32(stateTurn)
-	if remaining > 0 {
-		nextState = stateChallenge
-	} else if s.hasPendingModifier() {
-		nextState = statePending
+	switch {
+	case ae.status >= http.StatusInternalServerError:
+		log.Error(ae.msg, "error", ae.err)
+	case ae.status == http.StatusLocked || ae.status == http.StatusTooEarly:
+		log.Debug(ae.Error())
+	default:
+		log.Warn(ae.Error())
 	}
-	if err := q.GameUpdate(ctx, sqlc.GameUpdateParams{
-		ID:      gameID,
-		StateID: nextState,
-		InitiativeCurrent: pgtype.Int4{
-			Int32: s.Game.InitiativeCurrent.Int32,
-			Valid: true,
-		},
-	}); err != nil {
-		return fmt.Errorf("transition state after challenge: %w", err)
+	http.Error(w, ae.msg, ae.status)
+}
+
+// actionSpec declares one action's policy: when in the game's life it may
+// run, who may call it, and which states allow it. actionHandler enforces
+// the policy so the handlers hold only game logic.
+type actionSpec struct {
+	// pregame actions run before the game starts; all others require a
+	// game in progress.
+	pregame  bool
+	hostOnly bool
+	turnOnly bool
+	// states lists the in-progress states where the action is legal (nil
+	// allows all); denyMsg is the 409 answer when the game is elsewhere.
+	states  []int32
+	denyMsg string
+	// pendingModifier marks the modifier choices, which answer 423 (retry
+	// shortly) while a challenge or prompt interrupts the pending state.
+	pendingModifier bool
+	fn              func(*actionRequest) error
+}
+
+var actionSpecs = map[string]actionSpec{
+	"start": {pregame: true, hostOnly: true, fn: actionStart},
+	"spin": {turnOnly: true,
+		states:  []int32{stateTurn},
+		denyMsg: "cannot spin in current state",
+		fn:      actionSpin},
+	"acknowledge": {turnOnly: true,
+		states:  []int32{stateTurn},
+		denyMsg: "cannot acknowledge in current state",
+		fn:      actionAcknowledge},
+	"advance": {hostOnly: true,
+		states:  []int32{stateTurn, statePromptShred, stateAccusationTransfer},
+		denyMsg: "cannot advance in current state",
+		fn:      actionAdvance},
+	"pause": {hostOnly: true,
+		states:  []int32{stateTurn},
+		denyMsg: "cannot pause in current state",
+		fn:      actionPause},
+	"resume": {hostOnly: true,
+		states:  []int32{stateReady},
+		denyMsg: "cannot resume in current state",
+		fn:      actionResume},
+	"endgame": {hostOnly: true,
+		states:  []int32{stateEnding},
+		denyMsg: "cannot end game in current state",
+		fn:      actionEndgame},
+	"continue": {hostOnly: true,
+		states:  []int32{stateEnding},
+		denyMsg: "cannot continue in current state",
+		fn:      actionContinue},
+	"flip":     {turnOnly: true, pendingModifier: true, fn: actionFlip},
+	"shred":    {turnOnly: true, pendingModifier: true, fn: actionShred},
+	"clone":    {turnOnly: true, pendingModifier: true, fn: actionClone},
+	"transfer": {turnOnly: true, pendingModifier: true, fn: actionTransfer},
+	"accuse": {
+		states:  []int32{stateTurn, statePending, stateChallenge},
+		denyMsg: "cannot accuse in current state",
+		fn:      actionAccuse},
+	"decide": {hostOnly: true,
+		states:  []int32{stateChallenge},
+		denyMsg: "no active challenge",
+		fn:      actionDecide},
+	"succeed": {hostOnly: true,
+		states:  []int32{statePrompt},
+		denyMsg: "no active prompt",
+		fn:      actionPromptRuling},
+	"fail": {hostOnly: true,
+		states:  []int32{statePrompt},
+		denyMsg: "no active prompt",
+		fn:      actionPromptRuling},
+	"prompt-shred": {turnOnly: true,
+		states:  []int32{statePromptShred},
+		denyMsg: "no prompt shred pending",
+		fn:      actionPromptShred},
+	"accusation-transfer": {
+		states:  []int32{stateAccusationTransfer},
+		denyMsg: "no transfer pending",
+		fn:      actionAccusationTransfer},
+	"end": {hostOnly: true, fn: actionEnd},
+}
+
+// checkActionPolicy runs the declared guards: caller role first, then
+// state legality.
+func checkActionPolicy(a *actionRequest, spec actionSpec, cookieKey string) error {
+	if spec.hostOnly && !a.state.isHost(cookieKey) {
+		return failf(http.StatusForbidden, "only the host can %s", a.action)
+	}
+	if spec.turnOnly && !a.state.isPlayerTurn(cookieKey) {
+		return failf(http.StatusForbidden, "not your turn")
+	}
+	if spec.states != nil &&
+		!slices.Contains(spec.states, a.state.Game.StateID) {
+		return failf(http.StatusConflict, "%s", spec.denyMsg)
+	}
+	if spec.pendingModifier {
+		switch a.state.Game.StateID {
+		case statePending:
+		case stateChallenge, statePrompt:
+			// a challenge interrupting a pending modifier is only
+			// temporary: the decide handler restores pending once the
+			// challenge clears, so answer 423 (Locked) to signal "retry
+			// shortly" rather than a dead end. the client retries on
+			// every table poll, so this logs at debug to avoid spam.
+			return failf(http.StatusLocked, "interruption in progress")
+		default:
+			// unexpected: a modifier action with no modifier owed.
+			return failf(http.StatusConflict, "no pending modifier")
+		}
 	}
 	return nil
 }
@@ -156,2254 +320,83 @@ func actionHandler(w http.ResponseWriter, r *http.Request) {
 		attrStateID.Int(int(state.Game.StateID)),
 		attrCallerName.String(state.CallerName),
 	)
-	switch state.Game.StateID {
-	case stateOver: // game over
+	if state.Game.StateID == stateOver {
 		log.Warn("request to ended game", "game_id", gameID)
 		http.Error(w, "game over", http.StatusGone)
 		return
-	case stateInviting, stateCreated: // pregame
-		switch action {
-		case "start":
-			if !state.isHost(cookieKey) {
-				log.Warn("non-host attempted to start game", "game_id", gameID)
-				http.Error(w, "only the host can start the game", http.StatusForbidden)
-				return
-			}
-			// require a minimum of non-host players, otherwise no player holds
-			// the starting initiative and the game would soft-lock. surface a
-			// notice via HX-Trigger (200, no swap) rather than a raw http error
-			if state.nonHostPlayers() < minimumPlayers {
-				log.Warn("host attempted to start game without enough players",
-					"game_id", gameID,
-					"non_host_players", state.nonHostPlayers(),
-					"minimum", minimumPlayers,
-				)
-				w.Header().Set("HX-Trigger", fmt.Sprintf(
-					`{"notice":"Need at least %d non-host player to start the game."}`,
-					minimumPlayers,
-				))
-				w.WriteHeader(http.StatusOK)
-				return
-			}
-			// the game plays best with two or more, but a single non-host
-			// player is allowed once the host confirms via the start dialog.
-			// without confirmation, ask first instead of starting.
-			if state.nonHostPlayers() < recommendedPlayers &&
-				r.URL.Query().Get("confirm") != "1" {
-				log.Info("prompting host to start with deficit of players",
-					"game_id", gameID,
-					"non_host_players", state.nonHostPlayers(),
-					"recommended", recommendedPlayers,
-				)
-				w.Header().Set("HX-Trigger", `{"confirmStart":""}`)
-				w.WriteHeader(http.StatusOK)
-				return
-			}
-			// populate and shuffle the deck
-			err = queries.GameCardsInitGeneric(r.Context(), gameID)
-			if err != nil {
-				log.Error("init deck",
-					"error", err,
-					"game_id", gameID,
-				)
-				http.Error(w, "server error", http.StatusInternalServerError)
-				return
-			}
-			err = queries.GameCardsShuffle(r.Context(), gameID)
-			if err != nil {
-				log.Error("shuffle deck",
-					"error", err,
-					"game_id", gameID,
-				)
-				http.Error(w, "server error", http.StatusInternalServerError)
-				return
-			}
-			log.Info("deck initialized and shuffled",
-				"game_id", gameID,
-			)
-
-			// set game to in-progress
-			err := queries.GameUpdate(r.Context(), sqlc.GameUpdateParams{
-				ID:                gameID,
-				StateID:           stateReady, // in progress
-				InitiativeCurrent: pgtype.Int4{Int32: 0, Valid: true},
-			})
-			if err != nil {
-				log.Error("start game", "error", err)
-				http.Error(w, "server error", http.StatusInternalServerError)
-				return
-			}
-			log.Info("game started")
-
-			// start initiative with first non-host player
-			err = queries.GameUpdate(r.Context(), sqlc.GameUpdateParams{
-				ID:                gameID,
-				StateID:           stateTurn,
-				InitiativeCurrent: pgtype.Int4{Int32: 1, Valid: true},
-			})
-			if err != nil {
-				log.Error("update initiative", "error", err)
-				http.Error(w, "server error", http.StatusInternalServerError)
-			}
-			log.Info("initiative initiated", "state", "ready", "initiative", 1)
-
-			// log the start, and the first player's turn so they hear the ding.
-			// state is already committed, so these are best-effort: a failure
-			// shouldn't 500 a game that has already started.
-			if err := recordEvent(r.Context(), log, queries, sqlc.EventCreateParams{
-				GameID:    gameID,
-				EventType: "start",
-			}); err != nil {
-				log.Error("log start event", "error", err, "game_id", gameID)
-			}
-			firstPlayer, err := queries.InitiativeCurrentPlayer(r.Context(), gameID)
-			if err != nil {
-				log.Error("find first turn player", "error", err, "game_id", gameID)
-			} else if err := recordEvent(r.Context(), log, queries, sqlc.EventCreateParams{
-				GameID:    gameID,
-				EventType: "turn",
-				TargetID:  pgInt(firstPlayer),
-			}); err != nil {
-				log.Error("log first turn event", "error", err, "game_id", gameID)
-			}
-
-			// invalidate cache for this game
-			cache.Delete(gameID)
-			w.Header().Set("HX-Trigger", "refreshTable")
-			w.WriteHeader(http.StatusOK)
-			return
-		default:
-			log.Warn(ErrActionInvalid.Error())
-			http.Error(w, ErrActionInvalid.Error(), http.StatusTooEarly)
-			return
-		}
-	case stateEnding, stateChallenge, statePrompt, statePending, stateTurn, stateReady, statePromptShred, stateAccusationTransfer: // in progress (7 = deck spent, host to end)
-		switch action {
-		case "spin":
-			if state.Game.StateID != stateTurn {
-				log.Warn("spin requires turn state",
-					"game_id", gameID,
-					"state_id", state.Game.StateID,
-				)
-				http.Error(w, "cannot spin in current state", http.StatusConflict)
-				return
-			}
-			if !state.isPlayerTurn(cookieKey) {
-				log.Warn("prohibiting non-turn player from spinning")
-				http.Error(w, "not your turn", http.StatusForbidden)
-				return
-			}
-			id, err := strconv.Atoi(cookieID)
-			if err != nil {
-				log.Error("invalid player id",
-					"game_id", gameID,
-					"error", err,
-				)
-				http.Error(w, "invalid player id", http.StatusBadRequest)
-				return
-			}
-			prevSpin, err := queries.SpinPendingModifier(r.Context(), gameID)
-			if err != nil && !errors.Is(err, pgx.ErrNoRows) {
-				log.Error("check previous spin", "error", err, "game_id", gameID)
-				http.Error(w, "server error", http.StatusInternalServerError)
-				return
-			}
-			if err == nil &&
-				prevSpin.PlayerID.Int32 == int32(id) &&
-				!prevSpin.ModifierEffect.Valid {
-				log.Warn("player already spun this turn",
-					"game_id", gameID,
-					"player_id", id,
-				)
-				http.Error(w, "already spun this turn", http.StatusConflict)
-				return
-			}
-			args := sqlc.GameCardsWheelSpinParams{
-				ID:       gameID,
-				PlayerID: pgtype.Int4{Int32: int32(id), Valid: true},
-			}
-			gcID, err := queries.GameCardsWheelSpin(r.Context(), args)
-			if err != nil {
-				if errors.Is(err, pgx.ErrNoRows) {
-					// the deck is spent: don't end outright. move to the
-					// "ending" state so everyone sees the end was rolled, and
-					// leave the host a button to actually end the game.
-					log.Info("deck slot exhausted, waiting on host to end",
-						"game_id", gameID,
-					)
-					err := queries.GameUpdate(r.Context(), sqlc.GameUpdateParams{
-						ID:      gameID,
-						StateID: stateEnding,
-						InitiativeCurrent: pgtype.Int4{
-							Int32: state.Game.InitiativeCurrent.Int32,
-							Valid: true,
-						},
-					})
-					if err != nil {
-						log.Error("update game state to ending",
-							"error", err,
-							"game_id", gameID,
-						)
-						http.Error(w, "server error while ending game", http.StatusInternalServerError)
-						return
-					}
-					if err := writeEvent(w, r, log, queries, sqlc.EventCreateParams{
-						GameID:    gameID,
-						EventType: "rolled-end",
-						ActorID:   pgInt(int32(id)),
-					}); err != nil {
-						return
-					}
-					cache.Delete(gameID)
-					w.Header().Set("HX-Trigger", "refreshTable")
-					w.WriteHeader(http.StatusOK)
-					return
-				}
-				log.Error("spin wheel",
-					"error", err,
-					"game_id", gameID,
-					"player_id", id,
-				)
-				http.Error(w, "server error", http.StatusInternalServerError)
-				return
-			}
-			log.Info("wheel spun",
-				"game_id", gameID,
-				"game_card_id", gcID,
-				"player_id", id,
-			)
-
-			// check if drawn card is a modifier via spin log
-			lastSpin, err := queries.SpinPendingModifier(
-				r.Context(), gameID,
-			)
-			if err != nil {
-				log.Error("check spin log modifier",
-					"error", err,
-					"game_id", gameID,
-				)
-				http.Error(w, "server error", http.StatusInternalServerError)
-				return
-			}
-			// add an event for the spin (feed + the spinner's sound)
-			if err := writeEvent(w, r, log, queries, sqlc.EventCreateParams{
-				GameID:    gameID,
-				EventType: "spin",
-				ActorID:   pgInt(int32(id)),
-				SpinID:    pgInt(lastSpin.ID),
-			}); err != nil {
-				return
-			}
-			if lastSpin.Type == "prompt" {
-				// a prompt card: a timed challenge the spinner performs and the
-				// host judges. enter the prompt state so the host gets the
-				// succeed/fail controls and other actions hold off.
-				// the turn advances only once the host rules on it.
-				err = queries.GameUpdate(r.Context(), sqlc.GameUpdateParams{
-					ID:      gameID,
-					StateID: statePrompt,
-					InitiativeCurrent: pgtype.Int4{
-						Int32: state.Game.InitiativeCurrent.Int32,
-						Valid: true,
-					},
-				})
-				if err != nil {
-					log.Error("transition to prompt",
-						"error", err,
-						"game_id", gameID,
-					)
-					http.Error(w, "server error", http.StatusInternalServerError)
-					return
-				}
-				log.Info("prompt drawn, entering prompt state",
-					"game_id", gameID,
-					"player_id", id,
-					"prompt", lastSpin.Front,
-				)
-				cache.Delete(gameID)
-				// newPrompt opens the spinner's challenge popup and starts their
-				// local countdown; the spin event already dinged the spinner.
-				// carry the window so the client matches the server's promptSeconds.
-				trigger := `{"refreshTable":null,"newPrompt":{"prompt":` +
-					strconv.Quote(lastSpin.Front) +
-					`,"window":` + strconv.Itoa(promptSeconds) + `}}`
-				w.Header().Set("HX-Trigger", trigger)
-				w.WriteHeader(http.StatusOK)
-				return
-			}
-			if !lastSpin.ModifierEffect.Valid {
-				// a rule card: hold the turn here. show the player the card
-				// they drew and wait for them to acknowledge (POST
-				// /action/acknowledge), which advances the turn. initiative
-				// stays on them until they've seen it.
-				cache.Delete(gameID)
-				fresh, err := stateFromCacheOrDB(r.Context(), &cache, gameID)
-				if err != nil {
-					log.Error("refresh state after spin", "error", err)
-					w.Header().Set("HX-Trigger", "refreshTable")
-					w.WriteHeader(http.StatusOK)
-					return
-				}
-				cardContent := ""
-				for _, c := range fresh.CardsPlayers {
-					if c.ID == gcID {
-						if s, ok := c.Content.(string); ok {
-							cardContent = s
-						}
-						break
-					}
-				}
-				// newCard shows the drawn card; the spin event already dinged
-				// the spinner, so this stays silent.
-				trigger := `{"refreshTable":null,"newCard":` +
-					strconv.Quote(cardContent) + `}`
-				w.Header().Set("HX-Trigger", trigger)
-				w.WriteHeader(http.StatusOK)
-				return
-			}
-
-			// check if player has any rule cards to target
-			var hasRuleCards bool
-			for _, c := range state.CardsPlayers {
-				if c.PlayerID.Int32 == int32(id) && c.Type == "rule" {
-					hasRuleCards = true
-					break
-				}
-			}
-			if !hasRuleCards {
-				err = queries.GameCardShred(r.Context(), sqlc.GameCardShredParams{
-					ID:     gcID,
-					GameID: gameID,
-				})
-				if err != nil {
-					log.Error("shred unresolvable modifier",
-						"error", err,
-						"game_id", gameID,
-						"game_card_id", gcID,
-					)
-					http.Error(w, "server error", http.StatusInternalServerError)
-					return
-				}
-				log.Info("modifier drawn but player has no rule cards, shredded and skipping pending",
-					"game_id", gameID,
-					"effect", lastSpin.ModifierEffect.String,
-					"player_id", id,
-					"game_card_id", gcID,
-				)
-				cache.Delete(gameID)
-				w.Header().Set("HX-Trigger",
-					`{"refreshTable":null,"modifierShredded":"`+lastSpin.ModifierEffect.String+`"}`)
-				w.WriteHeader(http.StatusOK)
-				return
-			}
-
-			if (lastSpin.ModifierEffect.String == "clone" ||
-				lastSpin.ModifierEffect.String == "transfer") &&
-				state.nonHostPlayers() < 2 {
-				err = queries.GameCardShred(r.Context(), sqlc.GameCardShredParams{
-					ID:     gcID,
-					GameID: gameID,
-				})
-				if err != nil {
-					log.Error("shred unresolvable modifier",
-						"error", err,
-						"game_id", gameID,
-						"game_card_id", gcID,
-					)
-					http.Error(w, "server error", http.StatusInternalServerError)
-					return
-				}
-				log.Info("modifier drawn but no other player to target, shredded and skipping pending",
-					"game_id", gameID,
-					"effect", lastSpin.ModifierEffect.String,
-					"player_id", id,
-					"game_card_id", gcID,
-				)
-				cache.Delete(gameID)
-				w.Header().Set("HX-Trigger",
-					`{"refreshTable":null,"modifierShredded":"`+lastSpin.ModifierEffect.String+`"}`)
-				w.WriteHeader(http.StatusOK)
-				return
-			}
-
-			log.Info("modifier drawn, entering pending state",
-				"game_id", gameID,
-				"effect", lastSpin.ModifierEffect.String,
-				"player_id", id,
-			)
-			err = queries.GameUpdate(r.Context(), sqlc.GameUpdateParams{
-				ID:      gameID,
-				StateID: statePending,
-				InitiativeCurrent: pgtype.Int4{
-					Int32: state.Game.InitiativeCurrent.Int32,
-					Valid: true,
-				},
-			})
-			if err != nil {
-				log.Error("transition to pending",
-					"error", err,
-					"game_id", gameID,
-				)
-				http.Error(w, "server error", http.StatusInternalServerError)
-				return
-			}
-			cache.Delete(gameID)
-			w.Header().Set("HX-Trigger", `{"refreshTable":null,"loadModifier":null}`)
-			w.WriteHeader(http.StatusOK)
-
-		case "acknowledge":
-			// the spinner advances their own turn after seeing the rule card
-			// they drew. only valid mid-turn for the player whose spin is
-			// waiting to be acknowledged.
-			if state.Game.StateID != stateTurn {
-				log.Warn("acknowledge requires turn state",
-					"game_id", gameID,
-					"state_id", state.Game.StateID,
-				)
-				http.Error(w, "cannot acknowledge in current state", http.StatusConflict)
-				return
-			}
-			if !state.isPlayerTurn(cookieKey) {
-				log.Warn("prohibiting non-turn player from acknowledging")
-				http.Error(w, "not your turn", http.StatusForbidden)
-				return
-			}
-			id, err := strconv.Atoi(cookieID)
-			if err != nil {
-				log.Error("invalid player id", "game_id", gameID, "error", err)
-				http.Error(w, "invalid player id", http.StatusBadRequest)
-				return
-			}
-			lastSpin, err := queries.SpinPendingModifier(r.Context(), gameID)
-			if errors.Is(err, pgx.ErrNoRows) ||
-				(err == nil && (lastSpin.PlayerID.Int32 != int32(id) ||
-					lastSpin.ModifierEffect.Valid)) {
-				log.Warn("nothing to acknowledge",
-					"game_id", gameID,
-					"player_id", id,
-				)
-				http.Error(w, "nothing to acknowledge", http.StatusConflict)
-				return
-			}
-			if err != nil && !errors.Is(err, pgx.ErrNoRows) {
-				log.Error("check spin to acknowledge", "error", err, "game_id", gameID)
-				http.Error(w, "server error", http.StatusInternalServerError)
-				return
-			}
-			if err := advanceTurn(r.Context(), log, queries, gameID); err != nil {
-				log.Error("advance after acknowledge", "error", err, "game_id", gameID)
-				http.Error(w, "server error", http.StatusInternalServerError)
-				return
-			}
-			cache.Delete(gameID)
-			w.Header().Set("HX-Trigger", "refreshTable")
-			w.WriteHeader(http.StatusOK)
-			return
-
-		case "advance":
-			if !state.isHost(cookieKey) {
-				log.Warn("prohibiting non-host from advancing")
-				http.Error(w, "only host can advance", http.StatusForbidden)
-				return
-			}
-			// advance doubles as the host's escape hatch out of the two card
-			// chooser states: if the spinner or accuser never acts, the host
-			// skips on their behalf so play can't wedge.
-			switch state.Game.StateID {
-			case stateTurn:
-				if !state.AwaitingAck {
-					log.Warn("advance requires pending acknowledgement",
-						"game_id", gameID,
-					)
-					http.Error(w, "nothing to advance", http.StatusConflict)
-					return
-				}
-				if err := advanceTurn(r.Context(), log, queries, gameID); err != nil {
-					log.Error("advance turn by host", "error", err, "game_id", gameID)
-					http.Error(w, "server error", http.StatusInternalServerError)
-					return
-				}
-				log.Info("host advanced initiative", "game_id", gameID)
-			case statePromptShred:
-				// the spinner never shredded: skip for them and advance.
-				tx, err := dbPool.Begin(r.Context())
-				if err != nil {
-					log.Error("begin transaction", "error", err, "game_id", gameID)
-					http.Error(w, "server error", http.StatusInternalServerError)
-					return
-				}
-				defer tx.Rollback(r.Context())
-				txq := queries.WithTx(tx)
-				if err := txq.GameUpdate(r.Context(), sqlc.GameUpdateParams{
-					ID:      gameID,
-					StateID: stateTurn,
-					InitiativeCurrent: pgtype.Int4{
-						Int32: state.Game.InitiativeCurrent.Int32,
-						Valid: true,
-					},
-				}); err != nil {
-					log.Error("host skip prompt shred", "error", err, "game_id", gameID)
-					http.Error(w, "server error", http.StatusInternalServerError)
-					return
-				}
-				if err := advanceTurn(r.Context(), log, txq, gameID); err != nil {
-					log.Error("advance after host prompt-shred skip",
-						"error", err, "game_id", gameID)
-					http.Error(w, "server error", http.StatusInternalServerError)
-					return
-				}
-				if err := tx.Commit(r.Context()); err != nil {
-					log.Error("commit host prompt-shred skip",
-						"error", err, "game_id", gameID)
-					http.Error(w, "server error", http.StatusInternalServerError)
-					return
-				}
-				log.Info("host skipped prompt shred", "game_id", gameID)
-			case stateAccusationTransfer:
-				// the accuser never gave a card: skip for them and resume.
-				inf, lookupErr := queries.InfractionTransferPending(r.Context(), gameID)
-				if lookupErr != nil && !errors.Is(lookupErr, pgx.ErrNoRows) {
-					log.Error("get transfer-pending infraction for host skip",
-						"error", lookupErr, "game_id", gameID)
-					http.Error(w, "server error", http.StatusInternalServerError)
-					return
-				}
-				tx, err := dbPool.Begin(r.Context())
-				if err != nil {
-					log.Error("begin transaction", "error", err, "game_id", gameID)
-					http.Error(w, "server error", http.StatusInternalServerError)
-					return
-				}
-				defer tx.Rollback(r.Context())
-				txq := queries.WithTx(tx)
-				if lookupErr == nil {
-					if err := txq.InfractionTransferResolve(r.Context(), inf.ID); err != nil {
-						log.Error("resolve transfer for host skip",
-							"error", err, "game_id", gameID)
-						http.Error(w, "server error", http.StatusInternalServerError)
-						return
-					}
-				}
-				if err := resumeAfterChallenge(
-					r.Context(), txq, &state, gameID,
-				); err != nil {
-					log.Error("resume after host transfer skip",
-						"error", err, "game_id", gameID)
-					http.Error(w, "server error", http.StatusInternalServerError)
-					return
-				}
-				if err := tx.Commit(r.Context()); err != nil {
-					log.Error("commit host transfer skip",
-						"error", err, "game_id", gameID)
-					http.Error(w, "server error", http.StatusInternalServerError)
-					return
-				}
-				log.Info("host skipped accusation transfer", "game_id", gameID)
-			default:
-				log.Warn("advance requires turn or chooser state",
-					"game_id", gameID,
-					"state_id", state.Game.StateID,
-				)
-				http.Error(w, "cannot advance in current state", http.StatusConflict)
-				return
-			}
-			cache.Delete(gameID)
-			w.Header().Set("HX-Trigger", "refreshTable")
-			w.WriteHeader(http.StatusOK)
-			return
-
-		case "pause":
-			if !state.isHost(cookieKey) {
-				log.Warn("prohibiting non-host from pausing")
-				http.Error(w, "only host can pause", http.StatusForbidden)
-				return
-			}
-			if state.Game.StateID != stateTurn {
-				log.Warn("pause requires turn state",
-					"game_id", gameID,
-					"state_id", state.Game.StateID,
-				)
-				http.Error(w, "cannot pause in current state", http.StatusConflict)
-				return
-			}
-			err := queries.GameUpdate(r.Context(), sqlc.GameUpdateParams{
-				ID:      gameID,
-				StateID: stateReady,
-				InitiativeCurrent: pgtype.Int4{
-					Int32: state.Game.InitiativeCurrent.Int32,
-					Valid: true,
-				},
-			})
-			if err != nil {
-				log.Error("pause game", "error", err, "game_id", gameID)
-				http.Error(w, "server error", http.StatusInternalServerError)
-				return
-			}
-			log.Info("game paused", "game_id", gameID)
-			if err := writeEvent(w, r, log, queries, sqlc.EventCreateParams{
-				GameID:    gameID,
-				EventType: "pause",
-			}); err != nil {
-				return
-			}
-			cache.Delete(gameID)
-			w.Header().Set("HX-Trigger", "refreshTable")
-			w.WriteHeader(http.StatusOK)
-			return
-
-		case "resume":
-			if !state.isHost(cookieKey) {
-				log.Warn("prohibiting non-host from resuming")
-				http.Error(w, "only host can resume", http.StatusForbidden)
-				return
-			}
-			if state.Game.StateID != stateReady {
-				log.Warn("resume requires ready state",
-					"game_id", gameID,
-					"state_id", state.Game.StateID,
-				)
-				http.Error(w, "cannot resume in current state", http.StatusConflict)
-				return
-			}
-			err := queries.GameUpdate(r.Context(), sqlc.GameUpdateParams{
-				ID:      gameID,
-				StateID: stateTurn,
-				InitiativeCurrent: pgtype.Int4{
-					Int32: state.Game.InitiativeCurrent.Int32,
-					Valid: true,
-				},
-			})
-			if err != nil {
-				log.Error("resume game", "error", err, "game_id", gameID)
-				http.Error(w, "server error", http.StatusInternalServerError)
-				return
-			}
-			log.Info("game resumed", "game_id", gameID)
-			if err := writeEvent(w, r, log, queries, sqlc.EventCreateParams{
-				GameID:    gameID,
-				EventType: "resume",
-			}); err != nil {
-				return
-			}
-			cache.Delete(gameID)
-			w.Header().Set("HX-Trigger", "refreshTable")
-			w.WriteHeader(http.StatusOK)
-			return
-
-		case "endgame":
-			// the host finalizes a game whose deck has run out. only valid in
-			// the "ending" state, which a spent deck puts the game into.
-			if !state.isHost(cookieKey) {
-				log.Warn("prohibiting non-host from ending game")
-				http.Error(w, "only host can end the game", http.StatusForbidden)
-				return
-			}
-			if state.Game.StateID != stateEnding {
-				log.Warn("endgame requires ending state",
-					"game_id", gameID,
-					"state_id", state.Game.StateID,
-				)
-				http.Error(w, "cannot end game in current state", http.StatusConflict)
-				return
-			}
-			err := queries.GameUpdate(r.Context(), sqlc.GameUpdateParams{
-				ID:      gameID,
-				StateID: stateOver,
-			})
-			if err != nil {
-				log.Error("end game", "error", err, "game_id", gameID)
-				http.Error(w, "server error", http.StatusInternalServerError)
-				return
-			}
-			log.Info("game ended by host", "game_id", gameID)
-			if err := writeEvent(w, r, log, queries, sqlc.EventCreateParams{
-				GameID:    gameID,
-				EventType: "end",
-			}); err != nil {
-				return
-			}
-			cache.Delete(gameID)
-			w.Header().Set("HX-Trigger", "refreshTable")
-			w.WriteHeader(http.StatusOK)
-			return
-
-		case "continue":
-			if !state.isHost(cookieKey) {
-				log.Warn("prohibiting non-host from continuing game")
-				http.Error(w, "only host can continue the game", http.StatusForbidden)
-				return
-			}
-			if state.Game.StateID != stateEnding {
-				log.Warn("continue requires ending state",
-					"game_id", gameID,
-					"state_id", state.Game.StateID,
-				)
-				http.Error(w, "cannot continue in current state", http.StatusConflict)
-				return
-			}
-			err := queries.GameUpdate(r.Context(), sqlc.GameUpdateParams{
-				ID:      gameID,
-				StateID: stateTurn,
-				InitiativeCurrent: pgtype.Int4{
-					Int32: state.Game.InitiativeCurrent.Int32,
-					Valid: true,
-				},
-			})
-			if err != nil {
-				log.Error("continue game", "error", err, "game_id", gameID)
-				http.Error(w, "server error", http.StatusInternalServerError)
-				return
-			}
-			log.Info("game continued by host", "game_id", gameID)
-			if err := writeEvent(w, r, log, queries, sqlc.EventCreateParams{
-				GameID:    gameID,
-				EventType: "continue",
-			}); err != nil {
-				return
-			}
-			if err := advanceTurn(r.Context(), log, queries, gameID); err != nil {
-				log.Error("advance initiative after continue",
-					"error", err,
-					"game_id", gameID,
-				)
-				http.Error(w, "server error", http.StatusInternalServerError)
-				return
-			}
-			cache.Delete(gameID)
-			w.Header().Set("HX-Trigger", "refreshTable")
-			w.WriteHeader(http.StatusOK)
-			return
-
-		case "flip":
-			if !state.isPlayerTurn(cookieKey) {
-				log.Warn("prohibiting non-turn player from flipping")
-				http.Error(w, "not your turn", http.StatusForbidden)
-				return
-			}
-			if modifierNotPending(w, action, gameID, state.Game.StateID) {
-				return
-			}
-			lastSpin, err := queries.SpinPendingModifier(
-				r.Context(), gameID,
-			)
-			if err != nil {
-				log.Error("check spin log modifier",
-					"error", err,
-					"game_id", gameID,
-				)
-				http.Error(w, "server error", http.StatusInternalServerError)
-				return
-			}
-			if !lastSpin.ModifierEffect.Valid {
-				log.Warn("no pending modifier",
-					"game_id", gameID,
-				)
-				http.Error(w, "no pending modifier", http.StatusConflict)
-				return
-			}
-			if lastSpin.ModifierEffect.String != modFlip {
-				log.Warn("no pending flip modifier",
-					"game_id", gameID,
-				)
-				http.Error(w, "no pending flip", http.StatusConflict)
-				return
-			}
-			gcStr := r.URL.Query().Get("game_card_id")
-			if gcStr == "" {
-				log.Warn("flip: missing game_card_id", "game_id", gameID)
-				http.Error(w, "missing game_card_id", http.StatusBadRequest)
-				return
-			}
-			gcID, err := strconv.Atoi(gcStr)
-			if err != nil {
-				log.Error("invalid game_card_id",
-					"error", err,
-					"game_id", gameID,
-				)
-				http.Error(w, "invalid game_card_id", http.StatusBadRequest)
-				return
-			}
-			playerID, err := strconv.Atoi(cookieID)
-			if err != nil {
-				log.Error("invalid player id", "error", err, "game_id", gameID)
-				http.Error(w, "invalid player id", http.StatusBadRequest)
-				return
-			}
-			var ownedCard bool
-			for _, c := range state.CardsPlayers {
-				if c.ID == int32(gcID) && c.PlayerID.Int32 == int32(playerID) {
-					ownedCard = true
-					break
-				}
-			}
-			if !ownedCard {
-				log.Warn("flip: card not owned by player",
-					"game_id", gameID,
-					"game_card_id", gcID,
-					"player_id", playerID,
-				)
-				http.Error(w, "card not owned by player", http.StatusForbidden)
-				return
-			}
-			err = queries.GameCardFlip(r.Context(), sqlc.GameCardFlipParams{
-				ID:     int32(gcID),
-				GameID: gameID,
-			})
-			if err != nil {
-				log.Error("flip card",
-					"error", err,
-					"game_id", gameID,
-					"game_card_id", gcID,
-				)
-				http.Error(w, "server error", http.StatusInternalServerError)
-				return
-			}
-			// add an event for the flip
-			if err := writeEvent(w, r, log, queries, sqlc.EventCreateParams{
-				GameID:     gameID,
-				EventType:  "flip",
-				ActorID:    pgInt(int32(playerID)),
-				GameCardID: pgInt(int32(gcID)),
-			}); err != nil {
-				return
-			}
-			// shred the modifier card that was just used
-			for _, c := range state.CardsPlayers {
-				if c.PlayerID.Int32 == int32(playerID) && c.Type == "modifier" {
-					err = queries.GameCardShred(r.Context(), sqlc.GameCardShredParams{
-						ID:     c.ID,
-						GameID: gameID,
-					})
-					if err != nil {
-						log.Error("shred used modifier card",
-							"error", err,
-							"game_id", gameID,
-							"game_card_id", c.ID,
-						)
-					}
-					break
-				}
-			}
-
-			// resolve: back to turn state and advance initiative
-			err = queries.GameUpdate(r.Context(), sqlc.GameUpdateParams{
-				ID:      gameID,
-				StateID: stateTurn,
-				InitiativeCurrent: pgtype.Int4{
-					Int32: state.Game.InitiativeCurrent.Int32,
-					Valid: true,
-				},
-			})
-			if err != nil {
-				log.Error("transition to turn",
-					"error", err,
-					"game_id", gameID,
-				)
-				http.Error(w, "server error", http.StatusInternalServerError)
-				return
-			}
-			err = advanceTurn(r.Context(), log, queries, gameID)
-			if err != nil {
-				log.Error("advance initiative after flip",
-					"error", err,
-					"game_id", gameID,
-				)
-				http.Error(w, "server error", http.StatusInternalServerError)
-				return
-			}
-			log.Info("card flipped, modifier resolved and shredded",
-				"game_id", gameID,
-				"game_card_id", gcID,
-			)
-			cache.Delete(gameID)
-			w.Header().Set("HX-Trigger", "refreshTable")
-			w.WriteHeader(http.StatusOK)
-		case "shred":
-			if !state.isPlayerTurn(cookieKey) {
-				log.Warn("prohibiting non-turn player from shredding")
-				http.Error(w, "not your turn", http.StatusForbidden)
-				return
-			}
-			if modifierNotPending(w, action, gameID, state.Game.StateID) {
-				return
-			}
-			lastSpin, err := queries.SpinPendingModifier(
-				r.Context(), gameID,
-			)
-			if err != nil {
-				log.Error("check spin log modifier",
-					"error", err,
-					"game_id", gameID,
-				)
-				http.Error(w, "server error", http.StatusInternalServerError)
-				return
-			}
-			if !lastSpin.ModifierEffect.Valid {
-				log.Warn("no pending modifier",
-					"game_id", gameID,
-				)
-				http.Error(w, "no pending modifier", http.StatusConflict)
-				return
-			}
-			if lastSpin.ModifierEffect.String != modShred {
-				log.Warn("pending modifier is not shred",
-					"game_id", gameID,
-					"effect", lastSpin.ModifierEffect.String,
-				)
-				http.Error(w, "no pending shred", http.StatusConflict)
-				return
-			}
-			cardStr := r.URL.Query().Get("game_card_id")
-			if cardStr == "" {
-				log.Warn("missing game_card_id", "game_id", gameID)
-				http.Error(w, "missing game_card_id", http.StatusBadRequest)
-				return
-			}
-			cardID, err := strconv.Atoi(cardStr)
-			if err != nil {
-				log.Error("invalid game_card_id",
-					"error", err,
-					"game_id", gameID,
-				)
-				http.Error(w, "invalid game_card_id", http.StatusBadRequest)
-				return
-			}
-			shredPlayerID, err := strconv.Atoi(cookieID)
-			if err != nil {
-				log.Error("invalid player id", "error", err, "game_id", gameID)
-				http.Error(w, "invalid player id", http.StatusBadRequest)
-				return
-			}
-			var ownedShred bool
-			for _, c := range state.CardsPlayers {
-				if c.ID == int32(cardID) &&
-					c.PlayerID.Int32 == int32(shredPlayerID) {
-					ownedShred = true
-					break
-				}
-			}
-			if !ownedShred {
-				log.Warn("shred: card not owned by player",
-					"game_id", gameID,
-					"game_card_id", cardID,
-					"player_id", shredPlayerID,
-				)
-				http.Error(w, "card not owned by player", http.StatusForbidden)
-				return
-			}
-			err = queries.GameCardShred(r.Context(), sqlc.GameCardShredParams{
-				ID:     int32(cardID),
-				GameID: gameID,
-			})
-			if err != nil {
-				log.Error("shred card",
-					"error", err,
-					"game_id", gameID,
-					"game_card_id", cardID,
-				)
-				http.Error(w, "server error", http.StatusInternalServerError)
-				return
-			}
-			// add an event for the shred
-			if err := writeEvent(w, r, log, queries, sqlc.EventCreateParams{
-				GameID:     gameID,
-				EventType:  "shred",
-				ActorID:    pgInt(int32(shredPlayerID)),
-				GameCardID: pgInt(int32(cardID)),
-			}); err != nil {
-				return
-			}
-			// shred the modifier card that was just used
-			for _, c := range state.CardsPlayers {
-				if c.PlayerID.Int32 == int32(shredPlayerID) && c.Type == "modifier" {
-					err = queries.GameCardShred(r.Context(), sqlc.GameCardShredParams{
-						ID:     c.ID,
-						GameID: gameID,
-					})
-					if err != nil {
-						log.Error("shred used modifier card",
-							"error", err,
-							"game_id", gameID,
-							"game_card_id", c.ID,
-						)
-					}
-					break
-				}
-			}
-
-			// resolve: back to turn state and advance initiative
-			err = queries.GameUpdate(r.Context(), sqlc.GameUpdateParams{
-				ID:      gameID,
-				StateID: stateTurn,
-				InitiativeCurrent: pgtype.Int4{
-					Int32: state.Game.InitiativeCurrent.Int32,
-					Valid: true,
-				},
-			})
-			if err != nil {
-				log.Error("transition to turn",
-					"error", err,
-					"game_id", gameID,
-				)
-				http.Error(w, "server error", http.StatusInternalServerError)
-				return
-			}
-			err = advanceTurn(r.Context(), log, queries, gameID)
-			if err != nil {
-				log.Error("advance initiative after shred",
-					"error", err,
-					"game_id", gameID,
-				)
-				http.Error(w, "server error", http.StatusInternalServerError)
-				return
-			}
-			log.Info("card shredded, modifier resolved",
-				"game_id", gameID,
-				"card_id", cardID,
-			)
-			cache.Delete(gameID)
-			w.Header().Set("HX-Trigger", "refreshTable")
-			w.WriteHeader(http.StatusOK)
-		case "clone":
-			if !state.isPlayerTurn(cookieKey) {
-				log.Warn("prohibiting non-turn player from cloning")
-				http.Error(w, "not your turn", http.StatusForbidden)
-				return
-			}
-			if modifierNotPending(w, action, gameID, state.Game.StateID) {
-				return
-			}
-			lastSpin, err := queries.SpinPendingModifier(
-				r.Context(), gameID,
-			)
-			if err != nil {
-				log.Error("check spin log modifier",
-					"error", err,
-					"game_id", gameID,
-				)
-				http.Error(w, "server error", http.StatusInternalServerError)
-				return
-			}
-			if !lastSpin.ModifierEffect.Valid {
-				log.Warn("no pending modifier",
-					"game_id", gameID,
-				)
-				http.Error(w, "no pending modifier", http.StatusConflict)
-				return
-			}
-			if lastSpin.ModifierEffect.String != modClone {
-				log.Warn("pending modifier is not clone",
-					"game_id", gameID,
-					"effect", lastSpin.ModifierEffect.String,
-				)
-				http.Error(w, "no pending clone", http.StatusConflict)
-				return
-			}
-			cardStr := r.URL.Query().Get("game_card_id")
-			if cardStr == "" {
-				log.Warn("missing game_card_id", "game_id", gameID)
-				http.Error(w, "missing game_card_id", http.StatusBadRequest)
-				return
-			}
-			targetStr := r.URL.Query().Get("target_player_id")
-			if targetStr == "" {
-				log.Warn("missing target_player_id", "game_id", gameID)
-				http.Error(w, "missing target_player_id", http.StatusBadRequest)
-				return
-			}
-			cardID, err := strconv.Atoi(cardStr)
-			if err != nil {
-				log.Error("invalid game_card_id",
-					"error", err,
-					"game_id", gameID,
-				)
-				http.Error(w, "invalid game_card_id", http.StatusBadRequest)
-				return
-			}
-			targetID, err := strconv.Atoi(targetStr)
-			if err != nil {
-				log.Error("invalid target_player_id",
-					"error", err,
-					"game_id", gameID,
-				)
-				http.Error(w, "invalid target_player_id", http.StatusBadRequest)
-				return
-			}
-			clonePlayerID, err := strconv.Atoi(cookieID)
-			if err != nil {
-				log.Error("invalid player id", "error", err, "game_id", gameID)
-				http.Error(w, "invalid player id", http.StatusBadRequest)
-				return
-			}
-			var ownedClone bool
-			for _, c := range state.CardsPlayers {
-				if c.ID == int32(cardID) &&
-					c.PlayerID.Int32 == int32(clonePlayerID) {
-					ownedClone = true
-					break
-				}
-			}
-			if !ownedClone {
-				log.Warn("clone: source card not owned by player",
-					"game_id", gameID,
-					"game_card_id", cardID,
-					"player_id", clonePlayerID,
-				)
-				http.Error(w, "card not owned by player", http.StatusForbidden)
-				return
-			}
-			var targetInGame bool
-			for _, p := range state.Players {
-				if p.PlayerID == int32(targetID) {
-					targetInGame = true
-					break
-				}
-			}
-			if !targetInGame {
-				log.Warn("clone: target player not in game",
-					"game_id", gameID,
-					"target_player_id", targetID,
-				)
-				http.Error(w, "target player not in game", http.StatusBadRequest)
-				return
-			}
-			err = queries.GameCardClone(r.Context(), sqlc.GameCardCloneParams{
-				ID:     int32(cardID),
-				GameID: gameID,
-				PlayerID: pgtype.Int4{
-					Int32: int32(targetID),
-					Valid: true,
-				},
-			})
-			if err != nil {
-				log.Error("clone card",
-					"error", err,
-					"game_id", gameID,
-					"game_card_id", cardID,
-					"target_player_id", targetID,
-				)
-				http.Error(w, "server error", http.StatusInternalServerError)
-				return
-			}
-			// add an event for the clone (cloner -> recipient)
-			if err := writeEvent(w, r, log, queries, sqlc.EventCreateParams{
-				GameID:     gameID,
-				EventType:  "clone",
-				ActorID:    pgInt(int32(clonePlayerID)),
-				TargetID:   pgInt(int32(targetID)),
-				GameCardID: pgInt(int32(cardID)),
-			}); err != nil {
-				return
-			}
-			// shred the modifier card that was just used
-			for _, c := range state.CardsPlayers {
-				if c.PlayerID.Int32 == int32(clonePlayerID) && c.Type == "modifier" {
-					err = queries.GameCardShred(r.Context(), sqlc.GameCardShredParams{
-						ID:     c.ID,
-						GameID: gameID,
-					})
-					if err != nil {
-						log.Error("shred used modifier card",
-							"error", err,
-							"game_id", gameID,
-							"game_card_id", c.ID,
-						)
-					}
-					break
-				}
-			}
-			err = queries.GameUpdate(r.Context(), sqlc.GameUpdateParams{
-				ID:      gameID,
-				StateID: stateTurn,
-				InitiativeCurrent: pgtype.Int4{
-					Int32: state.Game.InitiativeCurrent.Int32,
-					Valid: true,
-				},
-			})
-			if err != nil {
-				log.Error("transition to turn",
-					"error", err,
-					"game_id", gameID,
-				)
-				http.Error(w, "server error", http.StatusInternalServerError)
-				return
-			}
-			err = advanceTurn(r.Context(), log, queries, gameID)
-			if err != nil {
-				log.Error("advance initiative after clone",
-					"error", err,
-					"game_id", gameID,
-				)
-				http.Error(w, "server error", http.StatusInternalServerError)
-				return
-			}
-			log.Info("card cloned, modifier resolved and shredded",
-				"game_id", gameID,
-				"card_id", cardID,
-				"target_player_id", targetID,
-			)
-			cache.Delete(gameID)
-			w.Header().Set("HX-Trigger", "refreshTable")
-			w.WriteHeader(http.StatusOK)
-
-		case "transfer":
-			if !state.isPlayerTurn(cookieKey) {
-				log.Warn("prohibiting non-turn player from transferring")
-				http.Error(w, "not your turn", http.StatusForbidden)
-				return
-			}
-			if modifierNotPending(w, action, gameID, state.Game.StateID) {
-				return
-			}
-			lastSpin, err := queries.SpinPendingModifier(
-				r.Context(), gameID,
-			)
-			if err != nil {
-				log.Error("check spin log modifier",
-					"error", err,
-					"game_id", gameID,
-				)
-				http.Error(w, "server error", http.StatusInternalServerError)
-				return
-			}
-			if !lastSpin.ModifierEffect.Valid {
-				log.Warn("no pending modifier",
-					"game_id", gameID,
-				)
-				http.Error(w, "no pending modifier", http.StatusConflict)
-				return
-			}
-			if lastSpin.ModifierEffect.String != modTransfer {
-				log.Warn("pending modifier is not transfer",
-					"game_id", gameID,
-					"effect", lastSpin.ModifierEffect.String,
-				)
-				http.Error(w, "no pending transfer", http.StatusConflict)
-				return
-			}
-			cardStr := r.URL.Query().Get("game_card_id")
-			if cardStr == "" {
-				log.Warn("missing game_card_id", "game_id", gameID)
-				http.Error(w, "missing game_card_id", http.StatusBadRequest)
-				return
-			}
-			targetStr := r.URL.Query().Get("target_player_id")
-			if targetStr == "" {
-				log.Warn("missing target_player_id", "game_id", gameID)
-				http.Error(w, "missing target_player_id", http.StatusBadRequest)
-				return
-			}
-			cardID, err := strconv.Atoi(cardStr)
-			if err != nil {
-				log.Error("invalid game_card_id",
-					"error", err,
-					"game_id", gameID,
-				)
-				http.Error(w, "invalid game_card_id", http.StatusBadRequest)
-				return
-			}
-			targetID, err := strconv.Atoi(targetStr)
-			if err != nil {
-				log.Error("invalid target_player_id",
-					"error", err,
-					"game_id", gameID,
-				)
-				http.Error(w, "invalid target_player_id", http.StatusBadRequest)
-				return
-			}
-			xferPlayerID, err := strconv.Atoi(cookieID)
-			if err != nil {
-				log.Error("invalid player id", "error", err, "game_id", gameID)
-				http.Error(w, "invalid player id", http.StatusBadRequest)
-				return
-			}
-			var ownedXfer bool
-			for _, c := range state.CardsPlayers {
-				if c.ID == int32(cardID) &&
-					c.PlayerID.Int32 == int32(xferPlayerID) {
-					ownedXfer = true
-					break
-				}
-			}
-			if !ownedXfer {
-				log.Warn("transfer: card not owned by player",
-					"game_id", gameID,
-					"game_card_id", cardID,
-					"player_id", xferPlayerID,
-				)
-				http.Error(w, "card not owned by player", http.StatusForbidden)
-				return
-			}
-			var xferTargetInGame bool
-			for _, p := range state.Players {
-				if p.PlayerID == int32(targetID) {
-					xferTargetInGame = true
-					break
-				}
-			}
-			if !xferTargetInGame {
-				log.Warn("transfer: target player not in game",
-					"game_id", gameID,
-					"target_player_id", targetID,
-				)
-				http.Error(w, "target player not in game", http.StatusBadRequest)
-				return
-			}
-			err = queries.GameCardMove(r.Context(), sqlc.GameCardMoveParams{
-				ID:     int32(cardID),
-				GameID: gameID,
-				PlayerID: pgtype.Int4{
-					Int32: int32(targetID),
-					Valid: true,
-				},
-			})
-			if err != nil {
-				log.Error("transfer card",
-					"error", err,
-					"game_id", gameID,
-					"game_card_id", cardID,
-					"target_player_id", targetID,
-				)
-				http.Error(w, "server error", http.StatusInternalServerError)
-				return
-			}
-			// add an event for the transfer (sender -> recipient)
-			if err := writeEvent(w, r, log, queries, sqlc.EventCreateParams{
-				GameID:     gameID,
-				EventType:  "transfer",
-				ActorID:    pgInt(int32(xferPlayerID)),
-				TargetID:   pgInt(int32(targetID)),
-				GameCardID: pgInt(int32(cardID)),
-			}); err != nil {
-				return
-			}
-			// shred the modifier card that was just used
-			for _, c := range state.CardsPlayers {
-				if c.PlayerID.Int32 == int32(xferPlayerID) && c.Type == "modifier" {
-					err = queries.GameCardShred(r.Context(), sqlc.GameCardShredParams{
-						ID:     c.ID,
-						GameID: gameID,
-					})
-					if err != nil {
-						log.Error("shred used modifier card",
-							"error", err,
-							"game_id", gameID,
-							"game_card_id", c.ID,
-						)
-					}
-					break
-				}
-			}
-			err = queries.GameUpdate(r.Context(), sqlc.GameUpdateParams{
-				ID:      gameID,
-				StateID: stateTurn,
-				InitiativeCurrent: pgtype.Int4{
-					Int32: state.Game.InitiativeCurrent.Int32,
-					Valid: true,
-				},
-			})
-			if err != nil {
-				log.Error("transition to turn",
-					"error", err,
-					"game_id", gameID,
-				)
-				http.Error(w, "server error", http.StatusInternalServerError)
-				return
-			}
-			err = advanceTurn(r.Context(), log, queries, gameID)
-			if err != nil {
-				log.Error("advance initiative after transfer",
-					"error", err,
-					"game_id", gameID,
-				)
-				http.Error(w, "server error", http.StatusInternalServerError)
-				return
-			}
-			log.Info("card transferred, modifier resolved and shredded",
-				"game_id", gameID,
-				"card_id", cardID,
-				"target_player_id", targetID,
-			)
-			cache.Delete(gameID)
-			w.Header().Set("HX-Trigger", "refreshTable")
-			w.WriteHeader(http.StatusOK)
-
-		case "accuse":
-			if !state.isGameActive() {
-				log.Warn("accuse requires active game state",
-					"game_id", gameID,
-					"state_id", state.Game.StateID,
-				)
-				http.Error(w, "cannot accuse in current state", http.StatusConflict)
-				return
-			}
-			defendantStr := r.FormValue("defendant_id")
-			if defendantStr == "" {
-				log.Warn("missing defendant_id", "game_id", gameID)
-				http.Error(w, "missing defendant_id", http.StatusBadRequest)
-				return
-			}
-			gcStr := r.FormValue("game_card_id")
-			if gcStr == "" {
-				log.Warn("missing game_card_id", "game_id", gameID)
-				http.Error(w, "missing game_card_id", http.StatusBadRequest)
-				return
-			}
-			defendantID, err := strconv.Atoi(defendantStr)
-			if err != nil {
-				log.Error("invalid defendant_id",
-					"error", err,
-					"game_id", gameID,
-				)
-				http.Error(w, "invalid defendant_id", http.StatusBadRequest)
-				return
-			}
-			gcID, err := strconv.Atoi(gcStr)
-			if err != nil {
-				log.Error("invalid game_card_id",
-					"error", err,
-					"game_id", gameID,
-				)
-				http.Error(w, "invalid game_card_id", http.StatusBadRequest)
-				return
-			}
-			// validate game_card belongs to defendant and is a rule
-			var validCard bool
-			for _, c := range state.CardsPlayers {
-				if c.ID == int32(gcID) &&
-					c.PlayerID.Int32 == int32(defendantID) &&
-					c.Type == "rule" {
-					validCard = true
-					break
-				}
-			}
-			if !validCard {
-				log.Warn("invalid accusation target",
-					"game_id", gameID,
-					"game_card_id", gcID,
-					"defendant_id", defendantID,
-				)
-				http.Error(w, "card not a rule held by defendant", http.StatusBadRequest)
-				return
-			}
-
-			accuserID, err := strconv.Atoi(cookieID)
-			if err != nil {
-				log.Error("invalid accuser cookie",
-					"error", err,
-					"game_id", gameID,
-				)
-				http.Error(w, "invalid accuser", http.StatusBadRequest)
-				return
-			}
-			tx, err := dbPool.Begin(r.Context())
-			if err != nil {
-				log.Error("begin transaction", "error", err, "game_id", gameID)
-				http.Error(w, "server error", http.StatusInternalServerError)
-				return
-			}
-			defer tx.Rollback(r.Context())
-			txq := queries.WithTx(tx)
-
-			infractionID, err := txq.InfractionCreate(
-				r.Context(), sqlc.InfractionCreateParams{
-					GameID:     gameID,
-					GameCardID: int32(gcID),
-					Accused:    int32(defendantID),
-					Accuser:    int32(accuserID),
-				},
-			)
-			if err != nil {
-				log.Error("create infraction",
-					"error", err,
-					"game_id", gameID,
-				)
-				http.Error(w, "server error", http.StatusInternalServerError)
-				return
-			}
-			// transition to challenge state
-			err = txq.GameUpdate(r.Context(), sqlc.GameUpdateParams{
-				ID:      gameID,
-				StateID: stateChallenge,
-				InitiativeCurrent: pgtype.Int4{
-					Int32: state.Game.InitiativeCurrent.Int32,
-					Valid: true,
-				},
-			})
-			if err != nil {
-				log.Error("transition to challenge",
-					"error", err,
-					"game_id", gameID,
-				)
-				http.Error(w, "server error", http.StatusInternalServerError)
-				return
-			}
-			// add an event: the accuser accuses the accused
-			if err := writeEvent(w, r, log, txq, sqlc.EventCreateParams{
-				GameID:       gameID,
-				EventType:    "accuse",
-				ActorID:      pgInt(int32(accuserID)),
-				TargetID:     pgInt(int32(defendantID)),
-				InfractionID: pgInt(infractionID),
-			}); err != nil {
-				return
-			}
-			if err = tx.Commit(r.Context()); err != nil {
-				log.Error("commit accuse transaction", "error", err, "game_id", gameID)
-				http.Error(w, "server error", http.StatusInternalServerError)
-				return
-			}
-			log.Info("infraction created",
-				"game_id", gameID,
-				"infraction_id", infractionID,
-				"accused", defendantID,
-				"accuser", accuserID,
-				"game_card_id", gcID,
-			)
-			cache.Delete(gameID)
-			w.Header().Set("HX-Trigger", fmt.Sprintf(
-				`{"refreshTable":null,"infractionCreated":{"id":%d}}`,
-				infractionID,
-			))
-			w.WriteHeader(http.StatusOK)
-
-		case "decide":
-			if !state.isHost(cookieKey) {
-				log.Warn("prohibiting non-host from deciding")
-				http.Error(w, "only host can decide", http.StatusForbidden)
-				return
-			}
-			if state.Game.StateID != stateChallenge {
-				log.Warn("decide requires challenge state",
-					"game_id", gameID,
-					"state_id", state.Game.StateID,
-				)
-				http.Error(w, "no active challenge", http.StatusConflict)
-				return
-			}
-			infStr := r.FormValue("infraction_id")
-			if infStr == "" {
-				log.Warn("missing infraction_id", "game_id", gameID)
-				http.Error(w, "missing infraction_id", http.StatusBadRequest)
-				return
-			}
-			verdict := r.FormValue("verdict")
-			if verdict == "" {
-				log.Warn("missing verdict", "game_id", gameID)
-				http.Error(w, "missing verdict", http.StatusBadRequest)
-				return
-			}
-			if verdict != "affirm" && verdict != "absolve" {
-				log.Warn("invalid verdict",
-					"game_id", gameID,
-					"verdict", verdict,
-				)
-				http.Error(w, "verdict must be affirm or absolve", http.StatusBadRequest)
-				return
-			}
-			infID, err := strconv.Atoi(infStr)
-			if err != nil {
-				log.Error("invalid infraction_id",
-					"error", err,
-					"game_id", gameID,
-				)
-				http.Error(w, "invalid infraction_id", http.StatusBadRequest)
-				return
-			}
-
-			// verify infraction exists, is active, and belongs to this game
-			infraction, err := queries.InfractionGet(r.Context(), int32(infID))
-			if errors.Is(err, pgx.ErrNoRows) {
-				log.Warn("infraction not found",
-					"game_id", gameID,
-					"infraction_id", infID,
-				)
-				http.Error(w, "infraction not found", http.StatusNotFound)
-				return
-			}
-			if err != nil {
-				log.Error("get infraction",
-					"error", err,
-					"game_id", gameID,
-					"infraction_id", infID,
-				)
-				http.Error(w, "server error", http.StatusInternalServerError)
-				return
-			}
-			if !infraction.Active.Bool {
-				log.Warn("infraction already decided",
-					"game_id", gameID,
-					"infraction_id", infID,
-				)
-				http.Error(w, "infraction already decided", http.StatusConflict)
-				return
-			}
-			if infraction.GameID != gameID {
-				log.Warn("infraction does not belong to this game",
-					"game_id", gameID,
-					"infraction_game_id", infraction.GameID,
-					"infraction_id", infID,
-				)
-				http.Error(w, "infraction not in this game", http.StatusForbidden)
-				return
-			}
-
-			affirmed := verdict == "affirm"
-			var penalty int32
-			pointsPlayerID := infraction.Accused
-			if affirmed {
-				ptsStr := r.FormValue("amount")
-				if ptsStr == "" {
-					log.Warn("missing amount for affirm", "game_id", gameID)
-					http.Error(w, "missing amount", http.StatusBadRequest)
-					return
-				}
-				pts, err := strconv.Atoi(ptsStr)
-				if err != nil {
-					log.Error("affirm: invalid amount",
-						"error", err,
-						"amount", ptsStr,
-						"game_id", gameID,
-					)
-					http.Error(w, "invalid amount", http.StatusBadRequest)
-					return
-				}
-				// the affirm UI sends a positive penalty; negate it so the
-				// ledger deducts (GamePointsAdjust adds the delta).
-				penalty = -int32(pts)
-			}
-
-			tx, err := dbPool.Begin(r.Context())
-			if err != nil {
-				log.Error("begin transaction",
-					"error", err,
-					"game_id", gameID,
-				)
-				http.Error(w, "server error", http.StatusInternalServerError)
-				return
-			}
-			defer tx.Rollback(r.Context())
-			txq := queries.WithTx(tx)
-
-			_, err = txq.InfractionDecide(r.Context(), sqlc.InfractionDecideParams{
-				ID:       int32(infID),
-				Affirmed: pgtype.Bool{Bool: affirmed, Valid: true},
-			})
-			if errors.Is(err, pgx.ErrNoRows) {
-				log.Warn("infraction already decided (race)",
-					"game_id", gameID,
-					"infraction_id", infID,
-				)
-				http.Error(w, "infraction already decided", http.StatusConflict)
-				return
-			}
-			if err != nil {
-				log.Error("decide infraction",
-					"error", err,
-					"game_id", gameID,
-					"infraction_id", infID,
-				)
-				http.Error(w, "server error", http.StatusInternalServerError)
-				return
-			}
-
-			// adjust points if affirmed (a zero penalty means guilty but no
-			// points change, so skip the adjustment and its event)
-			if affirmed && penalty != 0 {
-				err = txq.GamePointsAdjust(
-					r.Context(), sqlc.GamePointsAdjustParams{
-						Points:   pgtype.Int4{Int32: penalty, Valid: true},
-						GameID:   gameID,
-						PlayerID: pointsPlayerID,
-					},
-				)
-				if err != nil {
-					log.Error("adjust points",
-						"error", err,
-						"game_id", gameID,
-						"player_id", pointsPlayerID,
-						"points", penalty,
-					)
-					http.Error(w, "server error", http.StatusInternalServerError)
-					return
-				}
-				// record the points change, linked to the infraction that caused it
-				pcID, err := txq.PointChangeCreate(r.Context(), sqlc.PointChangeCreateParams{
-					GameID:       gameID,
-					PlayerID:     pgtype.Int4{Int32: pointsPlayerID, Valid: true},
-					Delta:        penalty,
-					InfractionID: pgtype.Int4{Int32: int32(infID), Valid: true},
-				})
-				if err != nil {
-					log.Error("record point change",
-						"error", err,
-						"game_id", gameID,
-						"infraction_id", infID,
-					)
-					http.Error(w, "server error", http.StatusInternalServerError)
-					return
-				}
-				// the accused lost points: event for the feed and their sound
-				if err := writeEvent(w, r, log, txq, sqlc.EventCreateParams{
-					GameID:        gameID,
-					EventType:     "points",
-					TargetID:      pgInt(pointsPlayerID),
-					PointChangeID: pgInt(pcID),
-				}); err != nil {
-					return
-				}
-			}
-
-			// record the verdict (feed + the accuser's sound) before choosing
-			// the next state.
-			if err := writeEvent(w, r, log, txq, sqlc.EventCreateParams{
-				GameID:       gameID,
-				EventType:    "decide",
-				TargetID:     pgInt(infraction.Accuser),
-				InfractionID: pgInt(int32(infID)),
-			}); err != nil {
-				return
-			}
-
-			// an upheld accusation lets the accuser give one of their own rule
-			// cards to the accused. if they hold a rule, hold the game in the
-			// transfer state so their chooser can open; the resume logic runs
-			// once they give a card or skip. otherwise resume now.
-			accuserHasRule := false
-			if affirmed {
-				for _, c := range state.CardsPlayers {
-					if c.PlayerID.Int32 == infraction.Accuser && c.Type == "rule" {
-						accuserHasRule = true
-						break
-					}
-				}
-			}
-			if accuserHasRule {
-				if err := txq.InfractionTransferQueue(r.Context(), int32(infID)); err != nil {
-					log.Error("queue transfer", "error", err, "game_id", gameID)
-					http.Error(w, "server error", http.StatusInternalServerError)
-					return
-				}
-				if err := txq.GameUpdate(r.Context(), sqlc.GameUpdateParams{
-					ID:      gameID,
-					StateID: stateAccusationTransfer,
-					InitiativeCurrent: pgtype.Int4{
-						Int32: state.Game.InitiativeCurrent.Int32,
-						Valid: true,
-					},
-				}); err != nil {
-					log.Error("transition to accusation-transfer",
-						"error", err,
-						"game_id", gameID,
-					)
-					http.Error(w, "server error", http.StatusInternalServerError)
-					return
-				}
-			} else if err := resumeAfterChallenge(
-				r.Context(), txq, &state, gameID,
-			); err != nil {
-				log.Error("resume after decide", "error", err, "game_id", gameID)
-				http.Error(w, "server error", http.StatusInternalServerError)
-				return
-			}
-
-			err = tx.Commit(r.Context())
-			if err != nil {
-				log.Error("commit decide transaction",
-					"error", err,
-					"game_id", gameID,
-				)
-				http.Error(w, "server error", http.StatusInternalServerError)
-				return
-			}
-			log.Info("infraction decided",
-				"game_id", gameID,
-				"infraction_id", infID,
-				"verdict", verdict,
-				"points", penalty,
-			)
-			cache.Delete(gameID)
-			w.Header().Set("HX-Trigger", "refreshTable")
-			w.WriteHeader(http.StatusOK)
-		case "succeed", "fail":
-			// the host rules on a prompt challenge. "succeed" awards the
-			// spinner points and may be called at any time; "fail"
-			// awards nothing and is gated by the grace allowance so it can't
-			// be called before the spinner's time is genuinely up. either
-			// way the prompt card leaves play and the turn advances.
-			if !state.isHost(cookieKey) {
-				log.Warn("prohibiting non-host from ruling on prompt")
-				http.Error(w, "only host can rule on a prompt", http.StatusForbidden)
-				return
-			}
-			if state.Game.StateID != statePrompt {
-				log.Warn("prompt ruling requires prompt state",
-					"game_id", gameID,
-					"state_id", state.Game.StateID,
-				)
-				http.Error(w, "no active prompt", http.StatusConflict)
-				return
-			}
-			spin, err := queries.SpinPendingModifier(r.Context(), gameID)
-			if err != nil || spin.Type != "prompt" || !spin.PlayerID.Valid {
-				log.Warn("no pending prompt to rule on",
-					"game_id", gameID,
-					"error", err,
-				)
-				http.Error(w, "no active prompt", http.StatusConflict)
-				return
-			}
-			if action == "fail" {
-				elapsed, err := queries.SpinLatestElapsedSeconds(r.Context(), gameID)
-				if err != nil {
-					log.Error("measure prompt elapsed",
-						"error", err,
-						"game_id", gameID,
-					)
-					http.Error(w, "server error", http.StatusInternalServerError)
-					return
-				}
-				if elapsed < promptGraceSeconds {
-					log.Debug("prompt failed too early, within grace",
-						"game_id", gameID,
-						"elapsed", elapsed,
-						"grace", promptGraceSeconds,
-					)
-					http.Error(w, "challenge still in progress", http.StatusTooEarly)
-					return
-				}
-			}
-
-			spinnerID := spin.PlayerID.Int32
-			// reward for completing a prompt is 1 plus 1 additional point for
-			// every rule held; find that count and the prompt card to remove,
-			// both from the spinner's revealed cards.
-			var rulesHeld, promptCardID int32
-			for _, c := range state.CardsPlayers {
-				if c.PlayerID.Int32 != spinnerID {
-					continue
-				}
-				switch c.Type {
-				case "rule":
-					rulesHeld++
-				case "prompt":
-					promptCardID = c.ID
-				}
-			}
-
-			tx, err := dbPool.Begin(r.Context())
-			if err != nil {
-				log.Error("begin transaction", "error", err, "game_id", gameID)
-				http.Error(w, "server error", http.StatusInternalServerError)
-				return
-			}
-			defer tx.Rollback(r.Context())
-			txq := queries.WithTx(tx)
-
-			// the prompt is a one-shot challenge: remove it from play once
-			// ruled on so it doesn't linger in the spinner's hand.
-			if promptCardID != 0 {
-				if err := txq.GameCardShred(r.Context(), sqlc.GameCardShredParams{
-					ID:     promptCardID,
-					GameID: gameID,
-				}); err != nil {
-					log.Error("shred prompt card",
-						"error", err,
-						"game_id", gameID,
-						"game_card_id", promptCardID,
-					)
-					http.Error(w, "server error", http.StatusInternalServerError)
-					return
-				}
-			}
-
-			if action == "succeed" {
-				award := rulesHeld + 1
-				if err := txq.GamePointsAdjust(r.Context(), sqlc.GamePointsAdjustParams{
-					Points:   pgInt(award),
-					GameID:   gameID,
-					PlayerID: spinnerID,
-				}); err != nil {
-					log.Error("award prompt points",
-						"error", err,
-						"game_id", gameID,
-						"player_id", spinnerID,
-					)
-					http.Error(w, "server error", http.StatusInternalServerError)
-					return
-				}
-				pcID, err := txq.PointChangeCreate(r.Context(), sqlc.PointChangeCreateParams{
-					GameID:   gameID,
-					PlayerID: pgInt(spinnerID),
-					Delta:    award,
-				})
-				if err != nil {
-					log.Error("record prompt point change",
-						"error", err,
-						"game_id", gameID,
-					)
-					http.Error(w, "server error", http.StatusInternalServerError)
-					return
-				}
-				// a "prompt" event carrying a points delta reads as a
-				// completion; the spin gives the feed the prompt's text.
-				if err := writeEvent(w, r, log, txq, sqlc.EventCreateParams{
-					GameID:        gameID,
-					EventType:     "prompt",
-					TargetID:      pgInt(spinnerID),
-					SpinID:        pgInt(spin.ID),
-					PointChangeID: pgInt(pcID),
-				}); err != nil {
-					return
-				}
-			} else {
-				// no points: a "prompt" event without a delta reads as a
-				// failure.
-				if err := writeEvent(w, r, log, txq, sqlc.EventCreateParams{
-					GameID:    gameID,
-					EventType: "prompt",
-					TargetID:  pgInt(spinnerID),
-					SpinID:    pgInt(spin.ID),
-				}); err != nil {
-					return
-				}
-			}
-
-			// a completed prompt earns the spinner the chance to shred one of
-			// their own rule cards. hold in the prompt-shred state so their
-			// chooser can open; the turn advances only once they shred or skip.
-			// otherwise (a fail, or nothing to shred) return to normal play and
-			// pass the turn on, just as acknowledging a drawn rule would.
-			holdForShred := action == "succeed" && rulesHeld > 0
-			nextState := int32(stateTurn)
-			if holdForShred {
-				nextState = statePromptShred
-			}
-			if err := txq.GameUpdate(r.Context(), sqlc.GameUpdateParams{
-				ID:      gameID,
-				StateID: nextState,
-				InitiativeCurrent: pgtype.Int4{
-					Int32: state.Game.InitiativeCurrent.Int32,
-					Valid: true,
-				},
-			}); err != nil {
-				log.Error("transition state after prompt",
-					"error", err,
-					"game_id", gameID,
-				)
-				http.Error(w, "server error", http.StatusInternalServerError)
-				return
-			}
-			if !holdForShred {
-				if err := advanceTurn(r.Context(), log, txq, gameID); err != nil {
-					log.Error("advance after prompt", "error", err, "game_id", gameID)
-					http.Error(w, "server error", http.StatusInternalServerError)
-					return
-				}
-			}
-
-			if err := tx.Commit(r.Context()); err != nil {
-				log.Error("commit prompt ruling", "error", err, "game_id", gameID)
-				http.Error(w, "server error", http.StatusInternalServerError)
-				return
-			}
-			log.Info("prompt ruled",
-				"ruling", action,
-				"player_id", spinnerID,
-				"rules_held", rulesHeld,
-			)
-			cache.Delete(gameID)
-			w.Header().Set("HX-Trigger", "refreshTable")
-			w.WriteHeader(http.StatusOK)
-		case "prompt-shred":
-			// the spinner's bonus after a succeeded prompt: shred one of their
-			// own rule cards, or skip. either way the turn then advances.
-			if state.Game.StateID != statePromptShred {
-				log.Warn("prompt-shred requires prompt-shred state",
-					"game_id", gameID,
-					"state_id", state.Game.StateID,
-				)
-				http.Error(w, "no prompt shred pending", http.StatusConflict)
-				return
-			}
-			if !state.isPlayerTurn(cookieKey) {
-				log.Warn("prohibiting non-turn player from prompt shred")
-				http.Error(w, "not your turn", http.StatusForbidden)
-				return
-			}
-			shredderID, err := strconv.Atoi(cookieID)
-			if err != nil {
-				log.Error("invalid player id", "error", err, "game_id", gameID)
-				http.Error(w, "invalid player id", http.StatusBadRequest)
-				return
-			}
-			// a card was chosen (skip omits it): validate before the
-			// transaction so we can bail early on bad input.
-			var cardID int
-			shredCard := false
-			if cardStr := r.URL.Query().Get("game_card_id"); cardStr != "" {
-				var err error
-				cardID, err = strconv.Atoi(cardStr)
-				if err != nil {
-					log.Error("invalid game_card_id", "error", err, "game_id", gameID)
-					http.Error(w, "invalid game_card_id", http.StatusBadRequest)
-					return
-				}
-				var owned bool
-				for _, c := range state.CardsPlayers {
-					if c.ID == int32(cardID) &&
-						c.PlayerID.Int32 == int32(shredderID) &&
-						c.Type == "rule" {
-						owned = true
-						break
-					}
-				}
-				if !owned {
-					log.Warn("prompt-shred: card not a rule owned by player",
-						"game_id", gameID,
-						"game_card_id", cardID,
-						"player_id", shredderID,
-					)
-					http.Error(w, "card not a rule owned by player", http.StatusForbidden)
-					return
-				}
-				shredCard = true
-			}
-
-			tx, err := dbPool.Begin(r.Context())
-			if err != nil {
-				log.Error("begin transaction", "error", err, "game_id", gameID)
-				http.Error(w, "server error", http.StatusInternalServerError)
-				return
-			}
-			defer tx.Rollback(r.Context())
-			txq := queries.WithTx(tx)
-
-			if shredCard {
-				if err := txq.GameCardShred(r.Context(), sqlc.GameCardShredParams{
-					ID:     int32(cardID),
-					GameID: gameID,
-				}); err != nil {
-					log.Error("shred card after prompt",
-						"error", err,
-						"game_id", gameID,
-						"game_card_id", cardID,
-					)
-					http.Error(w, "server error", http.StatusInternalServerError)
-					return
-				}
-				if err := writeEvent(w, r, log, txq, sqlc.EventCreateParams{
-					GameID:     gameID,
-					EventType:  "shred",
-					ActorID:    pgInt(int32(shredderID)),
-					GameCardID: pgInt(int32(cardID)),
-				}); err != nil {
-					return
-				}
-				log.Info("card shredded after prompt",
-					"game_id", gameID,
-					"card_id", cardID,
-					"player_id", shredderID,
-				)
-			} else {
-				log.Info("prompt shred skipped",
-					"game_id", gameID,
-					"player_id", shredderID,
-				)
-			}
-			// the bonus is resolved: back to turn state and pass initiative on.
-			if err := txq.GameUpdate(r.Context(), sqlc.GameUpdateParams{
-				ID:      gameID,
-				StateID: stateTurn,
-				InitiativeCurrent: pgtype.Int4{
-					Int32: state.Game.InitiativeCurrent.Int32,
-					Valid: true,
-				},
-			}); err != nil {
-				log.Error("transition to turn after prompt shred",
-					"error", err,
-					"game_id", gameID,
-				)
-				http.Error(w, "server error", http.StatusInternalServerError)
-				return
-			}
-			if err := advanceTurn(r.Context(), log, txq, gameID); err != nil {
-				log.Error("advance after prompt shred", "error", err, "game_id", gameID)
-				http.Error(w, "server error", http.StatusInternalServerError)
-				return
-			}
-			if err := tx.Commit(r.Context()); err != nil {
-				log.Error("commit prompt shred transaction",
-					"error", err, "game_id", gameID)
-				http.Error(w, "server error", http.StatusInternalServerError)
-				return
-			}
-			cache.Delete(gameID)
-			w.Header().Set("HX-Trigger", "refreshTable")
-			w.WriteHeader(http.StatusOK)
-		case "accusation-transfer":
-			// after an upheld accusation, the accuser gives one of their own
-			// rule cards to the accused, or skips. either way play resumes.
-			if state.Game.StateID != stateAccusationTransfer {
-				log.Warn("accusation-transfer requires its state",
-					"game_id", gameID,
-					"state_id", state.Game.StateID,
-				)
-				http.Error(w, "no transfer pending", http.StatusConflict)
-				return
-			}
-			inf, err := queries.InfractionTransferPending(r.Context(), gameID)
-			if errors.Is(err, pgx.ErrNoRows) {
-				log.Warn("no transfer-pending infraction", "game_id", gameID)
-				http.Error(w, "no transfer pending", http.StatusConflict)
-				return
-			}
-			if err != nil {
-				log.Error("get transfer-pending infraction",
-					"error", err,
-					"game_id", gameID,
-				)
-				http.Error(w, "server error", http.StatusInternalServerError)
-				return
-			}
-			callerID, err := strconv.Atoi(cookieID)
-			if err != nil {
-				log.Error("invalid player id", "error", err, "game_id", gameID)
-				http.Error(w, "invalid player id", http.StatusBadRequest)
-				return
-			}
-			if int32(callerID) != inf.Accuser {
-				log.Warn("prohibiting non-accuser from transfer",
-					"game_id", gameID,
-					"player_id", callerID,
-					"accuser", inf.Accuser,
-				)
-				http.Error(w, "only the accuser may give a card", http.StatusForbidden)
-				return
-			}
-
-			tx, err := dbPool.Begin(r.Context())
-			if err != nil {
-				log.Error("begin transaction", "error", err, "game_id", gameID)
-				http.Error(w, "server error", http.StatusInternalServerError)
-				return
-			}
-			defer tx.Rollback(r.Context())
-			txq := queries.WithTx(tx)
-
-			// a card was chosen (skip omits it): give it to the accused after
-			// confirming the caller owns it and it's a rule.
-			if cardStr := r.URL.Query().Get("game_card_id"); cardStr != "" {
-				cardID, err := strconv.Atoi(cardStr)
-				if err != nil {
-					log.Error("invalid game_card_id", "error", err, "game_id", gameID)
-					http.Error(w, "invalid game_card_id", http.StatusBadRequest)
-					return
-				}
-				var owned bool
-				for _, c := range state.CardsPlayers {
-					if c.ID == int32(cardID) &&
-						c.PlayerID.Int32 == int32(callerID) &&
-						c.Type == "rule" {
-						owned = true
-						break
-					}
-				}
-				if !owned {
-					log.Warn("transfer: card not a rule owned by accuser",
-						"game_id", gameID,
-						"game_card_id", cardID,
-						"player_id", callerID,
-					)
-					http.Error(w, "card not a rule owned by you", http.StatusForbidden)
-					return
-				}
-				if err := txq.GameCardMove(r.Context(), sqlc.GameCardMoveParams{
-					ID:     int32(cardID),
-					GameID: gameID,
-					PlayerID: pgtype.Int4{
-						Int32: inf.Accused,
-						Valid: true,
-					},
-				}); err != nil {
-					log.Error("give card to accused",
-						"error", err,
-						"game_id", gameID,
-						"game_card_id", cardID,
-					)
-					http.Error(w, "server error", http.StatusInternalServerError)
-					return
-				}
-				if err := writeEvent(w, r, log, txq, sqlc.EventCreateParams{
-					GameID:     gameID,
-					EventType:  "transfer",
-					ActorID:    pgInt(int32(callerID)),
-					TargetID:   pgInt(inf.Accused),
-					GameCardID: pgInt(int32(cardID)),
-				}); err != nil {
-					return
-				}
-				log.Info("card given to accused after accusation",
-					"game_id", gameID,
-					"card_id", cardID,
-					"accuser", callerID,
-					"accused", inf.Accused,
-				)
-			} else {
-				log.Info("accusation transfer skipped",
-					"game_id", gameID,
-					"accuser", callerID,
-				)
-			}
-			if err := txq.InfractionTransferResolve(r.Context(), inf.ID); err != nil {
-				log.Error("resolve transfer", "error", err, "game_id", gameID)
-				http.Error(w, "server error", http.StatusInternalServerError)
-				return
-			}
-			if err := resumeAfterChallenge(
-				r.Context(), txq, &state, gameID,
-			); err != nil {
-				log.Error("resume after transfer", "error", err, "game_id", gameID)
-				http.Error(w, "server error", http.StatusInternalServerError)
-				return
-			}
-			if err := tx.Commit(r.Context()); err != nil {
-				log.Error("commit transfer transaction", "error", err, "game_id", gameID)
-				http.Error(w, "server error", http.StatusInternalServerError)
-				return
-			}
-			cache.Delete(gameID)
-			w.Header().Set("HX-Trigger", "refreshTable")
-			w.WriteHeader(http.StatusOK)
-		case "end":
-			if !state.isHost(cookieKey) {
-				log.Warn("prohibiting non-host from ending game")
-				http.Error(w, "only host can end game", http.StatusForbidden)
-				return
-			}
-			err := queries.GameUpdate(r.Context(), sqlc.GameUpdateParams{
-				ID:                gameID,
-				StateID:           stateOver, // game over
-				InitiativeCurrent: pgtype.Int4{Int32: 0, Valid: true},
-			})
-			if err != nil {
-				log.Error("end game", "error", err)
-				http.Error(w, "server error", http.StatusInternalServerError)
-				return
-			}
-			if err := writeEvent(w, r, log, queries, sqlc.EventCreateParams{
-				GameID:    gameID,
-				EventType: "end",
-			}); err != nil {
-				return
-			}
-			cache.Delete(gameID)
-			log.Info("game ended")
-			w.WriteHeader(http.StatusGone)
-			return
-		default:
-			log.Warn("unsupported action requested")
-			http.Error(w, "unsupported action", http.StatusNotImplemented)
-		}
 	}
+	spec, known := actionSpecs[action]
+	pregame := state.Game.StateID == stateInviting ||
+		state.Game.StateID == stateCreated
+	if pregame && (!known || !spec.pregame) {
+		log.Warn(ErrActionInvalid.Error())
+		http.Error(w, ErrActionInvalid.Error(), http.StatusTooEarly)
+		return
+	}
+	if !pregame && (!known || spec.pregame) {
+		log.Warn("unsupported action requested")
+		http.Error(w, "unsupported action", http.StatusNotImplemented)
+		return
+	}
+	a := &actionRequest{
+		w:      w,
+		r:      r,
+		log:    log,
+		gameID: gameID,
+		action: action,
+		state:  &state,
+	}
+	if err := checkActionPolicy(a, spec, cookieKey); err != nil {
+		writeActionError(w, log, err)
+		return
+	}
+	if err := spec.fn(a); err != nil {
+		writeActionError(w, log, err)
+	}
+}
+
+// setGameState moves the game to stateID, preserving the current
+// initiative. q may be transaction-bound.
+func setGameState(
+	ctx context.Context,
+	q *sqlc.Queries,
+	s *state,
+	gameID string,
+	stateID int32,
+) error {
+	return q.GameUpdate(ctx, sqlc.GameUpdateParams{
+		ID:      gameID,
+		StateID: stateID,
+		InitiativeCurrent: pgtype.Int4{
+			Int32: s.Game.InitiativeCurrent.Int32,
+			Valid: true,
+		},
+	})
+}
+
+// resumeAfterChallenge moves the game out of a resolved challenge and updates
+// the game state: back to challenge if more infractions are queued (so the host
+// keeps getting prompted), to pending if this challenge interrupted a modifier
+// choice, otherwise to normal turn play. Shared by the decide handler and the
+// post-affirm card transfer so they pick the next state the same way.
+func resumeAfterChallenge(
+	ctx context.Context,
+	q *sqlc.Queries,
+	s *state,
+	gameID string,
+) error {
+	remaining, err := q.InfractionsActiveCount(ctx, gameID)
+	if err != nil {
+		return fmt.Errorf("count active infractions: %w", err)
+	}
+	nextState := int32(stateTurn)
+	if remaining > 0 {
+		nextState = stateChallenge
+	} else if s.hasPendingModifier() {
+		nextState = statePending
+	}
+	if err := setGameState(ctx, q, s, gameID, nextState); err != nil {
+		return fmt.Errorf("transition state after challenge: %w", err)
+	}
+	return nil
 }
